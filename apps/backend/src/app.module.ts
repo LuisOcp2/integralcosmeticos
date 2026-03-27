@@ -5,6 +5,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
+import { SedesModule } from './modules/sedes/sedes.module';
+import { CategoriasModule } from './modules/catalogo/categorias/categorias.module';
+import { MarcasModule } from './modules/catalogo/marcas/marcas.module';
+import { ProductosModule } from './modules/catalogo/productos/productos.module';
+import { VariantesModule } from './modules/catalogo/variantes/variantes.module';
+import { InventarioModule } from './modules/inventario/inventario.module';
 import databaseConfig from './config/database.config';
 import appConfig from './config/app.config';
 
@@ -38,6 +44,12 @@ import appConfig from './config/app.config';
     // Módulos del sistema
     AuthModule,
     UsuariosModule,
+    SedesModule,
+    CategoriasModule,
+    MarcasModule,
+    ProductosModule,
+    VariantesModule,
+    InventarioModule,
   ],
   controllers: [AppController],
   providers: [AppService],

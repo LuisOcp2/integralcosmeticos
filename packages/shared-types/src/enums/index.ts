@@ -39,3 +39,14 @@ export enum TipoSede {
   BODEGA = 'BODEGA',
   PRINCIPAL = 'PRINCIPAL',
 }
+
+export enum EstadoCaja {
+  ABIERTA = 'ABIERTA',
+  CERRADA = 'CERRADA',
+}
+
+export enum TipoDocumento {
+  CC = 'CC',
+  NIT = 'NIT',
+  PASAPORTE = 'PASAPORTE',
+}

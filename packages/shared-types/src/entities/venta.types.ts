@@ -1,4 +1,4 @@
-import { EstadoVenta, MetodoPago } from '../enums';
+import { EstadoCaja, EstadoVenta, MetodoPago } from '../enums';
 
 export interface IVenta {
   id: string;
@@ -38,4 +38,8 @@ export interface ICierreCaja {
   totalVentas: number;
   totalEfectivo: number;
   diferencia?: number;
+  estado: EstadoCaja;
+  activo: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

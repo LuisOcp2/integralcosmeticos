@@ -10,11 +10,54 @@
     "electron:build": "vite build && electron-builder",
     "lint": "eslint src --ext .ts,.tsx"
   },
+  "build": {
+    "appId": "com.integralcosmeticos.app",
+    "productName": "Integral Cosméticos",
+    "copyright": "Copyright © 2026 Integral Cosméticos",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "license": "LICENSE.txt",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Integral Cosméticos"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
   "dependencies": {
     "@cosmeticos/shared-types": "*",
     "@tanstack/react-query": "^5.56.2",
     "axios": "^1.7.7",
     "dexie": "^4.0.8",
+    "electron-updater": "^6.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Usuario } from './entities/usuario.entity';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
+import { Rol } from '@cosmeticos/shared-types';
 
 @Injectable()
 export class UsuariosService {
@@ -11,6 +12,42 @@ export class UsuariosService {
     @InjectRepository(Usuario)
     private readonly usuariosRepository: Repository<Usuario>,
   ) {}
+
+  async seedAdmin() {
+    // Verificar si ya existe un admin
+    const adminExiste = await this.usuariosRepository.findOne({
+      where: { rol: Rol.ADMIN },
+    });
+
+    if (adminExiste) {
+      return {
+        message: 'Ya existe un usuario admin. Seed no necesario.',
+        email: adminExiste.email,
+      };
+    }
+
+    // Crear el admin inicial
+    const hashedPassword = await bcrypt.hash('Admin2026!', 10);
+    const admin = this.usuariosRepository.create({
+      nombre: 'Administrador',
+      apellido: 'Principal',
+      email: 'admin@cosmeticos.com',
+      password: hashedPassword,
+      rol: Rol.ADMIN,
+      activo: true,
+    });
+
+    await this.usuariosRepository.save(admin);
+
+    return {
+      message: '✅ Usuario admin creado exitosamente',
+      credenciales: {
+        email: 'admin@cosmeticos.com',
+        password: 'Admin2026!',
+        rol: 'ADMIN',
+      },
+    };
+  }
 
   async create(createUsuarioDto: CreateUsuarioDto): Promise<Usuario> {
     const existe = await this.usuariosRepository.findOne({

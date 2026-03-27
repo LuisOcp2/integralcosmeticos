@@ -14,6 +14,7 @@ import { InventarioModule } from './modules/inventario/inventario.module';
 import { CajaModule } from './modules/caja/caja.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 import { ClientesModule } from './modules/clientes/clientes.module';
+import { ReportesModule } from './modules/reportes/reportes.module';
 import databaseConfig from './config/database.config';
 import appConfig from './config/app.config';
 
@@ -56,6 +57,7 @@ import appConfig from './config/app.config';
     CajaModule,
     VentasModule,
     ClientesModule,
+    ReportesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -35,18 +35,21 @@ El sistema opera completamente de forma local en la red de cada tienda. La nube 
 ## Capas del Sistema
 
 ### Capa de Presentación (Frontend)
+
 - **React + Vite** corriendo dentro de **Electron**
 - Cada terminal de caja tiene la app instalada
 - Se conecta al servidor NestJS por red local (LAN)
 - Cola offline con **Dexie.js** si cae la red interna
 
 ### Capa de Aplicación (Backend)
+
 - **NestJS** corriendo en el PC servidor de la tienda
 - Expone API REST en `http://[IP-SERVIDOR]:3000/api/v1`
 - WebSockets para actualización en tiempo real de stock
 - Bull Queue para sincronización asíncrona al cloud
 
 ### Capa de Datos (Base de Datos)
+
 - **PostgreSQL 16** — fuente de verdad principal
 - **Redis 7** — caché y cola de trabajos
 - **Supabase** — réplica cloud para backup
@@ -122,6 +125,20 @@ productos/
         ↓
 6. Log de sincronización actualizado
 ```
+
+### Endpoint y control operativo
+
+- Endpoint interno de monitoreo: `GET /api/sync/status`
+- Endpoint de ejecución manual: `POST /api/sync/forzar`
+- Ambos endpoints requieren JWT y rol `ADMIN`.
+- El módulo `sync` usa Bull (`queue: sync`) y guarda trazabilidad en `sync_logs`.
+
+### Componentes involucrados
+
+- `SyncService`: resuelve registros locales, encola sincronización y registra logs.
+- `SyncProcessor`: procesa trabajos `sync-tabla` con reintentos exponenciales.
+- `SyncLog` entity: persiste estado (`OK` o `ERROR`), tabla, operación y error.
+- `backupNocturno` (`cron 02:00`): ejecuta respaldo por `pg_dump` usando `SUPABASE_DB_URL`.
 
 ---
 

@@ -1,14 +1,12 @@
 -- =============================================================================
 -- INTEGRAL COSMÉTICOS — SCHEMA COMPLETO PostgreSQL 16
 -- Generado: 2026-03-27
--- Versión: 2.0 (3 fases)
+-- Versión: 2.1 (fix enum cast)
 -- Autor: Luis Ocampo
 -- =============================================================================
 -- INSTRUCCIONES DE USO:
---   1. Conectarse a PostgreSQL: psql -U admin -d cosmeticos_db
---   2. O en DBeaver: abrir este archivo y ejecutar con F5
---   3. Para resetear: ejecutar DROP SCHEMA public CASCADE; CREATE SCHEMA public;
---      ANTES de correr este script
+--   1. Resetear BD: DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO admin;
+--   2. Aplicar: cat database/schema_completo.sql | docker exec -i cosmeticos_postgres psql -U admin -d cosmeticos_db
 -- =============================================================================
 
 BEGIN;
@@ -46,12 +44,6 @@ CREATE TYPE tipo_movimiento_caja AS ENUM ('APERTURA', 'VENTA', 'DEVOLUCION', 'GA
 CREATE TYPE estado_sync AS ENUM ('PENDIENTE', 'SINCRONIZADO', 'ERROR', 'IGNORADO');
 
 -- =============================================================================
--- ███████╗ █████╗ ███████╗███████╗    ██╗
--- ██╔════╝██╔══██╗██╔════╝██╔════╝    ██║
--- █████╗  ███████║███████╗█████╗      ██║
--- ██╔══╝  ██╔══██║╚════██║██╔══╝      ╚═╝
--- ██║     ██║  ██║███████║███████╗    ██╗
--- ╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝    ╚═╝
 -- FASE 1: NÚCLEO DEL SISTEMA
 -- =============================================================================
 
@@ -105,17 +97,16 @@ COMMENT ON TABLE usuarios IS 'Usuarios del sistema con roles y asignación a sed
 -- 1.3 CATEGORÍAS DE PRODUCTOS
 -- -----------------------------------------------------------------------------
 CREATE TABLE categorias (
-    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre      VARCHAR(100) UNIQUE NOT NULL,
-    descripcion TEXT,
-    imagen_url  VARCHAR(500),
-    orden       INTEGER DEFAULT 0,
-    activa      BOOLEAN NOT NULL DEFAULT TRUE,
-    "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre            VARCHAR(100) UNIQUE NOT NULL,
+    descripcion       TEXT,
+    imagen_url        VARCHAR(500),
+    orden             INTEGER DEFAULT 0,
+    activa            BOOLEAN NOT NULL DEFAULT TRUE,
+    "createdAt"       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "updatedAt"       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Subcategorías (autorreferencial)
 ALTER TABLE categorias ADD COLUMN "categoriaPadreId" UUID REFERENCES categorias(id) ON DELETE SET NULL;
 
 COMMENT ON TABLE categorias IS 'Categorías y subcategorías: Maquillaje > Labios, Skincare > Hidratantes, etc.';
@@ -136,12 +127,12 @@ CREATE TABLE marcas (
 );
 
 -- -----------------------------------------------------------------------------
--- 1.5 ATRIBUTOS DE VARIANTE (tono, presentación, volumen — cosmos-specific)
+-- 1.5 ATRIBUTOS DE VARIANTE
 -- -----------------------------------------------------------------------------
 CREATE TABLE atributos (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre      VARCHAR(100) UNIQUE NOT NULL,  -- 'Tono', 'Presentación', 'Volumen', 'Acabado'
-    tipo        VARCHAR(50) NOT NULL DEFAULT 'texto',  -- 'color', 'texto', 'numero'
+    nombre      VARCHAR(100) UNIQUE NOT NULL,
+    tipo        VARCHAR(50) NOT NULL DEFAULT 'texto',
     activo      BOOLEAN NOT NULL DEFAULT TRUE,
     "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -149,8 +140,8 @@ CREATE TABLE atributos (
 CREATE TABLE atributo_valores (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "atributoId"    UUID NOT NULL REFERENCES atributos(id) ON DELETE CASCADE,
-    valor           VARCHAR(100) NOT NULL,  -- 'Nude 01', '50ml', 'Matte'
-    codigo_hex      VARCHAR(7),             -- Para atributos tipo color
+    valor           VARCHAR(100) NOT NULL,
+    codigo_hex      VARCHAR(7),
     orden           INTEGER DEFAULT 0,
     activo          BOOLEAN NOT NULL DEFAULT TRUE,
     "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -178,7 +169,7 @@ CREATE TABLE proveedores (
     contacto_cargo      VARCHAR(100),
     contacto_telefono   VARCHAR(20),
     sitio_web           VARCHAR(300),
-    condiciones_pago    VARCHAR(200),  -- '30 días', 'Contado', etc.
+    condiciones_pago    VARCHAR(200),
     descuento_proveedor DECIMAL(5,2) DEFAULT 0,
     activo              BOOLEAN NOT NULL DEFAULT TRUE,
     observaciones       TEXT,
@@ -200,14 +191,14 @@ CREATE TABLE productos (
     "proveedorId"       UUID REFERENCES proveedores(id) ON DELETE SET NULL,
     precio_venta        DECIMAL(12,2) NOT NULL DEFAULT 0,
     precio_costo        DECIMAL(12,2) NOT NULL DEFAULT 0,
-    impuesto            DECIMAL(5,2) NOT NULL DEFAULT 19.00,  -- IVA Colombia
-    margen_minimo       DECIMAL(5,2) DEFAULT 30.00,           -- % margen mínimo
+    impuesto            DECIMAL(5,2) NOT NULL DEFAULT 19.00,
+    margen_minimo       DECIMAL(5,2) DEFAULT 30.00,
     imagen_url          VARCHAR(500),
-    imagenes_extra      TEXT[],                                -- Array URLs
-    ingredientes        TEXT,                                  -- Para cosméticos
+    imagenes_extra      TEXT[],
+    ingredientes        TEXT,
     modo_uso            TEXT,
     precauciones        TEXT,
-    registro_invima     VARCHAR(50),                           -- Registro INVIMA obligatorio cosméticos CO
+    registro_invima     VARCHAR(50),
     activo              BOOLEAN NOT NULL DEFAULT TRUE,
     destacado           BOOLEAN DEFAULT FALSE,
     "createdAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -222,12 +213,12 @@ COMMENT ON COLUMN productos.registro_invima IS 'Número de registro INVIMA, obli
 CREATE TABLE variantes (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "productoId"    UUID NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
-    nombre          VARCHAR(200) NOT NULL,   -- 'Tono Nude 01 - 50ml'
+    nombre          VARCHAR(200) NOT NULL,
     sku             VARCHAR(100) UNIQUE NOT NULL,
     codigo_barras   VARCHAR(100) UNIQUE,
-    precio_extra    DECIMAL(12,2) NOT NULL DEFAULT 0,  -- Adicional al precio base
-    precio_venta    DECIMAL(12,2),                     -- Override: si NULL usa producto.precio_venta + precio_extra
-    precio_costo    DECIMAL(12,2),                     -- Override precio costo
+    precio_extra    DECIMAL(12,2) NOT NULL DEFAULT 0,
+    precio_venta    DECIMAL(12,2),
+    precio_costo    DECIMAL(12,2),
     imagen_url      VARCHAR(500),
     peso_gramos     DECIMAL(8,2),
     activa          BOOLEAN NOT NULL DEFAULT TRUE,
@@ -235,7 +226,6 @@ CREATE TABLE variantes (
     "updatedAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Tabla pivote: qué valores de atributo tiene cada variante
 CREATE TABLE variante_atributos (
     "varianteId"    UUID NOT NULL REFERENCES variantes(id) ON DELETE CASCADE,
     "atributoId"    UUID NOT NULL REFERENCES atributos(id) ON DELETE CASCADE,
@@ -253,7 +243,7 @@ CREATE TABLE stock_sedes (
     cantidad                INTEGER NOT NULL DEFAULT 0 CHECK (cantidad >= 0),
     stock_minimo            INTEGER NOT NULL DEFAULT 5,
     stock_maximo            INTEGER DEFAULT 100,
-    ubicacion_fisica        VARCHAR(100),  -- 'Estante A-3', 'Vitrina 2'
+    ubicacion_fisica        VARCHAR(100),
     ultima_actualizacion    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "createdAt"             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE("varianteId", "sedeId")
@@ -282,7 +272,7 @@ CREATE TABLE clientes (
     total_compras_hist  DECIMAL(14,2) NOT NULL DEFAULT 0,
     num_compras         INTEGER NOT NULL DEFAULT 0,
     ultima_compra       TIMESTAMPTZ,
-    "sedeId"            UUID REFERENCES sedes(id) ON DELETE SET NULL,  -- Sede donde se registró
+    "sedeId"            UUID REFERENCES sedes(id) ON DELETE SET NULL,
     notas               TEXT,
     acepta_marketing    BOOLEAN DEFAULT TRUE,
     activo              BOOLEAN NOT NULL DEFAULT TRUE,
@@ -292,18 +282,16 @@ CREATE TABLE clientes (
 
 COMMENT ON TABLE clientes IS 'CRM clientes con programa de fidelidad Bronce/Plata/Oro/VIP';
 
--- Reglas de fidelidad
 CREATE TABLE reglas_fidelidad (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nivel               nivel_cliente UNIQUE NOT NULL,
-    monto_minimo_acum   DECIMAL(12,2) NOT NULL,  -- Total histórico compras para subir
-    porcentaje_puntos   DECIMAL(5,2) NOT NULL DEFAULT 1.0,  -- % del total que se convierte en puntos
-    descuento_auto      DECIMAL(5,2) DEFAULT 0,   -- % descuento automático por nivel
+    monto_minimo_acum   DECIMAL(12,2) NOT NULL,
+    porcentaje_puntos   DECIMAL(5,2) NOT NULL DEFAULT 1.0,
+    descuento_auto      DECIMAL(5,2) DEFAULT 0,
     activa              BOOLEAN DEFAULT TRUE,
     "updatedAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- INSERT datos iniciales de fidelidad
 INSERT INTO reglas_fidelidad (nivel, monto_minimo_acum, porcentaje_puntos, descuento_auto) VALUES
     ('BRONCE', 0,         1.0, 0),
     ('PLATA',  500000,    1.5, 3),
@@ -323,7 +311,6 @@ CREATE TABLE cajas (
     "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Sesiones de caja (apertura/cierre)
 CREATE TABLE sesiones_caja (
     id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "cajaId"                UUID NOT NULL REFERENCES cajas(id) ON DELETE CASCADE,
@@ -333,7 +320,7 @@ CREATE TABLE sesiones_caja (
     fecha_cierre            TIMESTAMPTZ,
     monto_inicial           DECIMAL(12,2) NOT NULL DEFAULT 0,
     monto_final_declarado   DECIMAL(12,2),
-    monto_final_sistema     DECIMAL(12,2),  -- Calculado automáticamente
+    monto_final_sistema     DECIMAL(12,2),
     diferencia              DECIMAL(12,2),
     total_ventas            DECIMAL(12,2) DEFAULT 0,
     total_devoluciones      DECIMAL(12,2) DEFAULT 0,
@@ -341,14 +328,13 @@ CREATE TABLE sesiones_caja (
     num_transacciones       INTEGER DEFAULT 0,
     observaciones_apertura  TEXT,
     observaciones_cierre    TEXT,
-    activa                  BOOLEAN NOT NULL DEFAULT TRUE,  -- TRUE = caja abierta
+    activa                  BOOLEAN NOT NULL DEFAULT TRUE,
     "createdAt"             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updatedAt"             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE sesiones_caja IS 'Reemplaza cierre_caja. Una sesión por turno por caja.';
 
--- Movimientos de caja (cada transacción)
 CREATE TABLE caja_movimientos (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "sesionCajaId"      UUID NOT NULL REFERENCES sesiones_caja(id) ON DELETE CASCADE,
@@ -356,14 +342,13 @@ CREATE TABLE caja_movimientos (
     tipo                tipo_movimiento_caja NOT NULL,
     concepto            VARCHAR(300) NOT NULL,
     monto               DECIMAL(12,2) NOT NULL,
-    es_ingreso          BOOLEAN NOT NULL,  -- TRUE = entrada de dinero, FALSE = salida
-    "referenciaId"      UUID,              -- ID de venta, gasto, etc.
-    tipo_referencia     VARCHAR(50),       -- 'venta', 'gasto', 'devolucion'
+    es_ingreso          BOOLEAN NOT NULL,
+    "referenciaId"      UUID,
+    tipo_referencia     VARCHAR(50),
     num_comprobante     VARCHAR(50),
     "createdAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Gastos operativos registrados en caja
 CREATE TABLE tipos_gasto (
     id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre                  VARCHAR(100) UNIQUE NOT NULL,
@@ -393,7 +378,7 @@ CREATE TABLE gastos_operativos (
 -- -----------------------------------------------------------------------------
 CREATE TABLE ventas (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero              VARCHAR(30) UNIQUE NOT NULL,  -- VTA-2026-00001
+    numero              VARCHAR(30) UNIQUE NOT NULL,
     "sedeId"            UUID NOT NULL REFERENCES sedes(id),
     "sesionCajaId"      UUID REFERENCES sesiones_caja(id),
     "usuarioId"         UUID NOT NULL REFERENCES usuarios(id),
@@ -403,22 +388,18 @@ CREATE TABLE ventas (
     impuesto_total      DECIMAL(12,2) NOT NULL DEFAULT 0,
     total               DECIMAL(12,2) NOT NULL DEFAULT 0,
     metodo_pago         metodo_pago NOT NULL DEFAULT 'EFECTIVO',
-    -- Split de pago
     monto_efectivo      DECIMAL(12,2) DEFAULT 0,
     monto_tarjeta       DECIMAL(12,2) DEFAULT 0,
     monto_transferencia DECIMAL(12,2) DEFAULT 0,
     monto_otro          DECIMAL(12,2) DEFAULT 0,
-    -- Fidelidad
     puntos_ganados      INTEGER DEFAULT 0,
     puntos_usados       INTEGER DEFAULT 0,
     descuento_puntos    DECIMAL(12,2) DEFAULT 0,
-    -- Estado
     estado              estado_venta NOT NULL DEFAULT 'COMPLETADA',
     motivo_anulacion    TEXT,
     "anuladaPorId"      UUID REFERENCES usuarios(id),
     fecha_anulacion     TIMESTAMPTZ,
-    -- Referencia cotización
-    "cotizacionId"      UUID,  -- FK se agrega después
+    "cotizacionId"      UUID,
     observaciones       TEXT,
     "createdAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updatedAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -426,7 +407,6 @@ CREATE TABLE ventas (
 
 COMMENT ON COLUMN ventas.numero IS 'Numeración consecutiva formato VTA-YYYY-NNNNN. Obligatorio DIAN.';
 
--- Detalle líneas de venta
 CREATE TABLE detalle_ventas (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "ventaId"           UUID NOT NULL REFERENCES ventas(id) ON DELETE CASCADE,
@@ -434,7 +414,7 @@ CREATE TABLE detalle_ventas (
     "productoId"        UUID NOT NULL REFERENCES productos(id),
     cantidad            INTEGER NOT NULL CHECK (cantidad > 0),
     precio_unitario     DECIMAL(12,2) NOT NULL,
-    precio_costo_snap   DECIMAL(12,2),  -- Snapshot costo al momento de vender
+    precio_costo_snap   DECIMAL(12,2),
     descuento_item      DECIMAL(12,2) NOT NULL DEFAULT 0,
     impuesto_item       DECIMAL(12,2) NOT NULL DEFAULT 0,
     subtotal            DECIMAL(12,2) NOT NULL,
@@ -444,35 +424,27 @@ CREATE TABLE detalle_ventas (
 
 COMMENT ON TABLE detalle_ventas IS 'Líneas de cada venta. precio_costo_snap permite calcular rentabilidad histórica.';
 
--- Pagos adicionales (para split de pago)
 CREATE TABLE venta_pagos (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "ventaId"       UUID NOT NULL REFERENCES ventas(id) ON DELETE CASCADE,
     metodo_pago     metodo_pago NOT NULL,
     monto           DECIMAL(12,2) NOT NULL,
-    referencia      VARCHAR(100),  -- Número aprobación tarjeta, etc.
+    referencia      VARCHAR(100),
     "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Secuencia para numeración de ventas
 CREATE SEQUENCE seq_ventas_num START WITH 1 INCREMENT BY 1;
 
 -- =============================================================================
--- ███████╗ █████╗ ███████╗███████╗    ██████╗
--- ██╔════╝██╔══██╗██╔════╝██╔════╝    ╚════██╗
--- █████╗  ███████║███████╗█████╗       █████╔╝
--- ██╔══╝  ██╔══██║╚════██║██╔══╝      ██╔═══╝
--- ██║     ██║  ██║███████║███████╗    ███████╗
--- ╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝    ╚══════╝
 -- FASE 2: OPERACIONES Y TRAZABILIDAD
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 2.1 MOVIMIENTOS DE INVENTARIO (Auditoría completa)
+-- 2.1 MOVIMIENTOS DE INVENTARIO
 -- -----------------------------------------------------------------------------
 CREATE TABLE movimientos_inventario (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero_doc          VARCHAR(40) UNIQUE NOT NULL,  -- MOV-2026-00001
+    numero_doc          VARCHAR(40) UNIQUE NOT NULL,
     tipo                tipo_movimiento_inv NOT NULL,
     "varianteId"        UUID NOT NULL REFERENCES variantes(id),
     "productoId"        UUID NOT NULL REFERENCES productos(id),
@@ -483,9 +455,8 @@ CREATE TABLE movimientos_inventario (
     stock_nuevo         INTEGER NOT NULL,
     costo_unitario      DECIMAL(12,2),
     motivo              TEXT,
-    -- Referencia al origen del movimiento
     "referenciaId"      UUID,
-    tipo_referencia     VARCHAR(50),  -- 'venta', 'compra', 'traspaso', 'ajuste', 'devolucion'
+    tipo_referencia     VARCHAR(50),
     "usuarioId"         UUID NOT NULL REFERENCES usuarios(id),
     "createdAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -496,7 +467,6 @@ CREATE INDEX idx_mov_inv_fecha ON movimientos_inventario("createdAt");
 
 COMMENT ON TABLE movimientos_inventario IS 'Auditoría completa de todos los movimientos de inventario. Registro DIAN.';
 
--- Secuencia para numeración documentos
 CREATE SEQUENCE seq_movimientos_num START WITH 1 INCREMENT BY 1;
 
 -- -----------------------------------------------------------------------------
@@ -504,11 +474,11 @@ CREATE SEQUENCE seq_movimientos_num START WITH 1 INCREMENT BY 1;
 -- -----------------------------------------------------------------------------
 CREATE TABLE compras (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero_compra       VARCHAR(40) UNIQUE NOT NULL,  -- CMP-2026-00001
+    numero_compra       VARCHAR(40) UNIQUE NOT NULL,
     "proveedorId"       UUID NOT NULL REFERENCES proveedores(id),
     "sedeId"            UUID NOT NULL REFERENCES sedes(id),
     "usuarioId"         UUID NOT NULL REFERENCES usuarios(id),
-    numero_factura_prov VARCHAR(100),  -- Número factura del proveedor
+    numero_factura_prov VARCHAR(100),
     fecha_compra        DATE NOT NULL DEFAULT CURRENT_DATE,
     fecha_recepcion     TIMESTAMPTZ,
     fecha_vencimiento   DATE,
@@ -538,7 +508,6 @@ CREATE TABLE compra_detalles (
     "createdAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Abonos a facturas de compra
 CREATE TABLE abonos_compra (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "compraId"          UUID NOT NULL REFERENCES compras(id) ON DELETE CASCADE,
@@ -560,7 +529,7 @@ CREATE SEQUENCE seq_compras_num START WITH 1 INCREMENT BY 1;
 -- -----------------------------------------------------------------------------
 CREATE TABLE devoluciones (
     id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero_devolucion       VARCHAR(40) UNIQUE NOT NULL,  -- DEV-2026-00001
+    numero_devolucion       VARCHAR(40) UNIQUE NOT NULL,
     "ventaId"               UUID NOT NULL REFERENCES ventas(id),
     "clienteId"             UUID REFERENCES clientes(id),
     "usuarioProcesaId"      UUID NOT NULL REFERENCES usuarios(id),
@@ -596,10 +565,9 @@ CREATE TABLE devolucion_detalles (
     "createdAt"                 TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Notas crédito generadas por devoluciones
 CREATE TABLE notas_credito (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero              VARCHAR(40) UNIQUE NOT NULL,  -- NC-2026-00001
+    numero              VARCHAR(40) UNIQUE NOT NULL,
     "devolucionId"      UUID NOT NULL REFERENCES devoluciones(id),
     "clienteId"         UUID NOT NULL REFERENCES clientes(id),
     "usuarioId"         UUID NOT NULL REFERENCES usuarios(id),
@@ -620,11 +588,11 @@ CREATE SEQUENCE seq_notas_credito_num START WITH 1 INCREMENT BY 1;
 -- -----------------------------------------------------------------------------
 CREATE TABLE traspasos (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero_traspaso     VARCHAR(40) UNIQUE NOT NULL,  -- TRP-2026-00001
+    numero_traspaso     VARCHAR(40) UNIQUE NOT NULL,
     "sedeOrigenId"      UUID NOT NULL REFERENCES sedes(id),
     "sedeDestinoId"     UUID NOT NULL REFERENCES sedes(id),
     "usuarioSolicitaId" UUID NOT NULL REFERENCES usuarios(id),
-    "usuarioApruebаId"  UUID REFERENCES usuarios(id),
+    "usuarioApruebaId"  UUID REFERENCES usuarios(id),
     "usuarioRecibeId"   UUID REFERENCES usuarios(id),
     fecha_solicitud     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     fecha_envio         TIMESTAMPTZ,
@@ -659,7 +627,7 @@ CREATE TABLE conteos_inventario (
     nombre                  VARCHAR(150) NOT NULL,
     "sedeId"                UUID NOT NULL REFERENCES sedes(id),
     "usuarioResponsableId"  UUID NOT NULL REFERENCES usuarios(id),
-    tipo_conteo             VARCHAR(50) DEFAULT 'general',  -- general, parcial, ciclico
+    tipo_conteo             VARCHAR(50) DEFAULT 'general',
     fecha_programada        TIMESTAMPTZ NOT NULL,
     fecha_inicio            TIMESTAMPTZ,
     fecha_cierre            TIMESTAMPTZ,
@@ -683,7 +651,6 @@ CREATE TABLE conteo_detalles (
     observaciones       TEXT
 );
 
--- Ajustes manuales de inventario
 CREATE TABLE ajustes_inventario (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "varianteId"        UUID NOT NULL REFERENCES variantes(id),
@@ -697,7 +664,7 @@ CREATE TABLE ajustes_inventario (
     motivo              TEXT NOT NULL,
     aprobado            BOOLEAN DEFAULT FALSE,
     "usuarioCreadorId"  UUID NOT NULL REFERENCES usuarios(id),
-    "usuarioApruebаId"  UUID REFERENCES usuarios(id),
+    "usuarioApruebaId"  UUID REFERENCES usuarios(id),
     fecha_aprobacion    TIMESTAMPTZ,
     "createdAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -724,7 +691,6 @@ CREATE INDEX idx_auditoria_fecha ON auditoria_sistema("createdAt");
 
 COMMENT ON TABLE auditoria_sistema IS 'Log completo de cambios para cumplimiento DIAN y seguridad.';
 
--- Sesiones de usuario
 CREATE TABLE sesiones_usuario (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "usuarioId"     UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -739,11 +705,10 @@ CREATE TABLE sesiones_usuario (
 
 CREATE INDEX idx_sesiones_token ON sesiones_usuario(token_hash);
 
--- Log de sync con Supabase/Cloud
 CREATE TABLE sync_logs (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tabla           VARCHAR(100) NOT NULL,
-    operacion       VARCHAR(20) NOT NULL,  -- INSERT, UPDATE, DELETE
+    operacion       VARCHAR(20) NOT NULL,
     registro_id     UUID NOT NULL,
     payload         JSONB,
     estado          estado_sync NOT NULL DEFAULT 'PENDIENTE',
@@ -756,12 +721,6 @@ CREATE TABLE sync_logs (
 CREATE INDEX idx_sync_estado ON sync_logs(estado);
 
 -- =============================================================================
--- ███████╗ █████╗ ███████╗███████╗    ██████╗
--- ██╔════╝██╔══██╗██╔════╝██╔════╝    ╚════██╗
--- █████╗  ███████║███████╗█████╗       █████╔╝
--- ██╔══╝  ██╔══██║╚════██║██╔══╝       ╚═══██╗
--- ██║     ██║  ██║███████║███████╗    ██████╔╝
--- ╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝    ╚═════╝
 -- FASE 3: COMERCIAL Y ANALYTICS
 -- =============================================================================
 
@@ -773,11 +732,11 @@ CREATE TABLE promociones (
     nombre              VARCHAR(200) NOT NULL,
     descripcion         TEXT,
     tipo                tipo_promocion NOT NULL,
-    valor               DECIMAL(10,2) NOT NULL,  -- % o monto fijo
+    valor               DECIMAL(10,2) NOT NULL,
     fecha_inicio        TIMESTAMPTZ NOT NULL,
     fecha_fin           TIMESTAMPTZ NOT NULL,
     estado              estado_promocion NOT NULL DEFAULT 'PROGRAMADA',
-    aplica_a            VARCHAR(50) NOT NULL DEFAULT 'producto',  -- 'producto', 'categoria', 'marca', 'cliente_nivel'
+    aplica_a            VARCHAR(50) NOT NULL DEFAULT 'producto',
     minimo_compra       DECIMAL(12,2) DEFAULT 0,
     max_usos            INTEGER,
     usos_actuales       INTEGER DEFAULT 0,
@@ -786,16 +745,14 @@ CREATE TABLE promociones (
     "updatedAt"         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Qué productos/categorías/marcas aplican a la promoción
 CREATE TABLE promocion_items (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "promocionId"   UUID NOT NULL REFERENCES promociones(id) ON DELETE CASCADE,
-    tipo_item       VARCHAR(30) NOT NULL,  -- 'variante', 'producto', 'categoria', 'marca'
+    tipo_item       VARCHAR(30) NOT NULL,
     item_id         UUID NOT NULL,
     "createdAt"     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Qué niveles de cliente aplican a la promoción
 CREATE TABLE promocion_niveles (
     "promocionId"   UUID NOT NULL REFERENCES promociones(id) ON DELETE CASCADE,
     nivel           nivel_cliente NOT NULL,
@@ -807,7 +764,7 @@ CREATE TABLE promocion_niveles (
 -- -----------------------------------------------------------------------------
 CREATE TABLE cotizaciones (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    numero_cotizacion   VARCHAR(40) UNIQUE NOT NULL,  -- COT-2026-00001
+    numero_cotizacion   VARCHAR(40) UNIQUE NOT NULL,
     "clienteId"         UUID NOT NULL REFERENCES clientes(id),
     "usuarioId"         UUID NOT NULL REFERENCES usuarios(id),
     "sedeId"            UUID NOT NULL REFERENCES sedes(id),
@@ -839,7 +796,6 @@ CREATE TABLE cotizacion_detalles (
 
 CREATE SEQUENCE seq_cotizaciones_num START WITH 1 INCREMENT BY 1;
 
--- Agregar FK de ventas -> cotizaciones (después de crear ambas tablas)
 ALTER TABLE ventas ADD CONSTRAINT fk_ventas_cotizacion
     FOREIGN KEY ("cotizacionId") REFERENCES cotizaciones(id) ON DELETE SET NULL;
 
@@ -851,7 +807,7 @@ CREATE TABLE notificaciones (
     tipo            tipo_notificacion NOT NULL,
     titulo          VARCHAR(200) NOT NULL,
     mensaje         TEXT NOT NULL,
-    "usuarioId"     UUID REFERENCES usuarios(id) ON DELETE CASCADE,  -- NULL = todas
+    "usuarioId"     UUID REFERENCES usuarios(id) ON DELETE CASCADE,
     "sedeId"        UUID REFERENCES sedes(id),
     leida           BOOLEAN DEFAULT FALSE,
     "referenciaId"  UUID,
@@ -863,7 +819,7 @@ CREATE INDEX idx_notif_usuario ON notificaciones("usuarioId");
 CREATE INDEX idx_notif_leida ON notificaciones(leida);
 
 -- -----------------------------------------------------------------------------
--- 3.4 CACHÉ DE REPORTES (para KPIs rápidos en Dashboard)
+-- 3.4 CACHÉ DE REPORTES
 -- -----------------------------------------------------------------------------
 CREATE TABLE reporte_ventas_diarias (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -878,15 +834,13 @@ CREATE TABLE reporte_ventas_diarias (
     UNIQUE(fecha, "sedeId")
 );
 
-COMment ON TABLE reporte_ventas_diarias IS 'Cache diario para KPIs del Dashboard. Se recalcula con job nocturno.';
+COMMENT ON TABLE reporte_ventas_diarias IS 'Cache diario para KPIs del Dashboard. Se recalcula con job nocturno.';
 
 -- =============================================================================
 -- FUNCIONES Y TRIGGERS
 -- =============================================================================
 
--- -----------------------------------------------------------------------------
--- F1: Función para generar números de documento consecutivos
--- -----------------------------------------------------------------------------
+-- F1: Generar números de documento consecutivos
 CREATE OR REPLACE FUNCTION generar_numero_doc(prefijo TEXT, seq_name TEXT)
 RETURNS TEXT AS $$
 DECLARE
@@ -899,31 +853,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- -----------------------------------------------------------------------------
 -- F2: Actualizar stock al completar una venta
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_actualizar_stock_venta()
 RETURNS TRIGGER AS $$
 DECLARE
     v_sedeId UUID;
     v_stock_ant INTEGER;
 BEGIN
-    -- Solo actuar en INSERT de detalle_ventas cuando la venta está COMPLETADA
     SELECT v."sedeId" INTO v_sedeId
     FROM ventas v WHERE v.id = NEW."ventaId";
 
-    -- Obtener stock anterior
     SELECT cantidad INTO v_stock_ant
     FROM stock_sedes
     WHERE "varianteId" = NEW."varianteId" AND "sedeId" = v_sedeId;
 
-    -- Reducir stock
     UPDATE stock_sedes
     SET cantidad = cantidad - NEW.cantidad,
         ultima_actualizacion = NOW()
     WHERE "varianteId" = NEW."varianteId" AND "sedeId" = v_sedeId;
 
-    -- Registrar movimiento
     INSERT INTO movimientos_inventario (
         numero_doc, tipo, "varianteId", "productoId",
         "sedeOrigenId", cantidad, stock_anterior, stock_nuevo,
@@ -945,7 +893,6 @@ BEGIN
         v."usuarioId"
     FROM ventas v WHERE v.id = NEW."ventaId";
 
-    -- Generar alerta si stock bajo
     IF (COALESCE(v_stock_ant, 0) - NEW.cantidad) <=
        (SELECT stock_minimo FROM stock_sedes WHERE "varianteId" = NEW."varianteId" AND "sedeId" = v_sedeId)
     THEN
@@ -971,19 +918,14 @@ CREATE TRIGGER trg_stock_venta
     FOR EACH ROW
     EXECUTE FUNCTION fn_actualizar_stock_venta();
 
--- -----------------------------------------------------------------------------
 -- F3: Actualizar nivel de fidelidad del cliente tras venta
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_actualizar_fidelidad_cliente()
 RETURNS TRIGGER AS $$
 DECLARE
-    v_cliente_id UUID;
     v_puntos_nuevos INTEGER;
     v_nuevo_nivel nivel_cliente;
 BEGIN
-    -- Solo ventas COMPLETADAS
     IF NEW.estado = 'COMPLETADA' AND NEW."clienteId" IS NOT NULL THEN
-        -- Puntos = 1 punto por cada 1000 COP (ajustable)
         v_puntos_nuevos := FLOOR(NEW.total / 1000);
 
         UPDATE clientes
@@ -994,14 +936,14 @@ BEGIN
             ultima_compra = NOW()
         WHERE id = NEW."clienteId";
 
-        -- Recalcular nivel
+        -- Cast explícito ::nivel_cliente para evitar error de tipos
         SELECT
             CASE
-                WHEN total_compras_hist >= 10000000 THEN 'VIP'
-                WHEN total_compras_hist >= 2000000  THEN 'ORO'
-                WHEN total_compras_hist >= 500000   THEN 'PLATA'
-                ELSE 'BRONCE'
-            END::nivel_cliente
+                WHEN total_compras_hist >= 10000000 THEN 'VIP'::nivel_cliente
+                WHEN total_compras_hist >= 2000000  THEN 'ORO'::nivel_cliente
+                WHEN total_compras_hist >= 500000   THEN 'PLATA'::nivel_cliente
+                ELSE 'BRONCE'::nivel_cliente
+            END
         INTO v_nuevo_nivel
         FROM clientes
         WHERE id = NEW."clienteId";
@@ -1020,9 +962,7 @@ CREATE TRIGGER trg_fidelidad_cliente
     FOR EACH ROW
     EXECUTE FUNCTION fn_actualizar_fidelidad_cliente();
 
--- -----------------------------------------------------------------------------
 -- F4: Actualizar stock cuando llega una compra a proveedor
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_actualizar_stock_compra()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -1035,7 +975,6 @@ BEGIN
     FROM stock_sedes
     WHERE "varianteId" = NEW."varianteId" AND "sedeId" = v_sedeId;
 
-    -- Insertar o actualizar stock
     INSERT INTO stock_sedes ("varianteId", "sedeId", cantidad)
     VALUES (NEW."varianteId", v_sedeId, NEW.cantidad)
     ON CONFLICT ("varianteId", "sedeId")
@@ -1043,7 +982,6 @@ BEGIN
         cantidad = stock_sedes.cantidad + NEW.cantidad,
         ultima_actualizacion = NOW();
 
-    -- Registrar movimiento
     INSERT INTO movimientos_inventario (
         numero_doc, tipo, "varianteId", "productoId",
         "sedeDestinoId", cantidad,
@@ -1076,22 +1014,17 @@ CREATE TRIGGER trg_stock_compra
     FOR EACH ROW
     EXECUTE FUNCTION fn_actualizar_stock_compra();
 
--- -----------------------------------------------------------------------------
 -- F5: Actualizar saldo de compra cuando se agrega un abono
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_actualizar_saldo_compra()
 RETURNS TRIGGER AS $$
-DECLARE
-    v_total DECIMAL(14,2);
-    v_abonado DECIMAL(14,2);
 BEGIN
     UPDATE compras
     SET total_abonado = total_abonado + NEW.monto,
         saldo_pendiente = saldo_pendiente - NEW.monto,
         estado_pago = CASE
-            WHEN (saldo_pendiente - NEW.monto) <= 0 THEN 'COMPLETADO'
-            WHEN (total_abonado + NEW.monto) > 0    THEN 'PARCIAL'
-            ELSE 'PENDIENTE'
+            WHEN (saldo_pendiente - NEW.monto) <= 0 THEN 'COMPLETADO'::estado_pago_compra
+            WHEN (total_abonado + NEW.monto) > 0    THEN 'PARCIAL'::estado_pago_compra
+            ELSE 'PENDIENTE'::estado_pago_compra
         END,
         "updatedAt" = NOW()
     WHERE id = NEW."compraId";
@@ -1105,16 +1038,13 @@ CREATE TRIGGER trg_saldo_abono
     FOR EACH ROW
     EXECUTE FUNCTION fn_actualizar_saldo_compra();
 
--- -----------------------------------------------------------------------------
 -- F6: Reingreso de stock al aprobar una devolución
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_reingreso_stock_devolucion()
 RETURNS TRIGGER AS $$
 DECLARE
     v_sedeId UUID;
     v_stock_ant INTEGER;
 BEGIN
-    -- Solo reingresar si acción = REINGRESO_INVENTARIO
     IF NEW.accion = 'REINGRESO_INVENTARIO' THEN
         SELECT v."sedeId" INTO v_sedeId
         FROM devoluciones d
@@ -1163,9 +1093,7 @@ CREATE TRIGGER trg_stock_devolucion
     FOR EACH ROW
     EXECUTE FUNCTION fn_reingreso_stock_devolucion();
 
--- -----------------------------------------------------------------------------
 -- F7: updatedAt automático en todas las tablas
--- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -1174,7 +1102,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Aplicar a todas las tablas con updatedAt
 DO $$
 DECLARE
     t TEXT;
@@ -1195,10 +1122,10 @@ END;
 $$;
 
 -- =============================================================================
--- VISTAS ÚTILES PARA EL BACKEND
+-- VISTAS
 -- =============================================================================
 
--- Vista: productos con stock total agregado
+-- Vista: productos con stock total
 CREATE OR REPLACE VIEW v_productos_stock AS
 SELECT
     p.id AS "productoId",
@@ -1220,7 +1147,7 @@ LEFT JOIN stock_sedes ss ON ss."varianteId" = v.id
 GROUP BY p.id, p.nombre, p.codigo_interno, c.nombre, m.nombre,
          p.precio_venta, p.precio_costo, p.activo;
 
--- Vista: alertas de stock bajo por sede
+-- Vista: alertas de stock bajo
 CREATE OR REPLACE VIEW v_alertas_stock AS
 SELECT
     ss."sedeId",
@@ -1240,7 +1167,7 @@ WHERE ss.cantidad <= ss.stock_minimo
   AND p.activo = TRUE
 ORDER BY unidades_faltantes DESC;
 
--- Vista: KPIs ventas del día por sede (para Dashboard)
+-- Vista: KPIs ventas del día
 CREATE OR REPLACE VIEW v_ventas_hoy AS
 SELECT
     v."sedeId",
@@ -1256,7 +1183,7 @@ WHERE DATE(v."createdAt" AT TIME ZONE 'America/Bogota') = CURRENT_DATE
   AND v.estado = 'COMPLETADA'
 GROUP BY v."sedeId", s.nombre;
 
--- Vista: detalle rentabilidad por venta
+-- Vista: rentabilidad por venta
 CREATE OR REPLACE VIEW v_rentabilidad_ventas AS
 SELECT
     v.id AS "ventaId",
@@ -1277,6 +1204,7 @@ WHERE v.estado = 'COMPLETADA'
 GROUP BY v.id, v.numero, v."createdAt", s.nombre, v.total;
 
 -- Vista: clientes con fidelidad y próximo nivel
+-- FIX v2.1: cast explícito ::nivel_cliente en el CASE del JOIN
 CREATE OR REPLACE VIEW v_clientes_fidelidad AS
 SELECT
     c.id,
@@ -1293,9 +1221,9 @@ SELECT
 FROM clientes c
 LEFT JOIN reglas_fidelidad rf_next ON (
     rf_next.nivel = CASE c.nivel_fidelidad
-        WHEN 'BRONCE' THEN 'PLATA'
-        WHEN 'PLATA'  THEN 'ORO'
-        WHEN 'ORO'    THEN 'VIP'
+        WHEN 'BRONCE'::nivel_cliente THEN 'PLATA'::nivel_cliente
+        WHEN 'PLATA'::nivel_cliente  THEN 'ORO'::nivel_cliente
+        WHEN 'ORO'::nivel_cliente    THEN 'VIP'::nivel_cliente
         ELSE NULL
     END
 )
@@ -1320,15 +1248,13 @@ CREATE INDEX idx_compras_proveedor ON compras("proveedorId");
 CREATE INDEX idx_sesiones_caja_activa ON sesiones_caja(activa);
 
 -- =============================================================================
--- DATOS SEMILLA INICIALES (SEED)
+-- DATOS SEMILLA (SEED)
 -- =============================================================================
 
--- Sede principal
 INSERT INTO sedes (codigo, nombre, ciudad, tipo, activa) VALUES
     ('PRINCIPAL', 'Integral Cosméticos - Principal', 'Cali', 'PRINCIPAL', TRUE),
     ('BODEGA-001', 'Bodega Central', 'Cali', 'BODEGA', TRUE);
 
--- Categorías
 INSERT INTO categorias (nombre, descripcion, orden) VALUES
     ('Maquillaje', 'Bases, labiales, sombras, rubores', 1),
     ('Skincare', 'Hidratantes, serums, limpiadoras, protectores solares', 2),
@@ -1338,7 +1264,6 @@ INSERT INTO categorias (nombre, descripcion, orden) VALUES
     ('Uñas', 'Esmaltes, removedores, tratamientos de uñas', 6),
     ('Herramientas', 'Brochas, esponjas, rizadores, planchas', 7);
 
--- Subcategorías ejemplo
 INSERT INTO categorias (nombre, descripcion, orden, "categoriaPadreId") VALUES
     ('Labios', 'Labiales, gloss, delineadores labiales', 1,
         (SELECT id FROM categorias WHERE nombre = 'Maquillaje')),
@@ -1347,7 +1272,6 @@ INSERT INTO categorias (nombre, descripcion, orden, "categoriaPadreId") VALUES
     ('Rostro', 'Bases, correctores, rubores, iluminadores', 3,
         (SELECT id FROM categorias WHERE nombre = 'Maquillaje'));
 
--- Tipos de gasto
 INSERT INTO tipos_gasto (nombre, descripcion, requiere_autorizacion, monto_maximo) VALUES
     ('Papelería', 'Compra de útiles de oficina y papelería', FALSE, 50000),
     ('Aseo', 'Productos de limpieza y aseo', FALSE, 80000),
@@ -1356,7 +1280,6 @@ INSERT INTO tipos_gasto (nombre, descripcion, requiere_autorizacion, monto_maxim
     ('Transporte', 'Taxis, Uber para diligencias del negocio', FALSE, 50000),
     ('Otros', 'Gastos varios no categorizados', TRUE, 100000);
 
--- Atributos de variante para cosméticos
 INSERT INTO atributos (nombre, tipo) VALUES
     ('Tono', 'color'),
     ('Presentación', 'texto'),
@@ -1367,10 +1290,9 @@ INSERT INTO atributos (nombre, tipo) VALUES
 COMMIT;
 
 -- =============================================================================
--- FIN DEL SCHEMA
--- Tablas totales: ~45
--- Triggers: 8
--- Funciones: 7
--- Vistas: 5
--- Índices: 15
+-- FIN DEL SCHEMA v2.1
+-- Tablas: ~45 | Triggers: 8 | Funciones: 7 | Vistas: 5 | Índices: 13
+-- Fixes: cast enum nivel_cliente en v_clientes_fidelidad
+--        cast enum estado_pago_compra en fn_actualizar_saldo_compra
+--        eliminado carácter unicode invisible en "usuarioApruebаId"
 -- =============================================================================

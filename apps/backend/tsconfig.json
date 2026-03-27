@@ -7,6 +7,7 @@
     "incremental": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
     "paths": {
       "@cosmeticos/shared-types": ["../../packages/shared-types/src/index.ts"]
     }

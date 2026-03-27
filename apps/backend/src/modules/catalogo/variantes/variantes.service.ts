@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { Producto } from '../productos/entities/producto.entity';
 import { CreateVarianteDto } from './dto/create-variante.dto';
 import { UpdateVarianteDto } from './dto/update-variante.dto';
@@ -44,7 +44,17 @@ export class VariantesService {
     return this.variantesRepository.save(variante);
   }
 
-  async findAll(productoId?: string): Promise<Variante[]> {
+  async findAll(productoId?: string, q?: string): Promise<Variante[]> {
+    if (q) {
+      return this.variantesRepository.find({
+        where: [
+          { activo: true, nombre: ILike(`%${q}%`) },
+          { activo: true, codigoBarras: ILike(`%${q}%`) },
+        ],
+        order: { nombre: 'ASC' },
+      });
+    }
+
     const where = productoId ? { activo: true, productoId } : { activo: true };
     return this.variantesRepository.find({ where, order: { nombre: 'ASC' } });
   }

@@ -1,0 +1,44 @@
+import { Body, Controller, Get, Param, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Rol } from '@cosmeticos/shared-types';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { VentasService } from './ventas.service';
+import { CreateVentaDto } from './dto/create-venta.dto';
+import { AnularVentaDto } from './dto/anular-venta.dto';
+
+@ApiTags('ventas')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Rol.ADMIN, Rol.CAJERO, Rol.SUPERVISOR)
+@Controller('ventas')
+export class VentasController {
+  constructor(private readonly ventasService: VentasService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Crear venta y afectar inventario' })
+  create(@Body() dto: CreateVentaDto, @Request() req: any) {
+    return this.ventasService.crearVenta(dto, req.user.id);
+  }
+
+  @Post(':id/anular')
+  @ApiOperation({ summary: 'Anular venta y devolver stock' })
+  anular(@Param('id') id: string, @Body() dto: AnularVentaDto, @Request() req: any) {
+    return this.ventasService.anularVenta(id, dto, req.user.id);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Listar ventas por sede y fecha' })
+  @ApiQuery({ name: 'sedeId', required: true, type: String })
+  @ApiQuery({ name: 'fecha', required: false, type: String })
+  findAll(@Query('sedeId') sedeId: string, @Query('fecha') fecha?: string) {
+    return this.ventasService.getVentasByFecha(sedeId, fecha);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener venta por id' })
+  findOne(@Param('id') id: string) {
+    return this.ventasService.getVentaById(id);
+  }
+}

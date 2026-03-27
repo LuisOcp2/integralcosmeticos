@@ -21,7 +21,7 @@ import { VariantesService } from './variantes.service';
 @ApiTags('variantes')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('variantes')
+@Controller(['variantes', 'catalogo/variantes'])
 export class VariantesController {
   constructor(private readonly variantesService: VariantesService) {}
 
@@ -36,8 +36,9 @@ export class VariantesController {
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
   @ApiOperation({ summary: 'Listar variantes activas' })
   @ApiQuery({ name: 'productoId', required: false, type: String })
-  findAll(@Query('productoId') productoId?: string) {
-    return this.variantesService.findAll(productoId);
+  @ApiQuery({ name: 'q', required: false, type: String })
+  findAll(@Query('productoId') productoId?: string, @Query('q') q?: string) {
+    return this.variantesService.findAll(productoId, q);
   }
 
   @Get('barcode/:codigoBarras')

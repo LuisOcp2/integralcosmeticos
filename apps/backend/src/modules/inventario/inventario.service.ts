@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { TipoMovimiento } from '@cosmeticos/shared-types';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Sede } from '../sedes/entities/sede.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
@@ -45,65 +45,73 @@ export class InventarioService {
     await this.validarVarianteActiva(dto.varianteId);
     await this.validarSedeActiva(dto.sedeId);
 
-    const resultado = await this.dataSource.transaction(async (manager) => {
-      const stockRepo = manager.getRepository(StockSede);
-      const movimientoRepo = manager.getRepository(MovimientoInventario);
-
-      let stock = await stockRepo.findOne({
-        where: { varianteId: dto.varianteId, sedeId: dto.sedeId },
-      });
-
-      if (!stock) {
-        stock = stockRepo.create({
-          varianteId: dto.varianteId,
-          sedeId: dto.sedeId,
-          cantidad: 0,
-          stockMinimo: 0,
-          activo: true,
-        });
-      }
-
-      if (!stock.activo) {
-        stock.activo = true;
-      }
-
-      const tipoSuma = [
-        TipoMovimiento.ENTRADA,
-        TipoMovimiento.AJUSTE,
-        TipoMovimiento.DEVOLUCION,
-      ].includes(dto.tipo);
-
-      if (tipoSuma) {
-        stock.cantidad += dto.cantidad;
-      } else {
-        if (stock.cantidad < dto.cantidad) {
-          throw new BadRequestException('Stock insuficiente para la operacion');
-        }
-        stock.cantidad -= dto.cantidad;
-      }
-
-      const stockGuardado = await stockRepo.save(stock);
-
-      const movimiento = movimientoRepo.create({
-        tipo: dto.tipo,
-        varianteId: dto.varianteId,
-        sedeId: dto.sedeId,
-        cantidad: dto.cantidad,
-        sedeDestinoId: dto.sedeDestinoId,
-        usuarioId,
-        motivo: dto.motivo,
-        activo: true,
-      });
-
-      const movimientoGuardado = await movimientoRepo.save(movimiento);
-
-      return {
-        movimiento: movimientoGuardado,
-        stock: stockGuardado,
-      };
-    });
+    const resultado = await this.dataSource.transaction((manager) =>
+      this.registrarMovimientoConManager(dto, usuarioId, manager),
+    );
 
     return resultado;
+  }
+
+  async registrarMovimientoConManager(
+    dto: RegistrarMovimientoDto,
+    usuarioId: string,
+    manager: EntityManager,
+  ) {
+    const stockRepo = manager.getRepository(StockSede);
+    const movimientoRepo = manager.getRepository(MovimientoInventario);
+
+    let stock = await stockRepo.findOne({
+      where: { varianteId: dto.varianteId, sedeId: dto.sedeId },
+    });
+
+    if (!stock) {
+      stock = stockRepo.create({
+        varianteId: dto.varianteId,
+        sedeId: dto.sedeId,
+        cantidad: 0,
+        stockMinimo: 0,
+        activo: true,
+      });
+    }
+
+    if (!stock.activo) {
+      stock.activo = true;
+    }
+
+    const tipoSuma = [
+      TipoMovimiento.ENTRADA,
+      TipoMovimiento.AJUSTE,
+      TipoMovimiento.DEVOLUCION,
+    ].includes(dto.tipo);
+
+    if (tipoSuma) {
+      stock.cantidad += dto.cantidad;
+    } else {
+      if (stock.cantidad < dto.cantidad) {
+        throw new BadRequestException('Stock insuficiente para la operacion');
+      }
+      stock.cantidad -= dto.cantidad;
+    }
+
+    const stockGuardado = await stockRepo.save(stock);
+
+    const movimiento = movimientoRepo.create({
+      tipo: dto.tipo,
+      varianteId: dto.varianteId,
+      sedeId: dto.sedeId,
+      cantidad: dto.cantidad,
+      sedeDestinoId: dto.sedeDestinoId,
+      usuarioId,
+      motivo: dto.motivo,
+      activo: true,
+    });
+
+    const movimientoGuardado = await movimientoRepo.save(movimiento);
+
+    return {
+      movimiento: movimientoGuardado,
+      stock: stockGuardado,
+    };
   }
 
   async getStockPorSede(sedeId: string) {

@@ -1,9 +1,11 @@
+import { TipoDocumento } from '../enums';
+
 export interface ICliente {
   id: string;
   nombre: string;
   apellido: string;
   documento: string; // CC, NIT, Pasaporte
-  tipoDocumento: string;
+  tipoDocumento: TipoDocumento;
   email?: string;
   telefono?: string;
   direccion?: string;

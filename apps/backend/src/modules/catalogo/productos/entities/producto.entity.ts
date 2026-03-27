@@ -21,6 +21,9 @@ export class Producto {
   @Column({ type: 'text', nullable: true })
   descripcion?: string;
 
+  @Column({ type: 'text', nullable: true })
+  imagenUrl?: string;
+
   @Column('uuid')
   categoriaId: string;
 

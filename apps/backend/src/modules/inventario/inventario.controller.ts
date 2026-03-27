@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Rol } from '@cosmeticos/shared-types';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -7,6 +16,9 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { InventarioService } from './inventario.service';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
 import { TrasladarStockDto } from './dto/trasladar-stock.dto';
+import { AjustarStockDto } from './dto/ajustar-stock.dto';
+import { OperarStockDto } from './dto/operar-stock.dto';
+import { TipoMovimiento } from '@cosmeticos/shared-types';
 
 @ApiTags('inventario')
 @ApiBearerAuth()
@@ -41,5 +53,73 @@ export class InventarioController {
   @ApiOperation({ summary: 'Listar movimientos de inventario' })
   getMovimientos() {
     return this.inventarioService.getMovimientos();
+  }
+
+  @Get()
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO, Rol.CAJERO)
+  @ApiOperation({ summary: 'Stock actual por sede (query: sedeId)' })
+  getInventario(@Request() req: any) {
+    const sedeId = req.query?.sedeId as string | undefined;
+    if (!sedeId) {
+      throw new BadRequestException('Debe enviar sedeId en query');
+    }
+    return this.inventarioService.getStockPorSede(sedeId);
+  }
+
+  @Get('alertas')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO, Rol.CAJERO)
+  @ApiOperation({ summary: 'Productos bajo stock minimo (query: sedeId)' })
+  getAlertas(@Request() req: any) {
+    const sedeId = req.query?.sedeId as string | undefined;
+    if (!sedeId) {
+      throw new BadRequestException('Debe enviar sedeId en query');
+    }
+    return this.inventarioService.getAlertasStockBajo(sedeId);
+  }
+
+  @Post('entrada')
+  @Roles(Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Registrar entrada de inventario' })
+  entrada(@Body() dto: OperarStockDto, @Request() req: any) {
+    return this.inventarioService.registrarMovimiento(
+      {
+        tipo: TipoMovimiento.ENTRADA,
+        varianteId: dto.varianteId,
+        sedeId: dto.sedeId,
+        cantidad: dto.cantidad,
+        motivo: dto.motivo,
+      },
+      req.user.id,
+    );
+  }
+
+  @Post('salida')
+  @Roles(Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Registrar salida de inventario' })
+  salida(@Body() dto: OperarStockDto, @Request() req: any) {
+    return this.inventarioService.registrarMovimiento(
+      {
+        tipo: TipoMovimiento.SALIDA,
+        varianteId: dto.varianteId,
+        sedeId: dto.sedeId,
+        cantidad: dto.cantidad,
+        motivo: dto.motivo,
+      },
+      req.user.id,
+    );
+  }
+
+  @Post('traslado')
+  @Roles(Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Alias de traslado entre sedes' })
+  trasladoAlias(@Body() dto: TrasladarStockDto, @Request() req: any) {
+    return this.inventarioService.trasladar(dto, req.user.id);
+  }
+
+  @Post('ajuste')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Ajustar stock con motivo operacional' })
+  ajustarStock(@Body() dto: AjustarStockDto, @Request() req: any) {
+    return this.inventarioService.ajustarStock(dto, req.user.id);
   }
 }

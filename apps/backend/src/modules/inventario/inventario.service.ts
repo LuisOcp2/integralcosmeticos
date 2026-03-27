@@ -6,6 +6,7 @@ import { Sede } from '../sedes/entities/sede.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
 import { TrasladarStockDto } from './dto/trasladar-stock.dto';
+import { AjustarStockDto, TipoAjusteInventario } from './dto/ajustar-stock.dto';
 import { MovimientoInventario } from './entities/movimiento-inventario.entity';
 import { StockSede } from './entities/stock-sede.entity';
 
@@ -128,6 +129,11 @@ export class InventarioService {
     }));
   }
 
+  async getAlertasStockBajo(sedeId: string) {
+    const stocks = await this.getStockPorSede(sedeId);
+    return stocks.filter((stock) => stock.cantidad <= stock.stockMinimo);
+  }
+
   async trasladar(dto: TrasladarStockDto, usuarioId: string) {
     if (dto.sedeOrigen === dto.sedeDestino) {
       throw new BadRequestException('La sede origen y destino deben ser diferentes');
@@ -201,5 +207,27 @@ export class InventarioService {
       where: { activo: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async ajustarStock(dto: AjustarStockDto, usuarioId: string) {
+    const tipo =
+      dto.motivo === TipoAjusteInventario.INGRESO
+        ? TipoMovimiento.ENTRADA
+        : dto.motivo === TipoAjusteInventario.MERMA
+          ? TipoMovimiento.SALIDA
+          : dto.motivo === TipoAjusteInventario.DEVOLUCION
+            ? TipoMovimiento.DEVOLUCION
+            : TipoMovimiento.AJUSTE;
+
+    return this.registrarMovimiento(
+      {
+        tipo,
+        varianteId: dto.varianteId,
+        sedeId: dto.sedeId,
+        cantidad: dto.cantidad,
+        motivo: dto.nota?.trim() ? `${dto.motivo}: ${dto.nota.trim()}` : dto.motivo,
+      },
+      usuarioId,
+    );
   }
 }

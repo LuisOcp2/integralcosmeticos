@@ -182,3 +182,56 @@ Authorization: Bearer <JWT_TOKEN>
 | 404    | Not Found — Recurso no encontrado          |
 | 409    | Conflict — Duplicado (email, SKU, etc.)    |
 | 500    | Internal Server Error — Error del servidor |
+
+---
+
+## Estado de implementación
+
+Ultima verificacion: 2026-03-27
+
+| Módulo     | Método | Endpoint                     | Estado          | Observaciones                                                         |
+| ---------- | ------ | ---------------------------- | --------------- | --------------------------------------------------------------------- |
+| Auth       | POST   | `/auth/login`                | ✅ Implementado | Guard local + JWT activos                                             |
+| Auth       | GET    | `/auth/perfil`               | ✅ Implementado | JWT requerido                                                         |
+| Auth       | POST   | `/auth/logout`               | ✅ Implementado | JWT requerido                                                         |
+| Usuarios   | POST   | `/usuarios/seed`             | ✅ Implementado | Seed admin inicial                                                    |
+| Usuarios   | POST   | `/usuarios`                  | ✅ Implementado | Rol ADMIN                                                             |
+| Usuarios   | GET    | `/usuarios`                  | ✅ Implementado | Roles ADMIN, SUPERVISOR                                               |
+| Usuarios   | GET    | `/usuarios/:id`              | ✅ Implementado | JWT requerido                                                         |
+| Usuarios   | DELETE | `/usuarios/:id`              | ✅ Implementado | Rol ADMIN                                                             |
+| Productos  | GET    | `/categorias`                | ✅ Implementado | JWT + roles operativos                                                |
+| Productos  | POST   | `/categorias`                | ✅ Implementado | Rol ADMIN                                                             |
+| Productos  | GET    | `/marcas`                    | ✅ Implementado | JWT + roles operativos                                                |
+| Productos  | POST   | `/marcas`                    | ✅ Implementado | Rol ADMIN                                                             |
+| Productos  | GET    | `/productos`                 | ✅ Implementado | Soporta `categoriaId`, `marcaId`, `q`, `page`, `limit`                |
+| Productos  | POST   | `/productos`                 | ✅ Implementado | Rol ADMIN                                                             |
+| Productos  | GET    | `/productos/:id`             | ✅ Implementado | Retorna producto + variantes                                          |
+| Productos  | PATCH  | `/productos/:id`             | ✅ Implementado | Rol ADMIN                                                             |
+| Productos  | DELETE | `/productos/:id`             | ✅ Implementado | Rol ADMIN (borrado logico)                                            |
+| Productos  | GET    | `/productos/barcode/:codigo` | ✅ Implementado | Busca por codigo de barras de variante y retorna producto + variantes |
+| Inventario | GET    | `/inventario`                | ✅ Implementado | Requiere query `sedeId`                                               |
+| Inventario | GET    | `/inventario/alertas`        | ✅ Implementado | Requiere query `sedeId`; devuelve stock bajo minimo                   |
+| Inventario | POST   | `/inventario/entrada`        | ✅ Implementado | Rol BODEGUERO                                                         |
+| Inventario | POST   | `/inventario/salida`         | ✅ Implementado | Rol BODEGUERO                                                         |
+| Inventario | POST   | `/inventario/traslado`       | ✅ Implementado | Rol BODEGUERO                                                         |
+| Inventario | GET    | `/inventario/movimientos`    | ✅ Implementado | Historial de movimientos                                              |
+| Ventas/POS | POST   | `/ventas`                    | ✅ Implementado | Rol CAJERO                                                            |
+| Ventas/POS | GET    | `/ventas`                    | ✅ Implementado | JWT + roles operativos; permite filtro por `sedeId` y `fecha`         |
+| Ventas/POS | GET    | `/ventas/:id`                | ✅ Implementado | Venta detallada                                                       |
+| Ventas/POS | POST   | `/ventas/:id/anular`         | ✅ Implementado | Rol ADMIN                                                             |
+| Ventas/POS | POST   | `/caja/apertura`             | ✅ Implementado | Alias documental activo                                               |
+| Ventas/POS | POST   | `/caja/cierre`               | ✅ Implementado | Cierre por sede con arqueo                                            |
+| Clientes   | GET    | `/clientes`                  | ✅ Implementado | Listado de clientes activos                                           |
+| Clientes   | POST   | `/clientes`                  | ✅ Implementado | Rol CAJERO                                                            |
+| Clientes   | GET    | `/clientes/:id`              | ✅ Implementado | Retorna cliente + historial                                           |
+| Clientes   | GET    | `/clientes/buscar/:doc`      | ✅ Implementado | Alias documental activo                                               |
+| Clientes   | PATCH  | `/clientes/:id/puntos`       | ✅ Implementado | Rol CAJERO                                                            |
+| Sync Cloud | GET    | `/sync/status`               | ✅ Implementado | Rol ADMIN                                                             |
+| Sync Cloud | POST   | `/sync/forzar`               | ✅ Implementado | Rol ADMIN                                                             |
+| Health     | GET    | `/health`                    | ✅ Implementado | Publico (`/api/v1/health` con prefijo global)                         |
+
+### Notas de consistencia
+
+- Prefijo global vigente: `/api/v1`.
+- Swagger UI: `/api/docs`.
+- Se conservan aliases adicionales de compatibilidad: `/inventario/traslados`, `/caja/abrir`, `/clientes/documento/:documento`, `/clientes/:id/historial`.

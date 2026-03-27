@@ -18,6 +18,12 @@ export class Sede {
   @Column({ length: 20, nullable: true })
   telefono?: string;
 
+  @Column({ length: 10, default: 'COP' })
+  moneda: string;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 19 })
+  impuestoPorcentaje: number;
+
   @Column({
     type: 'enum',
     enum: TipoSede,

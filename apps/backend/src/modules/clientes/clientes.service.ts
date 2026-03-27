@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Cliente } from './entities/cliente.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { Venta } from '../ventas/entities/venta.entity';
+import { UpdateClienteDto } from './dto/update-cliente.dto';
 
 @Injectable()
 export class ClientesService {
@@ -57,6 +58,17 @@ export class ClientesService {
     return cliente;
   }
 
+  async findOneConHistorial(id: string): Promise<{ cliente: Cliente; historial: Venta[] }> {
+    const [cliente, historial] = await Promise.all([
+      this.findOne(id),
+      this.getHistorialCompras(id),
+    ]);
+    return {
+      cliente,
+      historial,
+    };
+  }
+
   async findByDocumento(documento: string): Promise<Cliente> {
     const cliente = await this.clientesRepository.findOne({
       where: { documento, activo: true },
@@ -69,9 +81,71 @@ export class ClientesService {
     return cliente;
   }
 
+  async update(id: string, dto: UpdateClienteDto): Promise<Cliente> {
+    const cliente = await this.findOne(id);
+
+    const documento = dto.documento?.trim();
+    if (documento && documento !== cliente.documento) {
+      const existenteDocumento = await this.clientesRepository.findOne({
+        where: { documento },
+      });
+      if (existenteDocumento?.activo && existenteDocumento.id !== cliente.id) {
+        throw new ConflictException('Ya existe un cliente activo con ese documento');
+      }
+      cliente.documento = documento;
+    }
+
+    const emailNormalizado = dto.email?.trim().toLowerCase();
+    if (emailNormalizado !== undefined && emailNormalizado !== (cliente.email ?? undefined)) {
+      if (emailNormalizado) {
+        const existenteEmail = await this.clientesRepository.findOne({
+          where: { email: emailNormalizado },
+        });
+        if (existenteEmail?.activo && existenteEmail.id !== cliente.id) {
+          throw new ConflictException('Ya existe un cliente activo con ese email');
+        }
+        cliente.email = emailNormalizado;
+      } else {
+        cliente.email = null;
+      }
+    }
+
+    if (dto.nombre !== undefined) {
+      cliente.nombre = dto.nombre;
+    }
+
+    if (dto.apellido !== undefined) {
+      cliente.apellido = dto.apellido;
+    }
+
+    if (dto.tipoDocumento !== undefined) {
+      cliente.tipoDocumento = dto.tipoDocumento;
+    }
+
+    if (dto.telefono !== undefined) {
+      cliente.telefono = dto.telefono?.trim() ? dto.telefono.trim() : null;
+    }
+
+    if (dto.direccion !== undefined) {
+      cliente.direccion = dto.direccion?.trim() ? dto.direccion.trim() : null;
+    }
+
+    if (dto.fechaNacimiento !== undefined) {
+      cliente.fechaNacimiento = dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : null;
+    }
+
+    return this.clientesRepository.save(cliente);
+  }
+
   async sumarPuntos(clienteId: string, puntos: number): Promise<Cliente> {
     const cliente = await this.findOne(clienteId);
     cliente.puntosFidelidad += Math.max(0, puntos);
+    return this.clientesRepository.save(cliente);
+  }
+
+  async setPuntos(clienteId: string, puntos: number): Promise<Cliente> {
+    const cliente = await this.findOne(clienteId);
+    cliente.puntosFidelidad = Math.max(0, puntos);
     return this.clientesRepository.save(cliente);
   }
 

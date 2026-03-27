@@ -91,6 +91,7 @@ export class VentasService {
         impuesto: 0,
         total: 0,
         metodoPago: dto.metodoPago,
+        splitPago: dto.splitPago ?? null,
         estado: EstadoVenta.PENDIENTE,
         observaciones: dto.observaciones ?? null,
         activo: true,
@@ -152,6 +153,25 @@ export class VentasService {
       ventaGuardada.subtotal = subtotal;
       ventaGuardada.impuesto = impuesto;
       ventaGuardada.total = subtotal + impuesto - descuentoGeneral;
+
+      if (dto.metodoPago === MetodoPago.COMBINADO) {
+        if (!dto.splitPago) {
+          throw new BadRequestException('Debe enviar splitPago para metodo COMBINADO');
+        }
+
+        const totalSplit =
+          Number(dto.splitPago.efectivo ?? 0) +
+          Number(dto.splitPago.tarjeta ?? 0) +
+          Number(dto.splitPago.transferencia ?? 0);
+
+        if (Math.abs(totalSplit - ventaGuardada.total) > 0.01) {
+          throw new BadRequestException(
+            'La suma del split de pago debe coincidir con el total de la venta',
+          );
+        }
+      } else if (dto.splitPago) {
+        throw new BadRequestException('splitPago solo aplica cuando el metodo es COMBINADO');
+      }
 
       if (ventaGuardada.total < 0) {
         throw new BadRequestException('El total de la venta no puede ser negativo');
@@ -257,13 +277,16 @@ export class VentasService {
     });
   }
 
-  async getVentasByFecha(sedeId: string, fecha?: string): Promise<Venta[]> {
+  async getVentasByFecha(sedeId?: string, fecha?: string): Promise<Venta[]> {
     const query = this.ventasRepository
       .createQueryBuilder('venta')
       .leftJoinAndSelect('venta.detalles', 'detalle', 'detalle.activo = true')
-      .where('venta.sedeId = :sedeId', { sedeId })
-      .andWhere('venta.activo = true')
+      .where('venta.activo = true')
       .orderBy('venta.createdAt', 'DESC');
+
+    if (sedeId) {
+      query.andWhere('venta.sedeId = :sedeId', { sedeId });
+    }
 
     if (fecha) {
       query.andWhere('DATE(venta.createdAt) = :fecha', { fecha });

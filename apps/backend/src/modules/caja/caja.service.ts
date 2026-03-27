@@ -91,6 +91,19 @@ export class CajaService {
     return this.cajaRepository.save(caja);
   }
 
+  async cerrarCajaActivaPorSede(
+    sedeId: string,
+    usuarioId: string,
+    montoFinal: number,
+  ): Promise<CierreCaja> {
+    const cajaActiva = await this.getCajaAbierta(sedeId);
+    if (!cajaActiva) {
+      throw new NotFoundException('No hay caja abierta para la sede enviada');
+    }
+
+    return this.cerrarCaja(cajaActiva.id, usuarioId, montoFinal);
+  }
+
   async getCajaAbierta(sedeId: string): Promise<CierreCaja | null> {
     await this.validarSedeActiva(sedeId);
 

@@ -11,6 +11,11 @@ export class CreateProductoDto {
   @IsOptional()
   descripcion?: string;
 
+  @ApiPropertyOptional({ example: 'https://cdn.ejemplo.com/productos/base-hd.png' })
+  @IsString()
+  @IsOptional()
+  imagenUrl?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   categoriaId: string;

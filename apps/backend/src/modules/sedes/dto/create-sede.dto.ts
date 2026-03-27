@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { TipoSede } from '@cosmeticos/shared-types';
 
 export class CreateSedeDto {
@@ -23,4 +23,17 @@ export class CreateSedeDto {
   @ApiProperty({ enum: TipoSede, example: TipoSede.TIENDA })
   @IsEnum(TipoSede)
   tipo: TipoSede;
+
+  @ApiPropertyOptional({ example: 'COP' })
+  @IsOptional()
+  @IsString()
+  @Length(3, 10)
+  moneda?: string;
+
+  @ApiPropertyOptional({ example: 19 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  impuestoPorcentaje?: number;
 }

@@ -5,8 +5,13 @@ import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import { usePosStore } from '../store/pos.store';
 import AppLayout from './components/AppLayout';
+import { tokens } from '../styles/tokens';
 
-const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+const cop = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  maximumFractionDigits: 0,
+});
 
 const fechaHoy = () => {
   const now = new Date();
@@ -28,16 +33,30 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 // Modal de confirmación propio (sin window.confirm)
-function ConfirmModal({ mensaje, esperado, diferencia, onConfirm, onCancel }: {
-  mensaje: string; esperado: number; diferencia: number;
-  onConfirm: () => void; onCancel: () => void;
+function ConfirmModal({
+  mensaje,
+  esperado,
+  diferencia,
+  onConfirm,
+  onCancel,
+}: {
+  mensaje: string;
+  esperado: number;
+  diferencia: number;
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(46,27,12,0.5)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(46,27,12,0.5)' }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
         <div className="px-6 py-4" style={{ backgroundColor: '#2a1709' }}>
           <h3 className="text-lg font-black text-white">Confirmar cierre</h3>
-          <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>Revisa los datos antes de cerrar</p>
+          <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>
+            Revisa los datos antes de cerrar
+          </p>
         </div>
         <div className="p-6 space-y-3">
           <p className="text-sm text-secondary">{mensaje}</p>
@@ -48,19 +67,27 @@ function ConfirmModal({ mensaje, esperado, diferencia, onConfirm, onCancel }: {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-secondary font-medium">Diferencia</span>
-              <span className="font-black" style={{ color: diferencia >= 0 ? '#2e7d32' : '#ba1a1a' }}>
-                {diferencia >= 0 ? '+' : ''}{cop.format(diferencia)}
+              <span
+                className="font-black"
+                style={{ color: diferencia >= 0 ? '#2e7d32' : '#ba1a1a' }}
+              >
+                {diferencia >= 0 ? '+' : ''}
+                {cop.format(diferencia)}
               </span>
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={onCancel}
-              className="flex-1 py-3 rounded-xl font-bold text-sm border-2 border-outline-variant text-secondary hover:bg-surface-container transition-all">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-3 rounded-xl font-bold text-sm border-2 border-outline-variant text-secondary hover:bg-surface-container transition-all"
+            >
               Cancelar
             </button>
-            <button onClick={onConfirm}
+            <button
+              onClick={onConfirm}
               className="flex-1 py-3 rounded-xl font-black text-sm text-white transition-all"
-              style={{ backgroundColor: '#2a1709' }}>
+              style={{ backgroundColor: '#2a1709' }}
+            >
               Confirmar cierre
             </button>
           </div>
@@ -92,7 +119,10 @@ export default function CajaPage() {
 
   const abrirCajaMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await api.post('/caja/abrir', { sedeId: usuario?.sedeId, montoInicial: Number(montoInicial) });
+      const { data } = await api.post('/caja/abrir', {
+        sedeId: usuario?.sedeId,
+        montoInicial: Number(montoInicial),
+      });
       return data;
     },
     onSuccess: (caja) => {
@@ -103,9 +133,10 @@ export default function CajaPage() {
 
   const cerrarCajaMutation = useMutation({
     mutationFn: async () => {
-      const caja = cajaActivaQuery.data;
-      if (!caja) return null;
-      const { data } = await api.post(`/caja/${caja.id}/cerrar`, { montoFinal: Number(montoFinal) });
+      const { data } = await api.post('/caja/cierre', {
+        sedeId: usuario?.sedeId,
+        montoFinal: Number(montoFinal),
+      });
       return data;
     },
     onSuccess: () => {
@@ -151,7 +182,10 @@ export default function CajaPage() {
             <p className="text-secondary font-medium mt-1">Apertura, monitoreo y cierre diario</p>
           </div>
           {cajaActiva && (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold" style={{ backgroundColor: '#e8f5e9', color: '#2e7d32' }}>
+            <div
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold"
+              style={{ backgroundColor: '#e8f5e9', color: '#2e7d32' }}
+            >
               <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
               Caja abierta
             </div>
@@ -160,7 +194,9 @@ export default function CajaPage() {
 
         {cajaActivaQuery.isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-28" />
+            ))}
           </div>
         ) : !cajaActiva ? (
           /* ── ABRIR CAJA ── */
@@ -168,27 +204,38 @@ export default function CajaPage() {
             <div className="bg-surface-container-lowest rounded-2xl shadow-sm overflow-hidden">
               <div className="px-6 py-5" style={{ backgroundColor: '#2a1709' }}>
                 <h2 className="text-xl font-black text-white">Abrir caja</h2>
-                <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>Ingresa el monto inicial en efectivo</p>
+                <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>
+                  Ingresa el monto inicial en efectivo
+                </p>
               </div>
               <div className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-2">Monto inicial (COP)</label>
+                  <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-2">
+                    Monto inicial (COP)
+                  </label>
                   <input
-                    type="number" min={0} value={montoInicial}
+                    type="number"
+                    min={0}
+                    value={montoInicial}
                     onChange={(e) => setMontoInicial(e.target.value)}
                     className="w-full rounded-xl px-4 py-3 text-lg font-black text-on-secondary-fixed border-2 border-outline-variant/30 bg-surface-container-lowest focus:border-primary focus:outline-none transition-colors"
                     placeholder="0"
                   />
                 </div>
                 <div className="p-4 rounded-xl bg-surface-container">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Monto a registrar</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(montoInicial) || 0)}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Monto a registrar
+                  </p>
+                  <p className="text-2xl font-black text-on-secondary-fixed">
+                    {cop.format(Number(montoInicial) || 0)}
+                  </p>
                 </div>
                 <button
                   onClick={() => abrirCajaMutation.mutate()}
                   disabled={abrirCajaMutation.isPending}
                   className="w-full py-4 rounded-xl font-black text-white text-sm uppercase tracking-widest disabled:opacity-60 transition-all"
-                  style={{ backgroundColor: '#2a1709' }}>
+                  style={{ backgroundColor: tokens.color.bgDark }}
+                >
                   {abrirCajaMutation.isPending ? 'Abriendo...' : 'Abrir caja'}
                 </button>
               </div>
@@ -200,42 +247,88 @@ export default function CajaPage() {
             {/* KPIs */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-primary">
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Ventas del día</p>
-                <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(totalVentasDia)}</p>
-                <p className="text-xs font-bold text-primary mt-2">{ventasHoy.length} transacciones</p>
+                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                  Ventas del día
+                </p>
+                <p className="text-2xl font-black text-on-secondary-fixed">
+                  {cop.format(totalVentasDia)}
+                </p>
+                <p className="text-xs font-bold text-primary mt-2">
+                  {ventasHoy.length} transacciones
+                </p>
               </div>
-              <div className="bg-surface-container-low p-6 rounded-2xl border-l-4" style={{ borderColor: '#2e7d32' }}>
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Monto inicial</p>
-                <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cajaActiva.montoInicial))}</p>
+              <div
+                className="bg-surface-container-low p-6 rounded-2xl border-l-4"
+                style={{ borderColor: '#2e7d32' }}
+              >
+                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                  Monto inicial
+                </p>
+                <p className="text-2xl font-black text-on-secondary-fixed">
+                  {cop.format(Number(cajaActiva.montoInicial))}
+                </p>
               </div>
               <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-tertiary">
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total efectivo</p>
-                <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cajaActiva.totalEfectivo))}</p>
+                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                  Total efectivo
+                </p>
+                <p className="text-2xl font-black text-on-secondary-fixed">
+                  {cop.format(Number(cajaActiva.totalEfectivo))}
+                </p>
               </div>
               <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-secondary">
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Apertura</p>
-                <p className="text-base font-black text-on-secondary-fixed">{new Date(cajaActiva.fechaApertura).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</p>
-                <p className="text-xs text-secondary mt-1">{new Date(cajaActiva.fechaApertura).toLocaleDateString('es-CO')}</p>
+                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                  Apertura
+                </p>
+                <p className="text-base font-black text-on-secondary-fixed">
+                  {new Date(cajaActiva.fechaApertura).toLocaleTimeString('es-CO', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+                <p className="text-xs text-secondary mt-1">
+                  {new Date(cajaActiva.fechaApertura).toLocaleDateString('es-CO')}
+                </p>
               </div>
             </div>
 
             {/* Contadores método de pago */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/10 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#e8f5e9' }}>
-                  <span className="material-symbols-outlined" style={{ color: '#2e7d32', fontSize: 24 }}>payments</span>
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: '#e8f5e9' }}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ color: '#2e7d32', fontSize: 24 }}
+                  >
+                    payments
+                  </span>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest">Ventas efectivo</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest">
+                    Ventas efectivo
+                  </p>
                   <p className="text-2xl font-black text-on-secondary-fixed">{countEfectivo}</p>
                 </div>
               </div>
               <div className="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/10 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#e8eaf6' }}>
-                  <span className="material-symbols-outlined" style={{ color: '#3949ab', fontSize: 24 }}>credit_card</span>
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: '#e8eaf6' }}
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ color: '#3949ab', fontSize: 24 }}
+                  >
+                    credit_card
+                  </span>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest">Ventas tarjeta/transf.</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest">
+                    Ventas tarjeta/transf.
+                  </p>
                   <p className="text-2xl font-black text-on-secondary-fixed">{countTarjeta}</p>
                 </div>
               </div>
@@ -246,10 +339,16 @@ export default function CajaPage() {
               <h2 className="text-xl font-bold text-on-secondary-fixed mb-4">Ventas del día</h2>
               <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
                 {ventasDiaQuery.isLoading ? (
-                  <div className="p-6 space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+                  <div className="p-6 space-y-3">
+                    {[...Array(4)].map((_, i) => (
+                      <Skeleton key={i} className="h-10" />
+                    ))}
+                  </div>
                 ) : ventasHoy.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 gap-3">
-                    <span className="material-symbols-outlined text-5xl text-outline">receipt_long</span>
+                    <span className="material-symbols-outlined text-5xl text-outline">
+                      receipt_long
+                    </span>
                     <p className="text-sm font-bold text-secondary">Sin ventas registradas hoy</p>
                   </div>
                 ) : (
@@ -263,17 +362,26 @@ export default function CajaPage() {
                     </thead>
                     <tbody className="text-sm">
                       {ventasHoy.map((venta, i) => (
-                        <tr key={venta.id} className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
+                        <tr
+                          key={venta.id}
+                          className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                        >
                           <td className="px-6 py-4 font-bold text-on-surface">{venta.numero}</td>
                           <td className="px-6 py-4">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold"
-                              style={venta.metodoPago === 'EFECTIVO'
-                                ? { backgroundColor: '#e8f5e9', color: '#2e7d32' }
-                                : { backgroundColor: '#e8eaf6', color: '#3949ab' }}>
+                            <span
+                              className="px-3 py-1 rounded-full text-xs font-bold"
+                              style={
+                                venta.metodoPago === 'EFECTIVO'
+                                  ? { backgroundColor: '#e8f5e9', color: '#2e7d32' }
+                                  : { backgroundColor: '#e8eaf6', color: '#3949ab' }
+                              }
+                            >
                               {venta.metodoPago}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-on-surface">{cop.format(Number(venta.total))}</td>
+                          <td className="px-6 py-4 text-right font-bold text-on-surface">
+                            {cop.format(Number(venta.total))}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -287,35 +395,55 @@ export default function CajaPage() {
               <div className="bg-surface-container-lowest rounded-2xl shadow-sm overflow-hidden">
                 <div className="px-6 py-5" style={{ backgroundColor: '#2a1709' }}>
                   <h2 className="text-xl font-black text-white">Cerrar caja</h2>
-                  <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>Ingresa el conteo físico de efectivo</p>
+                  <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>
+                    Ingresa el conteo físico de efectivo
+                  </p>
                 </div>
                 <div className="p-6 space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-2">Monto contado en caja (COP)</label>
+                    <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-2">
+                      Monto contado en caja (COP)
+                    </label>
                     <input
-                      type="number" min={0} value={montoFinal}
+                      type="number"
+                      min={0}
+                      value={montoFinal}
                       onChange={(e) => setMontoFinal(e.target.value)}
                       className="w-full rounded-xl px-4 py-3 text-lg font-black text-on-secondary-fixed border-2 border-outline-variant/30 bg-surface-container-lowest focus:border-primary focus:outline-none transition-colors"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-4 rounded-xl bg-surface-container">
-                      <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Esperado</p>
-                      <p className="text-lg font-black text-on-secondary-fixed">{cop.format(esperado)}</p>
+                      <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                        Esperado
+                      </p>
+                      <p className="text-lg font-black text-on-secondary-fixed">
+                        {cop.format(esperado)}
+                      </p>
                     </div>
-                    <div className="p-4 rounded-xl" style={{
-                      backgroundColor: diferencia >= 0 ? '#e8f5e9' : '#ffdad6',
-                    }}>
-                      <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Diferencia</p>
-                      <p className="text-lg font-black" style={{ color: diferencia >= 0 ? '#2e7d32' : '#ba1a1a' }}>
-                        {diferencia >= 0 ? '+' : ''}{cop.format(diferencia)}
+                    <div
+                      className="p-4 rounded-xl"
+                      style={{
+                        backgroundColor: diferencia >= 0 ? '#e8f5e9' : '#ffdad6',
+                      }}
+                    >
+                      <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                        Diferencia
+                      </p>
+                      <p
+                        className="text-lg font-black"
+                        style={{ color: diferencia >= 0 ? '#2e7d32' : '#ba1a1a' }}
+                      >
+                        {diferencia >= 0 ? '+' : ''}
+                        {cop.format(diferencia)}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowConfirm(true)}
                     className="w-full py-4 rounded-xl font-black text-sm text-white uppercase tracking-widest transition-all"
-                    style={{ backgroundColor: '#85264b' }}>
+                    style={{ backgroundColor: tokens.color.primary }}
+                  >
                     Cerrar caja
                   </button>
                 </div>

@@ -10,6 +10,12 @@ import {
 import { EstadoVenta, MetodoPago } from '@cosmeticos/shared-types';
 import { DetalleVenta } from './detalle-venta.entity';
 
+type SplitPago = {
+  efectivo: number;
+  tarjeta: number;
+  transferencia: number;
+};
+
 @Entity('ventas')
 export class Venta {
   @PrimaryGeneratedColumn('uuid')
@@ -58,6 +64,9 @@ export class Venta {
 
   @Column({ type: 'text', nullable: true })
   observaciones?: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  splitPago?: SplitPago | null;
 
   @Column({ default: true })
   activo: boolean;

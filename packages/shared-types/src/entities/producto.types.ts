@@ -2,6 +2,7 @@ export interface IProducto {
   id: string;
   nombre: string;
   descripcion?: string;
+  imagenUrl?: string;
   categoriaId: string;
   marcaId: string;
   precioBase: number;

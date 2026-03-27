@@ -38,7 +38,7 @@ async function bootstrap() {
   });
 
   // Prefijo global de API
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api/v1');
   app.enableShutdownHooks();
 
   // Validación global de DTOs

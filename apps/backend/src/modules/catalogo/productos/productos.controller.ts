@@ -16,14 +16,19 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
+import { ProductosQueryDto } from './dto/productos-query.dto';
 import { ProductosService } from './productos.service';
+import { VariantesService } from '../variantes/variantes.service';
 
 @ApiTags('productos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('productos')
 export class ProductosController {
-  constructor(private readonly productosService: ProductosService) {}
+  constructor(
+    private readonly productosService: ProductosService,
+    private readonly variantesService: VariantesService,
+  ) {}
 
   @Post()
   @Roles(Rol.ADMIN)
@@ -37,15 +42,26 @@ export class ProductosController {
   @ApiOperation({ summary: 'Listar productos activos' })
   @ApiQuery({ name: 'categoriaId', required: false, type: String })
   @ApiQuery({ name: 'marcaId', required: false, type: String })
-  findAll(@Query('categoriaId') categoriaId?: string, @Query('marcaId') marcaId?: string) {
-    return this.productosService.findAll(categoriaId, marcaId);
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'q', required: false, type: String })
+  findAll(@Query() query: ProductosQueryDto) {
+    return this.productosService.findAll(query);
   }
 
   @Get(':id')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
   @ApiOperation({ summary: 'Obtener producto por ID' })
-  findOne(@Param('id') id: string) {
-    return this.productosService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const [producto, variantes] = await Promise.all([
+      this.productosService.findOne(id),
+      this.variantesService.findAll(id),
+    ]);
+
+    return {
+      ...producto,
+      variantes,
+    };
   }
 
   @Patch(':id')
@@ -60,5 +76,21 @@ export class ProductosController {
   @ApiOperation({ summary: 'Desactivar producto' })
   remove(@Param('id') id: string) {
     return this.productosService.remove(id);
+  }
+
+  @Get('barcode/:codigo')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Buscar producto por codigo de barras de variante' })
+  async findByBarcode(@Param('codigo') codigo: string) {
+    const variante = await this.variantesService.findByCodigoBarras(codigo);
+    const [producto, variantes] = await Promise.all([
+      this.productosService.findOne(variante.productoId),
+      this.variantesService.findAll(variante.productoId),
+    ]);
+
+    return {
+      ...producto,
+      variantes,
+    };
   }
 }

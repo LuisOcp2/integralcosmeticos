@@ -1,5 +1,11 @@
 import { EstadoCaja, EstadoVenta, MetodoPago } from '../enums';
 
+export interface ISplitPago {
+  efectivo: number;
+  tarjeta: number;
+  transferencia: number;
+}
+
 export interface IVenta {
   id: string;
   numero: string; // ej: 'VTA-2026-00001'
@@ -12,6 +18,7 @@ export interface IVenta {
   impuesto: number;
   total: number;
   metodoPago: MetodoPago;
+  splitPago?: ISplitPago | null;
   estado: EstadoVenta;
   observaciones?: string;
   createdAt: Date;

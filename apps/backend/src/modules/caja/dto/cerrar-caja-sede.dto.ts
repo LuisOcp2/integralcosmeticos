@@ -1,0 +1,13 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNumber, IsUUID, Min } from 'class-validator';
+
+export class CerrarCajaSedeDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  sedeId: string;
+
+  @ApiProperty({ example: 350000 })
+  @IsNumber()
+  @Min(0)
+  montoFinal: number;
+}

@@ -6,6 +6,7 @@ import { Marca } from '../marcas/entities/marca.entity';
 import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { Producto } from './entities/producto.entity';
+import { ProductosQueryDto } from './dto/productos-query.dto';
 
 @Injectable()
 export class ProductosService {
@@ -55,7 +56,9 @@ export class ProductosService {
     return this.productosRepository.save(producto);
   }
 
-  async findAll(categoriaId?: string, marcaId?: string): Promise<Producto[]> {
+  async findAll(queryDto: ProductosQueryDto = {}): Promise<Producto[]> {
+    const { categoriaId, marcaId, q } = queryDto;
+
     const query = this.productosRepository
       .createQueryBuilder('producto')
       .leftJoinAndSelect('producto.categoria', 'categoria')
@@ -72,7 +75,17 @@ export class ProductosService {
       query.andWhere('producto.marcaId = :marcaId', { marcaId });
     }
 
+    if (q?.trim()) {
+      query.andWhere('LOWER(producto.nombre) LIKE :q', { q: `%${q.trim().toLowerCase()}%` });
+    }
+
     query.orderBy('producto.nombre', 'ASC');
+
+    if (queryDto.limit) {
+      const page = queryDto.page ?? 1;
+      const limit = queryDto.limit;
+      query.take(limit).skip((page - 1) * limit);
+    }
 
     return query.getMany();
   }

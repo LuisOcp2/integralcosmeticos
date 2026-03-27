@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MetodoPago } from '@cosmeticos/shared-types';
 import {
   ArrayMinSize,
+  IsDefined,
   IsArray,
   IsEnum,
   IsNumber,
@@ -30,6 +31,23 @@ class CreateDetalleVentaDto {
   descuentoItem?: number;
 }
 
+class SplitPagoDto {
+  @ApiProperty({ example: 20000 })
+  @IsNumber()
+  @Min(0)
+  efectivo: number;
+
+  @ApiProperty({ example: 15000 })
+  @IsNumber()
+  @Min(0)
+  tarjeta: number;
+
+  @ApiProperty({ example: 5000 })
+  @IsNumber()
+  @Min(0)
+  transferencia: number;
+}
+
 export class CreateVentaDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
@@ -55,7 +73,14 @@ export class CreateVentaDto {
   @IsOptional()
   descuento?: number;
 
+  @ApiPropertyOptional({ type: SplitPagoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SplitPagoDto)
+  splitPago?: SplitPagoDto;
+
   @ApiProperty({ type: [CreateDetalleVentaDto] })
+  @IsDefined()
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

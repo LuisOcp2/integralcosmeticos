@@ -7,6 +7,8 @@ export interface ISede {
   ciudad: string;
   telefono?: string;
   tipo: TipoSede;
+  moneda?: string;
+  impuestoPorcentaje?: number;
   activo: boolean;
   createdAt: Date;
 }

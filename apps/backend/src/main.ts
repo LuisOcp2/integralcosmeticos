@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
@@ -47,8 +48,11 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
+      forbidUnknownValues: true,
     }),
   );
+
+  app.useGlobalGuards(app.get(ThrottlerGuard));
 
   if (process.env.NODE_ENV !== 'production') {
     setupSwagger(app);

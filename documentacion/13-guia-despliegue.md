@@ -46,6 +46,16 @@ npm run electron:build --workspace @cosmeticos/desktop
 2. Revise artefactos generados en `apps/desktop/release`.
 3. Entregue el instalador `.exe` firmado en caso de ambiente productivo.
 
+### Notas de electron-builder
+
+- `appId`: `com.integralcosmeticos.app`
+- `productName`: `Integral Cosméticos`
+- `target` Windows: `nsis` (`x64`)
+- `output`: `apps/desktop/release`
+- `files`: incluye `dist/**/*`, `electron/**/*`, `node_modules/**/*`
+
+El empaquetado espera los iconos declarados en `package.json` del desktop.
+
 ## Checklist de go-live
 
 - [ ] Variables de entorno cargadas y validadas.
@@ -56,3 +66,5 @@ npm run electron:build --workspace @cosmeticos/desktop
 - [ ] Instalador desktop probado en Windows objetivo.
 - [ ] Usuario administrador inicial creado y seed restringido.
 - [ ] Monitoreo y alertas basicas activas.
+- [ ] Endpoint `GET /api/sync/status` validado con rol ADMIN.
+- [ ] Endpoint `POST /api/sync/forzar` validado con rol ADMIN.

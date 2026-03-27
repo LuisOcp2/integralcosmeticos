@@ -12,6 +12,7 @@ import ClientesPage from './pages/ClientesPage';
 import CajaPage from './pages/CajaPage';
 import POSPage from './pages/POSPage';
 import ReportesPage from './pages/ReportesPage';
+import SyncPage from './pages/SyncPage';
 
 function ProtectedRoute({
   children,
@@ -121,6 +122,14 @@ export default function App() {
           element={
             <ProtectedRoute path="/reportes" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
               <ReportesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sync"
+          element={
+            <ProtectedRoute path="/sync" allowedRoles={[Rol.ADMIN]}>
+              <SyncPage />
             </ProtectedRoute>
           }
         />

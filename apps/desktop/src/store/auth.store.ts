@@ -18,6 +18,7 @@ const baseRolePaths: Record<Rol, string[]> = {
   [Rol.ADMIN]: [
     '/dashboard',
     '/reportes',
+    '/sync',
     '/sedes',
     '/productos',
     '/inventario',

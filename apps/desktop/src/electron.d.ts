@@ -5,7 +5,8 @@ declare global {
     electronAPI?: {
       printTicket: (pdfBuffer: Uint8Array | ArrayBuffer | number[]) => Promise<boolean>;
       getVersion: () => Promise<string>;
-      onSyncStatus: (callback: (status: unknown) => void) => void;
+      notifySyncRefresh: () => Promise<boolean>;
+      onSyncStatus: (callback: (status: unknown) => void) => () => void;
     };
   }
 }

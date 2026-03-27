@@ -17,6 +17,7 @@
     "directories": {
       "output": "release"
     },
+    "artifactName": "${productName}-Setup-${version}.${ext}",
     "files": [
       "dist/**/*",
       "electron/**/*",

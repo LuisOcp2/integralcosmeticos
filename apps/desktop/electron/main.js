@@ -3,6 +3,11 @@ const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const isDev = process.env.NODE_ENV !== 'production';
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 let mainWindow = null;
 
 function parseDeepLink(url) {
@@ -82,6 +87,18 @@ ipcMain.handle('print-ticket', async (_event, pdfBuffer) => {
 });
 
 ipcMain.handle('get-app-version', async () => app.getVersion());
+ipcMain.handle('notify-sync-refresh', async () => {
+  if (!mainWindow) {
+    return false;
+  }
+
+  mainWindow.webContents.send('sync-status', {
+    type: 'SYNC_REFRESH_REQUESTED',
+    payload: { at: new Date().toISOString() },
+  });
+
+  return true;
+});
 
 app.whenReady().then(() => {
   if (process.argv.length > 1) {
@@ -93,6 +110,14 @@ app.whenReady().then(() => {
   createWindow();
 
   if (!isDev) {
+    autoUpdater.on('update-available', () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('sync-status', {
+          type: 'UPDATE_AVAILABLE',
+          payload: { at: new Date().toISOString() },
+        });
+      }
+    });
     autoUpdater.checkForUpdatesAndNotify();
   }
 

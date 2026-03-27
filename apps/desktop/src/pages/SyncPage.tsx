@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AppLayout from './components/AppLayout';
 import api from '../lib/api';
@@ -34,6 +35,7 @@ function formatFecha(value: string) {
 
 export default function SyncPage() {
   const queryClient = useQueryClient();
+  const [desktopEvent, setDesktopEvent] = useState<string | null>(null);
 
   const syncStatusQuery = useQuery({
     queryKey: ['sync', 'status'],
@@ -44,9 +46,27 @@ export default function SyncPage() {
   const forzarSyncMutation = useMutation({
     mutationFn: forzarSync,
     onSuccess: async () => {
+      if (window.electronAPI?.notifySyncRefresh) {
+        await window.electronAPI.notifySyncRefresh();
+      }
       await queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
     },
   });
+
+  useEffect(() => {
+    const off = window.electronAPI?.onSyncStatus?.((payload) => {
+      const event = payload as { type?: string };
+      if (event.type) {
+        setDesktopEvent(event.type);
+      }
+
+      void queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
+    });
+
+    return () => {
+      off?.();
+    };
+  }, [queryClient]);
 
   const status = syncStatusQuery.data;
   const estadoCard =
@@ -75,6 +95,9 @@ export default function SyncPage() {
               {forzarSyncMutation.isPending ? 'Encolando...' : 'Forzar Sync ahora'}
             </button>
           </div>
+          {desktopEvent ? (
+            <p className="mt-3 text-xs text-slate-500">Ultimo evento desktop: {desktopEvent}</p>
+          ) : null}
         </section>
 
         <section className="grid grid-cols-1 gap-4 md:grid-cols-3">

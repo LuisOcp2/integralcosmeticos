@@ -10,7 +10,7 @@ interface AppLayoutProps {
 const navItems: Array<{ to: string; label: string; roles?: Rol[] }> = [
   { to: '/dashboard', label: '📊 Dashboard', roles: [Rol.ADMIN, Rol.SUPERVISOR] },
   { to: '/reportes', label: '📈 Reportes', roles: [Rol.ADMIN, Rol.SUPERVISOR] },
-  { to: '/sync', label: '☁️ Sincronizacion', roles: [Rol.ADMIN] },
+  { to: '/sync', label: '☁ Sync cloud', roles: [Rol.ADMIN] },
   { to: '/sedes', label: 'Sedes', roles: [Rol.ADMIN, Rol.SUPERVISOR] },
   { to: '/productos', label: 'Productos' },
   { to: '/inventario', label: 'Inventario' },

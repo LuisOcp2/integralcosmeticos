@@ -133,6 +133,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/sincronizacion"
+          element={
+            <ProtectedRoute path="/sync" allowedRoles={[Rol.ADMIN]}>
+              <Navigate to="/sync" replace />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to={defaultPath} replace />} />
       </Routes>
     </BrowserRouter>

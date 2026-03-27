@@ -30,10 +30,10 @@ export class Cliente {
   documento: string;
 
   @Index({ unique: true })
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', length: 150, nullable: true })
   email?: string | null;
 
-  @Column({ nullable: true, length: 30 })
+  @Column({ type: 'varchar', length: 30, nullable: true })
   telefono?: string | null;
 
   @Column({ type: 'text', nullable: true })

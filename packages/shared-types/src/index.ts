@@ -8,5 +8,6 @@ export * from './entities/variante.types';
 export * from './entities/inventario.types';
 export * from './entities/venta.types';
 export * from './entities/cliente.types';
+export * from './entities/reporte.types';
 export * from './enums';
 export * from './api/response.types';

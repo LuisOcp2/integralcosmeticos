@@ -1,29 +1,34 @@
 import { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Rol } from '@cosmeticos/shared-types';
-import { useAuthStore } from '../../store/auth.store';
+import { canAccessPath, useAuthStore } from '../../store/auth.store';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 const navItems: Array<{ to: string; label: string; roles?: Rol[] }> = [
-  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/dashboard', label: '📊 Dashboard', roles: [Rol.ADMIN, Rol.SUPERVISOR] },
+  { to: '/reportes', label: '📈 Reportes', roles: [Rol.ADMIN, Rol.SUPERVISOR] },
   { to: '/sedes', label: 'Sedes', roles: [Rol.ADMIN, Rol.SUPERVISOR] },
   { to: '/productos', label: 'Productos' },
   { to: '/inventario', label: 'Inventario' },
-  { to: '/clientes', label: 'Clientes', roles: [Rol.ADMIN, Rol.CAJERO, Rol.SUPERVISOR] },
-  { to: '/caja', label: 'Caja', roles: [Rol.ADMIN, Rol.CAJERO, Rol.SUPERVISOR] },
-  { to: '/pos', label: 'POS', roles: [Rol.ADMIN, Rol.CAJERO] },
+  { to: '/clientes', label: 'Clientes' },
+  { to: '/caja', label: 'Caja' },
+  { to: '/pos', label: 'POS' },
 ];
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
   const { usuario, logout } = useAuthStore();
 
-  const visibles = navItems.filter(
-    (item) => !item.roles || (usuario ? item.roles.includes(usuario.rol) : false),
-  );
+  const visibles = navItems.filter((item) => {
+    if (!usuario) {
+      return false;
+    }
+
+    return canAccessPath(usuario.rol, item.to) && (!item.roles || item.roles.includes(usuario.rol));
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-amber-50 to-orange-50">

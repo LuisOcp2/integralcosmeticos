@@ -41,9 +41,15 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-700 mb-4">🚀 Sistema inicializado correctamente</h2>
-          <p className="text-gray-500">Los módulos de Productos, Inventario, Ventas y CRM están en desarrollo.</p>
-          <p className="text-gray-400 text-sm mt-2">Fase 1 completada ✅ — Auth, Usuarios, Dashboard base</p>
+          <h2 className="text-lg font-semibold text-gray-700 mb-4">
+            🚀 Sistema inicializado correctamente
+          </h2>
+          <p className="text-gray-500">
+            Los módulos de Productos, Inventario, Ventas y CRM están en desarrollo.
+          </p>
+          <p className="text-gray-400 text-sm mt-2">
+            Fase 1 completada ✅ — Auth, Usuarios, Dashboard base
+          </p>
         </div>
       </main>
     </div>

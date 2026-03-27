@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { EstadoCaja, EstadoVenta, MetodoPago, TipoMovimiento } from '@cosmeticos/shared-types';
 import { DataSource, Repository } from 'typeorm';
+import PDFDocument from 'pdfkit';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
 import { Venta } from './entities/venta.entity';
@@ -11,6 +12,7 @@ import { InventarioService } from '../inventario/inventario.service';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
 import { Cliente } from '../clientes/entities/cliente.entity';
+import { Sede } from '../sedes/entities/sede.entity';
 
 @Injectable()
 export class VentasService {
@@ -27,6 +29,8 @@ export class VentasService {
     private readonly productosRepository: Repository<Producto>,
     @InjectRepository(Cliente)
     private readonly clientesRepository: Repository<Cliente>,
+    @InjectRepository(Sede)
+    private readonly sedesRepository: Repository<Sede>,
     private readonly inventarioService: InventarioService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -278,5 +282,57 @@ export class VentasService {
     }
 
     return venta;
+  }
+
+  async generarTicketPDF(ventaId: string): Promise<Buffer> {
+    const venta = await this.getVentaById(ventaId);
+    const sede = await this.sedesRepository.findOne({ where: { id: venta.sedeId, activo: true } });
+
+    const detallesActivos = venta.detalles.filter((detalle) => detalle.activo);
+    const variantes = await this.variantesRepository.find({
+      where: detallesActivos.map((item) => ({ id: item.varianteId, activo: true })),
+    });
+    const variantesMap = new Map(variantes.map((v) => [v.id, v]));
+
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const chunks: Buffer[] = [];
+
+    return new Promise((resolve, reject) => {
+      doc.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', (err: Error) => reject(err));
+
+      doc.fontSize(16).text(sede?.nombre ?? 'Integral Cosmeticos', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(10).text(`Direccion: ${sede?.direccion ?? 'N/A'}`, { align: 'center' });
+      doc.text(`Fecha/Hora: ${venta.createdAt.toLocaleString()}`, { align: 'center' });
+      doc.text(`Numero de venta: ${venta.numero}`, { align: 'center' });
+      doc.moveDown();
+
+      doc.fontSize(11).text('Detalle de items', { underline: true });
+      doc.moveDown(0.5);
+
+      for (const item of detallesActivos) {
+        const variante = variantesMap.get(item.varianteId);
+        doc
+          .fontSize(10)
+          .text(`${variante?.nombre ?? item.varianteId}`)
+          .text(
+            `Cant: ${item.cantidad}  PU: ${Number(item.precioUnitario).toFixed(2)}  Sub: ${Number(item.subtotal).toFixed(2)}`,
+          )
+          .moveDown(0.3);
+      }
+
+      doc.moveDown();
+      doc.text(`Subtotal: ${Number(venta.subtotal).toFixed(2)} COP`);
+      doc.text(`Descuento: ${Number(venta.descuento).toFixed(2)} COP`);
+      doc.text(`IVA: ${Number(venta.impuesto).toFixed(2)} COP`);
+      doc.fontSize(12).text(`TOTAL: ${Number(venta.total).toFixed(2)} COP`);
+      doc.moveDown(0.5);
+      doc.fontSize(10).text(`Metodo de pago: ${venta.metodoPago}`);
+      doc.text('Gracias por su compra', { align: 'center' });
+
+      doc.end();
+    });
   }
 }

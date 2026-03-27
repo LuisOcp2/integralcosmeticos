@@ -33,3 +33,9 @@ export enum EstadoSyncCloud {
   SINCRONIZADO = 'SINCRONIZADO',
   ERROR = 'ERROR',
 }
+
+export enum TipoSede {
+  TIENDA = 'TIENDA',
+  BODEGA = 'BODEGA',
+  PRINCIPAL = 'PRINCIPAL',
+}

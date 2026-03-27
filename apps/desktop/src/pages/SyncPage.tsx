@@ -33,6 +33,10 @@ function formatFecha(value: string) {
   return new Date(value).toLocaleString('es-CO');
 }
 
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded-xl bg-surface-container ${className ?? ''}`} />;
+}
+
 export default function SyncPage() {
   const queryClient = useQueryClient();
   const [desktopEvent, setDesktopEvent] = useState<string | null>(null);
@@ -46,9 +50,7 @@ export default function SyncPage() {
   const forzarSyncMutation = useMutation({
     mutationFn: forzarSync,
     onSuccess: async () => {
-      if (window.electronAPI?.notifySyncRefresh) {
-        await window.electronAPI.notifySyncRefresh();
-      }
+      if (window.electronAPI?.notifySyncRefresh) await window.electronAPI.notifySyncRefresh();
       await queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
     },
   });
@@ -56,124 +58,129 @@ export default function SyncPage() {
   useEffect(() => {
     const off = window.electronAPI?.onSyncStatus?.((payload) => {
       const event = payload as { type?: string };
-      if (event.type) {
-        setDesktopEvent(event.type);
-      }
-
+      if (event.type) setDesktopEvent(event.type);
       void queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
     });
-
-    return () => {
-      off?.();
-    };
+    return () => { off?.(); };
   }, [queryClient]);
 
   const status = syncStatusQuery.data;
-  const estadoCard =
-    status?.errores && status.errores > 0
-      ? { icono: '❌', texto: 'Error' }
-      : status?.pendientes && status.pendientes > 0
-        ? { icono: '⏳', texto: 'Pendiente' }
-        : { icono: '✅', texto: 'Sincronizado' };
+
+  const estadoGlobal = status?.errores && status.errores > 0
+    ? { label: 'Con errores', icon: 'error', bg: '#ffdad6', color: '#ba1a1a', border: '#ba1a1a' }
+    : status?.pendientes && status.pendientes > 0
+      ? { label: 'Pendiente', icon: 'schedule', bg: '#fff3e0', color: '#e65100', border: '#e65100' }
+      : { label: 'Sincronizado', icon: 'cloud_done', bg: '#e8f5e9', color: '#2e7d32', border: '#2e7d32' };
 
   return (
     <AppLayout>
-      <div className="space-y-4">
-        <section className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-sky-900">Sincronizacion cloud</h1>
-              <p className="text-sm text-sky-700/80">
-                Estado en tiempo real de cola, errores y ultimas operaciones.
-              </p>
-            </div>
-            <button
-              onClick={() => forzarSyncMutation.mutate()}
-              disabled={forzarSyncMutation.isPending}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {forzarSyncMutation.isPending ? 'Encolando...' : 'Forzar Sync ahora'}
-            </button>
+      <div className="space-y-8">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">Sincronización</h1>
+            <p className="text-secondary font-medium mt-1">Estado en tiempo real de la cola cloud</p>
           </div>
-          {desktopEvent ? (
-            <p className="mt-3 text-xs text-slate-500">Ultimo evento desktop: {desktopEvent}</p>
-          ) : null}
-        </section>
+          <button
+            onClick={() => forzarSyncMutation.mutate()}
+            disabled={forzarSyncMutation.isPending}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm text-white uppercase tracking-widest disabled:opacity-60 transition-all"
+            style={{ backgroundColor: '#2a1709' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+              {forzarSyncMutation.isPending ? 'hourglass_top' : 'sync'}
+            </span>
+            {forzarSyncMutation.isPending ? 'Sincronizando...' : 'Forzar sync ahora'}
+          </button>
+        </header>
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <article className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Estado actual</p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-700">
-              {estadoCard.icono} {estadoCard.texto}
-            </p>
+        {/* Estado global */}
+        <div className="rounded-2xl p-6 border-l-4 flex items-center gap-5"
+          style={{ backgroundColor: estadoGlobal.bg, borderColor: estadoGlobal.border }}>
+          <span className="material-symbols-outlined text-5xl" style={{ color: estadoGlobal.color, fontVariationSettings: "'FILL' 1" }}>
+            {estadoGlobal.icon}
+          </span>
+          <div>
+            <p className="text-xl font-black" style={{ color: estadoGlobal.color }}>{estadoGlobal.label}</p>
             {status?.ultimaSync ? (
-              <p className="mt-2 text-xs text-slate-500">
-                Ultima sync: {formatFecha(status.ultimaSync)}
-              </p>
+              <p className="text-sm text-secondary mt-0.5">Última sync: {formatFecha(status.ultimaSync)}</p>
             ) : (
-              <p className="mt-2 text-xs text-slate-500">Sin sincronizaciones recientes</p>
+              <p className="text-sm text-secondary mt-0.5">Sin sincronizaciones recientes</p>
             )}
-          </article>
-
-          <article className="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Registros pendientes</p>
-            <p className="mt-1 text-2xl font-semibold text-amber-700">{status?.pendientes ?? 0}</p>
-          </article>
-
-          <article className="rounded-2xl border border-rose-100 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-600">Errores acumulados</p>
-            <p className="mt-1 text-2xl font-semibold text-rose-700">{status?.errores ?? 0}</p>
-          </article>
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-medium text-slate-900">Ultimas 10 sincronizaciones</h2>
-            {syncStatusQuery.isFetching ? (
-              <span className="text-xs text-slate-500">Actualizando...</span>
-            ) : null}
+            {desktopEvent && (
+              <p className="text-xs text-secondary mt-1">Último evento desktop: <span className="font-bold">{desktopEvent}</span></p>
+            )}
           </div>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-3 py-2 text-left">Tabla</th>
-                  <th className="px-3 py-2 text-left">Estado</th>
-                  <th className="px-3 py-2 text-left">Fecha</th>
-                  <th className="px-3 py-2 text-left">Registros afectados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(status?.historial ?? []).map((item) => (
-                  <tr key={item.id} className="border-t border-slate-100">
-                    <td className="px-3 py-2">{item.tabla}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          item.estado === 'OK'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-rose-100 text-rose-700'
-                        }`}
-                      >
-                        {item.estado}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">{formatFecha(item.creadoEn)}</td>
-                    <td className="px-3 py-2">{item.registrosAfectados}</td>
-                  </tr>
-                ))}
-                {!status?.historial?.length ? (
-                  <tr>
-                    <td colSpan={4} className="px-3 py-4 text-center text-slate-500">
-                      Sin registros de sincronizacion.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+        {/* KPIs */}
+        {syncStatusQuery.isLoading ? (
+          <div className="grid grid-cols-3 gap-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+        ) : (
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-primary">
+              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Completados</p>
+              <p className="text-2xl font-black text-on-secondary-fixed">{status?.completados ?? 0}</p>
+            </div>
+            <div className="p-6 rounded-2xl border-l-4" style={{ backgroundColor: '#fff3e0', borderColor: '#e65100' }}>
+              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Pendientes</p>
+              <p className="text-2xl font-black" style={{ color: '#e65100' }}>{status?.pendientes ?? 0}</p>
+            </div>
+            <div className="p-6 rounded-2xl border-l-4" style={{ backgroundColor: '#ffdad6', borderColor: '#ba1a1a' }}>
+              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Errores</p>
+              <p className="text-2xl font-black" style={{ color: '#ba1a1a' }}>{status?.errores ?? 0}</p>
+            </div>
           </div>
-        </section>
+        )}
+
+        {/* Historial */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-on-secondary-fixed">Historial de sincronizaciones</h2>
+            {syncStatusQuery.isFetching && (
+              <div className="flex items-center gap-1.5 text-xs font-bold text-secondary">
+                <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                Actualizando...
+              </div>
+            )}
+          </div>
+          <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
+            {syncStatusQuery.isLoading ? (
+              <div className="p-6 space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+            ) : !status?.historial?.length ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <span className="material-symbols-outlined text-5xl text-outline">history</span>
+                <p className="text-sm font-bold text-secondary">Sin registros de sincronización</p>
+              </div>
+            ) : (
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
+                    <th className="px-6 py-4">Tabla</th>
+                    <th className="px-6 py-4 text-center">Estado</th>
+                    <th className="px-6 py-4">Fecha</th>
+                    <th className="px-6 py-4 text-right">Registros</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {status.historial.map((item, i) => (
+                    <tr key={item.id} className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
+                      <td className="px-6 py-4 font-bold text-on-surface">{item.tabla}</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold"
+                          style={item.estado === 'OK'
+                            ? { backgroundColor: '#e8f5e9', color: '#2e7d32' }
+                            : { backgroundColor: '#ffdad6', color: '#ba1a1a' }}>
+                          {item.estado === 'OK' ? '✓ OK' : '✗ ERROR'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-secondary">{formatFecha(item.creadoEn)}</td>
+                      <td className="px-6 py-4 text-right font-black text-on-surface">{item.registrosAfectados}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

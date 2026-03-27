@@ -12,13 +12,14 @@
   },
   "dependencies": {
     "@cosmeticos/shared-types": "*",
+    "@tanstack/react-query": "^5.56.2",
+    "axios": "^1.7.7",
+    "dexie": "^4.0.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
-    "zustand": "^5.0.0",
-    "@tanstack/react-query": "^5.56.2",
-    "axios": "^1.7.7",
-    "dexie": "^4.0.8"
+    "recharts": "^3.8.1",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",

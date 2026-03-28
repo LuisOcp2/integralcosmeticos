@@ -24,16 +24,25 @@ export class Variante {
   @Column({ length: 200 })
   nombre: string;
 
-  @Column({ unique: true })
+  @Column({ name: 'codigo_barras', unique: true })
   codigoBarras: string;
 
   @Column({ unique: true })
   sku: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'precio_extra', type: 'decimal', precision: 12, scale: 2, default: 0 })
   precioExtra: number;
 
-  @Column({ default: true })
+  @Column({ name: 'precio_venta', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  precioVenta?: number | null;
+
+  @Column({ name: 'precio_costo', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  precioCosto?: number | null;
+
+  @Column({ name: 'imagen_url', type: 'text', nullable: true })
+  imagenUrl?: string;
+
+  @Column({ name: 'activa', default: true })
   activo: boolean;
 
   @CreateDateColumn()

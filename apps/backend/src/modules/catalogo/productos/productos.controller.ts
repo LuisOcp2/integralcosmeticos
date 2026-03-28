@@ -18,17 +18,13 @@ import { CreateProductoDto } from './dto/create-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { ProductosQueryDto } from './dto/productos-query.dto';
 import { ProductosService } from './productos.service';
-import { VariantesService } from '../variantes/variantes.service';
 
 @ApiTags('productos')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('productos')
 export class ProductosController {
-  constructor(
-    private readonly productosService: ProductosService,
-    private readonly variantesService: VariantesService,
-  ) {}
+  constructor(private readonly productosService: ProductosService) {}
 
   @Post()
   @Roles(Rol.ADMIN)
@@ -52,16 +48,8 @@ export class ProductosController {
   @Get(':id')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
   @ApiOperation({ summary: 'Obtener producto por ID' })
-  async findOne(@Param('id') id: string) {
-    const [producto, variantes] = await Promise.all([
-      this.productosService.findOne(id),
-      this.variantesService.findAll(id),
-    ]);
-
-    return {
-      ...producto,
-      variantes,
-    };
+  findOne(@Param('id') id: string) {
+    return this.productosService.findOne(id);
   }
 
   @Patch(':id')
@@ -81,16 +69,7 @@ export class ProductosController {
   @Get('barcode/:codigo')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
   @ApiOperation({ summary: 'Buscar producto por codigo de barras de variante' })
-  async findByBarcode(@Param('codigo') codigo: string) {
-    const variante = await this.variantesService.findByCodigoBarras(codigo);
-    const [producto, variantes] = await Promise.all([
-      this.productosService.findOne(variante.productoId),
-      this.variantesService.findAll(variante.productoId),
-    ]);
-
-    return {
-      ...producto,
-      variantes,
-    };
+  findByBarcode(@Param('codigo') codigo: string) {
+    return this.productosService.findByBarcode(codigo);
   }
 }

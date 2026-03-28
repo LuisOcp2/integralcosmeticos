@@ -1,16 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EstadoCaja, EstadoVenta, MetodoPago } from '@cosmeticos/shared-types';
+import { EstadoVenta, MetodoPago } from '@cosmeticos/shared-types';
 import { Repository } from 'typeorm';
-import { CierreCaja } from './entities/cierre-caja.entity';
+import { Caja } from './entities/caja.entity';
+import { SesionCaja } from './entities/sesion-caja.entity';
 import { Sede } from '../sedes/entities/sede.entity';
 import { Venta } from '../ventas/entities/venta.entity';
 
 @Injectable()
 export class CajaService {
   constructor(
-    @InjectRepository(CierreCaja)
-    private readonly cajaRepository: Repository<CierreCaja>,
+    @InjectRepository(Caja)
+    private readonly cajasRepository: Repository<Caja>,
+    @InjectRepository(SesionCaja)
+    private readonly sesionesRepository: Repository<SesionCaja>,
     @InjectRepository(Sede)
     private readonly sedesRepository: Repository<Sede>,
     @InjectRepository(Venta)
@@ -24,30 +27,45 @@ export class CajaService {
     }
   }
 
-  async abrirCaja(sedeId: string, usuarioId: string, montoInicial: number): Promise<CierreCaja> {
+  private async obtenerOCrearCajaPorSede(sedeId: string): Promise<Caja> {
+    const existente = await this.cajasRepository.findOne({ where: { sedeId, activo: true } });
+    if (existente) {
+      return existente;
+    }
+
+    const codigo = `CAJA-${sedeId.slice(0, 8).toUpperCase()}`;
+    const caja = this.cajasRepository.create({
+      sedeId,
+      codigo,
+      nombre: 'Caja principal',
+      activo: true,
+    });
+    return this.cajasRepository.save(caja);
+  }
+
+  async abrirCaja(sedeId: string, usuarioId: string, montoInicial: number): Promise<SesionCaja> {
     await this.validarSedeActiva(sedeId);
 
+    const cajaFisica = await this.obtenerOCrearCajaPorSede(sedeId);
     const abierta = await this.getCajaAbierta(sedeId);
     if (abierta) {
       throw new BadRequestException('Ya existe una caja abierta en esta sede');
     }
 
-    const caja = this.cajaRepository.create({
-      sedeId,
-      usuarioId,
+    const caja = this.sesionesRepository.create({
+      cajaId: cajaFisica.id,
+      usuarioAperturaId: usuarioId,
       fechaApertura: new Date(),
       montoInicial,
-      estado: EstadoCaja.ABIERTA,
       totalVentas: 0,
-      totalEfectivo: 0,
       activo: true,
     });
 
-    return this.cajaRepository.save(caja);
+    return this.sesionesRepository.save(caja);
   }
 
-  async cerrarCaja(cajaId: string, usuarioId: string, montoFinal: number): Promise<CierreCaja> {
-    const caja = await this.cajaRepository.findOne({
+  async cerrarCaja(cajaId: string, usuarioId: string, montoFinal: number): Promise<SesionCaja> {
+    const caja = await this.sesionesRepository.findOne({
       where: { id: cajaId, activo: true },
     });
 
@@ -55,11 +73,18 @@ export class CajaService {
       throw new NotFoundException('Caja no encontrada');
     }
 
-    if (caja.estado !== EstadoCaja.ABIERTA) {
+    if (caja.fechaCierre) {
       throw new BadRequestException('La caja ya se encuentra cerrada');
     }
 
-    const abiertasSede = await this.getCajaAbierta(caja.sedeId);
+    const cajaFisica = await this.cajasRepository.findOne({
+      where: { id: caja.cajaId, activo: true },
+    });
+    if (!cajaFisica) {
+      throw new NotFoundException('Caja fisica no encontrada para la sesion');
+    }
+
+    const abiertasSede = await this.getCajaAbierta(cajaFisica.sedeId);
     if (!abiertasSede || abiertasSede.id !== caja.id) {
       throw new BadRequestException('La caja ya no esta activa para cierre');
     }
@@ -67,9 +92,8 @@ export class CajaService {
     const ventasCompletadas = await this.ventasRepository.find({
       where: {
         cajaId: caja.id,
-        sedeId: caja.sedeId,
+        sedeId: cajaFisica.sedeId,
         estado: EstadoVenta.COMPLETADA,
-        activo: true,
       },
     });
 
@@ -80,22 +104,21 @@ export class CajaService {
     const esperado = Number(caja.montoInicial) + totalEfectivo;
     const diferencia = montoFinal - esperado;
 
-    caja.usuarioId = usuarioId;
+    caja.usuarioCierreId = usuarioId;
     caja.fechaCierre = new Date();
     caja.montoFinal = montoFinal;
     caja.totalVentas = totalVentas;
-    caja.totalEfectivo = totalEfectivo;
     caja.diferencia = diferencia;
-    caja.estado = EstadoCaja.CERRADA;
+    caja.activo = false;
 
-    return this.cajaRepository.save(caja);
+    return this.sesionesRepository.save(caja);
   }
 
   async cerrarCajaActivaPorSede(
     sedeId: string,
     usuarioId: string,
     montoFinal: number,
-  ): Promise<CierreCaja> {
+  ): Promise<SesionCaja> {
     const cajaActiva = await this.getCajaAbierta(sedeId);
     if (!cajaActiva) {
       throw new NotFoundException('No hay caja abierta para la sede enviada');
@@ -104,31 +127,33 @@ export class CajaService {
     return this.cerrarCaja(cajaActiva.id, usuarioId, montoFinal);
   }
 
-  async getCajaAbierta(sedeId: string): Promise<CierreCaja | null> {
+  async getCajaAbierta(sedeId: string): Promise<SesionCaja | null> {
     await this.validarSedeActiva(sedeId);
 
-    return this.cajaRepository.findOne({
-      where: {
-        sedeId,
-        estado: EstadoCaja.ABIERTA,
-        activo: true,
-      },
-      order: { fechaApertura: 'DESC' },
-    });
+    return this.sesionesRepository
+      .createQueryBuilder('sesion')
+      .innerJoin(Caja, 'caja', 'caja.id = sesion.cajaId')
+      .where('caja.sedeId = :sedeId', { sedeId })
+      .andWhere('caja.activa = true')
+      .andWhere('sesion.activa = true')
+      .orderBy('sesion.fechaApertura', 'DESC')
+      .getOne();
   }
 
-  async getHistorial(sedeId: string): Promise<CierreCaja[]> {
+  async getHistorial(sedeId: string): Promise<SesionCaja[]> {
     await this.validarSedeActiva(sedeId);
 
-    return this.cajaRepository.find({
-      where: { sedeId, activo: true },
-      order: { createdAt: 'DESC' },
-    });
+    return this.sesionesRepository
+      .createQueryBuilder('sesion')
+      .innerJoin(Caja, 'caja', 'caja.id = sesion.cajaId')
+      .where('caja.sedeId = :sedeId', { sedeId })
+      .orderBy('sesion.createdAt', 'DESC')
+      .getMany();
   }
 
-  async actualizarTotalesCaja(cajaId: string): Promise<CierreCaja | null> {
-    const caja = await this.cajaRepository.findOne({ where: { id: cajaId, activo: true } });
-    if (!caja || caja.estado !== EstadoCaja.ABIERTA) {
+  async actualizarTotalesCaja(cajaId: string): Promise<SesionCaja | null> {
+    const caja = await this.sesionesRepository.findOne({ where: { id: cajaId, activo: true } });
+    if (!caja || caja.fechaCierre) {
       return null;
     }
 
@@ -136,15 +161,11 @@ export class CajaService {
       where: {
         cajaId,
         estado: EstadoVenta.COMPLETADA,
-        activo: true,
       },
     });
 
     caja.totalVentas = ventasCompletadas.reduce((acc, venta) => acc + Number(venta.total), 0);
-    caja.totalEfectivo = ventasCompletadas
-      .filter((venta) => venta.metodoPago === MetodoPago.EFECTIVO)
-      .reduce((acc, venta) => acc + Number(venta.total), 0);
 
-    return this.cajaRepository.save(caja);
+    return this.sesionesRepository.save(caja);
   }
 }

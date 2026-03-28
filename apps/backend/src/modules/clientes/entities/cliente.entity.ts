@@ -6,7 +6,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { TipoDocumento } from '@cosmeticos/shared-types';
 
 @Entity('clientes')
 export class Cliente {
@@ -20,10 +19,11 @@ export class Cliente {
   apellido: string;
 
   @Column({
-    type: 'enum',
-    enum: TipoDocumento,
+    name: 'tipo_documento',
+    type: 'varchar',
+    length: 20,
   })
-  tipoDocumento: TipoDocumento;
+  tipoDocumento: string;
 
   @Index({ unique: true })
   @Column({ length: 30 })
@@ -39,10 +39,10 @@ export class Cliente {
   @Column({ type: 'text', nullable: true })
   direccion?: string | null;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ name: 'fecha_nacimiento', type: 'date', nullable: true })
   fechaNacimiento?: Date | null;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'puntos_fidelidad', type: 'int', default: 0 })
   puntosFidelidad: number;
 
   @Column({ default: true })

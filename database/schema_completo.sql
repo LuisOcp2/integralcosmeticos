@@ -1022,10 +1022,10 @@ BEGIN
     SET total_abonado = total_abonado + NEW.monto,
         saldo_pendiente = saldo_pendiente - NEW.monto,
         estado_pago = CASE
-            WHEN (saldo_pendiente - NEW.monto) <= 0 THEN 'COMPLETADO'::estado_pago_compra
-            WHEN (total_abonado + NEW.monto) > 0    THEN 'PARCIAL'::estado_pago_compra
-            ELSE 'PENDIENTE'::estado_pago_compra
-        END,
+            WHEN (saldo_pendiente - NEW.monto) <= 0 THEN 'COMPLETADO'
+            WHEN (total_abonado + NEW.monto) > 0    THEN 'PARCIAL'
+            ELSE 'PENDIENTE'
+        END::estado_pago_compra,
         "updatedAt" = NOW()
     WHERE id = NEW."compraId";
 
@@ -1225,7 +1225,7 @@ LEFT JOIN reglas_fidelidad rf_next ON (
         WHEN 'PLATA'::nivel_cliente  THEN 'ORO'::nivel_cliente
         WHEN 'ORO'::nivel_cliente    THEN 'VIP'::nivel_cliente
         ELSE NULL
-    END
+    END::nivel_cliente
 )
 WHERE c.activo = TRUE;
 

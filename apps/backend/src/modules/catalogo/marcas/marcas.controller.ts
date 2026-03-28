@@ -1,5 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Rol } from '@cosmeticos/shared-types';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -24,9 +34,11 @@ export class MarcasController {
 
   @Get()
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
-  @ApiOperation({ summary: 'Listar marcas activas' })
-  findAll() {
-    return this.marcasService.findAll();
+  @ApiOperation({ summary: 'Listar marcas' })
+  @ApiQuery({ name: 'incluirInactivos', required: false, type: String })
+  findAll(@Query('incluirInactivos') incluirInactivos?: string) {
+    const soloActivos = incluirInactivos !== 'true';
+    return this.marcasService.findAll(soloActivos);
   }
 
   @Get(':id')
@@ -48,5 +60,12 @@ export class MarcasController {
   @ApiOperation({ summary: 'Desactivar marca' })
   remove(@Param('id') id: string) {
     return this.marcasService.remove(id);
+  }
+
+  @Patch(':id/reactivar')
+  @Roles(Rol.ADMIN)
+  @ApiOperation({ summary: 'Reactivar marca' })
+  restore(@Param('id') id: string) {
+    return this.marcasService.restore(id);
   }
 }

@@ -1,6 +1,9 @@
+import { IVariante } from './variante.types';
+
 export interface IProducto {
   id: string;
   nombre: string;
+  codigoInterno?: string;
   descripcion?: string;
   imagenUrl?: string;
   categoriaId: string;
@@ -9,4 +12,5 @@ export interface IProducto {
   precioCosto: number;
   iva: number;
   activo: boolean;
+  variantes?: IVariante[];
 }

@@ -8,6 +8,7 @@ const baseRolePaths: Record<Rol, string[]> = {
   [Rol.SUPERVISOR]: [
     '/dashboard',
     '/reportes',
+    '/configuraciones',
     '/pos',
     '/caja',
     '/clientes',
@@ -18,7 +19,10 @@ const baseRolePaths: Record<Rol, string[]> = {
   [Rol.ADMIN]: [
     '/dashboard',
     '/reportes',
+    '/configuraciones',
     '/sync',
+    '/importaciones',
+    '/diagnostico',
     '/sedes',
     '/productos',
     '/inventario',

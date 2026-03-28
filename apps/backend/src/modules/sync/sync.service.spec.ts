@@ -36,7 +36,7 @@ describe('SyncService', () => {
     jest.clearAllMocks();
     (configService.get as jest.Mock).mockReturnValue(undefined);
     (syncLogRepository.findOne as jest.Mock).mockResolvedValue({
-      creadoEn: new Date('2026-01-01T10:00:00Z'),
+      createdAt: new Date('2026-01-01T10:00:00Z'),
     });
     (syncLogRepository.find as jest.Mock).mockResolvedValue([{ id: 'log-1', tabla: 'ventas' }]);
 
@@ -81,5 +81,32 @@ describe('SyncService', () => {
     expect(status.errores).toBe(1);
     expect(status.historial).toHaveLength(1);
     expect(syncLogRepository.find).toHaveBeenCalledWith(expect.objectContaining({ take: 10 }));
+  });
+
+  it('lanza error claro cuando Supabase no esta configurado', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SyncService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              if (key === 'SUPABASE_URL') return 'https://tu-proyecto.supabase.co';
+              if (key === 'SUPABASE_KEY') return 'tu-service-role-key';
+              return undefined;
+            }),
+          },
+        },
+        { provide: DataSource, useValue: dataSource },
+        { provide: getQueueToken('sync'), useValue: syncQueue },
+        { provide: getRepositoryToken(SyncLog), useValue: syncLogRepository },
+      ],
+    }).compile();
+
+    const misconfiguredService = module.get<SyncService>(SyncService);
+
+    await expect(misconfiguredService.syncTabla('clientes', [{ id: 'abc' }])).rejects.toThrow(
+      'Supabase no configurado. Define SUPABASE_URL y SUPABASE_KEY reales en apps/backend/.env.local',
+    );
   });
 });

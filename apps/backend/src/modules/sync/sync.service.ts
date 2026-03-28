@@ -5,6 +5,7 @@ import { Cron } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bull';
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'node:crypto';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { DataSource, In, Repository } from 'typeorm';
@@ -18,7 +19,8 @@ const execAsync = promisify(exec);
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
-  private readonly supabaseClient: SupabaseClient;
+  private readonly supabaseClient: SupabaseClient | null;
+  private readonly supabaseConfigError: string | null;
   private ultimaSync: Date | null = null;
 
   constructor(
@@ -29,7 +31,14 @@ export class SyncService {
   ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL') ?? 'http://localhost:54321';
     const supabaseKey = this.configService.get<string>('SUPABASE_KEY') ?? 'local-dev-key';
-    this.supabaseClient = createClient(supabaseUrl, supabaseKey);
+    this.supabaseConfigError = this.validarConfiguracionSupabase(supabaseUrl, supabaseKey);
+
+    if (this.supabaseConfigError) {
+      this.supabaseClient = null;
+      this.logger.warn(this.supabaseConfigError);
+    } else {
+      this.supabaseClient = createClient(supabaseUrl, supabaseKey);
+    }
   }
 
   async syncTabla(tabla: string, registros: Record<string, unknown>[]) {
@@ -37,17 +46,57 @@ export class SyncService {
       return { count: 0 };
     }
 
-    const { data, error } = await this.supabaseClient
-      .from(tabla)
-      .upsert(registros, { onConflict: 'id' })
-      .select('id');
+    if (!this.supabaseClient) {
+      throw new Error(this.supabaseConfigError ?? 'Supabase no configurado.');
+    }
 
-    if (error) {
-      throw new Error(error.message);
+    let data: { id: string }[] | null = null;
+
+    try {
+      const resultado = await this.supabaseClient
+        .from(tabla)
+        .upsert(registros, { onConflict: 'id' })
+        .select('id');
+      data = resultado.data;
+
+      if (resultado.error) {
+        throw new Error(resultado.error.message);
+      }
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'Error desconocido de red';
+
+      if (mensaje.includes('fetch failed')) {
+        throw new Error(
+          'No se pudo conectar con Supabase. Verifica SUPABASE_URL, SUPABASE_KEY y la conectividad de red.',
+        );
+      }
+
+      throw error;
     }
 
     this.ultimaSync = new Date();
     return { count: data?.length ?? registros.length };
+  }
+
+  private validarConfiguracionSupabase(url: string, key: string) {
+    const normalizedUrl = url.trim();
+    const normalizedKey = key.trim();
+
+    const urlInvalida =
+      !normalizedUrl ||
+      normalizedUrl.includes('tu-proyecto.supabase.co') ||
+      normalizedUrl === 'http://localhost:54321';
+
+    const keyInvalida =
+      !normalizedKey ||
+      normalizedKey === 'tu-service-role-key' ||
+      normalizedKey === 'local-dev-key';
+
+    if (urlInvalida || keyInvalida) {
+      return 'Supabase no configurado. Define SUPABASE_URL y SUPABASE_KEY reales en apps/backend/.env.local';
+    }
+
+    return null;
   }
 
   async queueSync(tabla: string, ids: string[]) {
@@ -75,7 +124,7 @@ export class SyncService {
       return this.dataSource.getRepository(Venta).find({ where: { id: In(ids) } });
     }
 
-    if (tabla === 'movimiento_inventarios') {
+    if (tabla === 'movimientos_inventario') {
       return this.dataSource.getRepository(MovimientoInventario).find({ where: { id: In(ids) } });
     }
 
@@ -89,17 +138,19 @@ export class SyncService {
   async registrarSync(
     tabla: string,
     operacion: string,
-    registrosAfectados: number,
-    estado: 'OK' | 'ERROR',
+    registroId: string,
+    estado: 'SINCRONIZADO' | 'ERROR',
     error?: string,
   ) {
     const log = this.syncLogRepository.create({
       tabla,
       operacion,
-      registrosAfectados,
+      registroId,
+      payload: null,
       estado,
+      intentos: 0,
       error: error ?? null,
-      activo: true,
+      sincronizadoEn: estado === 'SINCRONIZADO' ? new Date() : null,
     });
 
     await this.syncLogRepository.save(log);
@@ -123,12 +174,12 @@ export class SyncService {
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'Error desconocido en backup';
       this.logger.error(`Falló backup nocturno: ${mensaje}`);
-      await this.registrarSync('database', 'backupNocturno', 0, 'ERROR', mensaje);
+      await this.registrarSync('database', 'backupNocturno', randomUUID(), 'ERROR', mensaje);
     }
   }
 
   async forzarSyncInmediato() {
-    const tablas = ['ventas', 'movimiento_inventarios', 'clientes'] as const;
+    const tablas = ['ventas', 'movimientos_inventario', 'clientes'] as const;
     let encolados = 0;
 
     for (const tabla of tablas) {
@@ -142,16 +193,16 @@ export class SyncService {
     return { encolados };
   }
 
-  private async obtenerIdsActivos(tabla: 'ventas' | 'movimiento_inventarios' | 'clientes') {
+  private async obtenerIdsActivos(tabla: 'ventas' | 'movimientos_inventario' | 'clientes') {
     if (tabla === 'ventas') {
       const registros = await this.dataSource.getRepository(Venta).find({ select: ['id'] });
       return registros.map((item) => item.id);
     }
 
-    if (tabla === 'movimiento_inventarios') {
+    if (tabla === 'movimientos_inventario') {
       const registros = await this.dataSource
         .getRepository(MovimientoInventario)
-        .find({ select: ['id'], where: { activo: true } });
+        .find({ select: ['id'] });
       return registros.map((item) => item.id);
     }
 
@@ -167,8 +218,8 @@ export class SyncService {
       this.syncQueue.getCompletedCount(),
       this.syncQueue.getFailedCount(),
       this.syncLogRepository.findOne({
-        where: { activo: true },
-        order: { creadoEn: 'DESC' },
+        where: {},
+        order: { createdAt: 'DESC' },
       }),
     ]);
 
@@ -176,10 +227,10 @@ export class SyncService {
       pendientes,
       completados,
       errores,
-      ultimaSync: this.ultimaSync ?? ultima?.creadoEn ?? null,
+      ultimaSync: this.ultimaSync ?? ultima?.createdAt ?? null,
       historial: await this.syncLogRepository.find({
-        where: { activo: true },
-        order: { creadoEn: 'DESC' },
+        where: {},
+        order: { createdAt: 'DESC' },
         take: 10,
       }),
     };

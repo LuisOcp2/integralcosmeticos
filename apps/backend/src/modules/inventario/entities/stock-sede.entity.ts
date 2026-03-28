@@ -1,11 +1,4 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('stock_sedes')
 @Index(['varianteId', 'sedeId'], { unique: true })
@@ -22,15 +15,9 @@ export class StockSede {
   @Column({ type: 'int', default: 0 })
   cantidad: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'stock_minimo', type: 'int', default: 5 })
   stockMinimo: number;
-
-  @Column({ default: true })
-  activo: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

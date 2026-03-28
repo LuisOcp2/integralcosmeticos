@@ -10,6 +10,7 @@ type SedeForm = {
   direccion: string;
   ciudad: string;
   telefono: string;
+  responsable: string;
   tipo: TipoSede;
   moneda: string;
   impuestoPorcentaje: string;
@@ -20,6 +21,7 @@ const emptyForm: SedeForm = {
   direccion: '',
   ciudad: '',
   telefono: '',
+  responsable: '',
   tipo: TipoSede.TIENDA,
   moneda: 'COP',
   impuestoPorcentaje: '19',
@@ -52,6 +54,7 @@ function SedeModal({
           direccion: sede.direccion,
           ciudad: sede.ciudad,
           telefono: sede.telefono ?? '',
+          responsable: sede.responsable ?? '',
           tipo: sede.tipo,
           moneda: sede.moneda ?? 'COP',
           impuestoPorcentaje: String(Number(sede.impuestoPorcentaje ?? 19)),
@@ -66,6 +69,7 @@ function SedeModal({
         direccion: form.direccion.trim(),
         ciudad: form.ciudad.trim(),
         telefono: form.telefono.trim() || undefined,
+        responsable: form.responsable.trim() || undefined,
         tipo: form.tipo,
         moneda: form.moneda.trim().toUpperCase() || 'COP',
         impuestoPorcentaje: Number(form.impuestoPorcentaje || 0),
@@ -101,7 +105,7 @@ function SedeModal({
           <div>
             <h3 className="text-xl font-black text-white">{sede ? 'Editar sede' : 'Nueva sede'}</h3>
             <p className="text-sm" style={{ color: tokens.color.accentSoft }}>
-              Configuracion operacional por tienda
+              Configuración operacional por tienda
             </p>
           </div>
           <button onClick={onClose} className="text-white/80 hover:text-white" type="button">
@@ -168,6 +172,22 @@ function SedeModal({
               onChange={(e) => onField('telefono')(e.target.value)}
               className="w-full rounded-xl px-3 py-2.5 border"
               style={{ borderColor: tokens.color.border }}
+            />
+          </label>
+
+          <label className="md:col-span-2">
+            <span
+              className="block text-xs font-bold uppercase tracking-wider mb-1"
+              style={{ color: tokens.color.textMuted }}
+            >
+              Administrador responsable
+            </span>
+            <input
+              value={form.responsable}
+              onChange={(e) => onField('responsable')(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 border"
+              style={{ borderColor: tokens.color.border }}
+              placeholder="Nombre del administrador"
             />
           </label>
 
@@ -383,6 +403,9 @@ export default function SedesPage() {
                     <p className="text-sm text-secondary">{sede.direccion}</p>
                     {sede.telefono && (
                       <p className="text-sm text-secondary">Tel: {sede.telefono}</p>
+                    )}
+                    {sede.responsable && (
+                      <p className="text-sm text-secondary">Administrador: {sede.responsable}</p>
                     )}
 
                     <div className="grid grid-cols-2 gap-2 pt-1">

@@ -1,14 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { EstadoCaja, EstadoVenta, MetodoPago, TipoMovimiento } from '@cosmeticos/shared-types';
+import { EstadoVenta, MetodoPago, TipoMovimiento } from '@cosmeticos/shared-types';
 import { DataSource, Repository } from 'typeorm';
 import PDFDocument from 'pdfkit';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
 import { Venta } from './entities/venta.entity';
 import { DetalleVenta } from './entities/detalle-venta.entity';
-import { CierreCaja } from '../caja/entities/cierre-caja.entity';
+import { SesionCaja } from '../caja/entities/sesion-caja.entity';
 import { InventarioService } from '../inventario/inventario.service';
+import { StockSede } from '../inventario/entities/stock-sede.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
 import { Cliente } from '../clientes/entities/cliente.entity';
@@ -21,8 +22,8 @@ export class VentasService {
     private readonly ventasRepository: Repository<Venta>,
     @InjectRepository(DetalleVenta)
     private readonly detalleVentasRepository: Repository<DetalleVenta>,
-    @InjectRepository(CierreCaja)
-    private readonly cajaRepository: Repository<CierreCaja>,
+    @InjectRepository(SesionCaja)
+    private readonly cajaRepository: Repository<SesionCaja>,
     @InjectRepository(Variante)
     private readonly variantesRepository: Repository<Variante>,
     @InjectRepository(Producto)
@@ -35,6 +36,64 @@ export class VentasService {
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
+
+  private aplicarMontosSegunMetodo(
+    metodoPago: MetodoPago,
+    total: number,
+    splitPago?: CreateVentaDto['splitPago'],
+  ): Pick<Venta, 'montoEfectivo' | 'montoTarjeta' | 'montoTransferencia' | 'montoOtro'> {
+    const montos = {
+      montoEfectivo: 0,
+      montoTarjeta: 0,
+      montoTransferencia: 0,
+      montoOtro: 0,
+    };
+
+    if (metodoPago === MetodoPago.COMBINADO) {
+      if (!splitPago) {
+        throw new BadRequestException('Debe enviar splitPago para metodo COMBINADO');
+      }
+
+      const totalSplit =
+        Number(splitPago.efectivo ?? 0) +
+        Number(splitPago.tarjeta ?? 0) +
+        Number(splitPago.transferencia ?? 0);
+
+      if (Math.abs(totalSplit - total) > 0.01) {
+        throw new BadRequestException(
+          'La suma del split de pago debe coincidir con el total de la venta',
+        );
+      }
+
+      return {
+        montoEfectivo: Number(splitPago.efectivo ?? 0),
+        montoTarjeta: Number(splitPago.tarjeta ?? 0),
+        montoTransferencia: Number(splitPago.transferencia ?? 0),
+        montoOtro: 0,
+      };
+    }
+
+    if (splitPago) {
+      throw new BadRequestException('splitPago solo aplica cuando el metodo es COMBINADO');
+    }
+
+    if (metodoPago === MetodoPago.EFECTIVO) {
+      montos.montoEfectivo = total;
+      return montos;
+    }
+
+    if ([MetodoPago.TARJETA_CREDITO, MetodoPago.TARJETA_DEBITO].includes(metodoPago)) {
+      montos.montoTarjeta = total;
+      return montos;
+    }
+
+    if (metodoPago === MetodoPago.TRANSFERENCIA) {
+      montos.montoTransferencia = total;
+      return montos;
+    }
+
+    throw new BadRequestException('Metodo de pago no soportado');
+  }
 
   private async generarNumeroVenta(manager: DataSource['manager']): Promise<string> {
     const year = new Date().getFullYear();
@@ -53,15 +112,15 @@ export class VentasService {
     return `${prefijo}${siguiente}`;
   }
 
-  private async obtenerCajaAbierta(sedeId: string): Promise<CierreCaja> {
-    const cajaAbierta = await this.cajaRepository.findOne({
-      where: {
-        sedeId,
-        estado: EstadoCaja.ABIERTA,
-        activo: true,
-      },
-      order: { fechaApertura: 'DESC' },
-    });
+  private async obtenerCajaAbierta(sedeId: string): Promise<SesionCaja> {
+    const cajaAbierta = await this.cajaRepository
+      .createQueryBuilder('sesion')
+      .innerJoin('cajas', 'caja', 'caja.id = sesion.cajaId')
+      .where('caja.sedeId = :sedeId', { sedeId })
+      .andWhere('caja.activa = true')
+      .andWhere('sesion.activa = true')
+      .orderBy('sesion.fecha_apertura', 'DESC')
+      .getOne();
 
     if (!cajaAbierta) {
       throw new BadRequestException('No hay una caja abierta para la sede de la venta');
@@ -91,13 +150,17 @@ export class VentasService {
         impuesto: 0,
         total: 0,
         metodoPago: dto.metodoPago,
-        splitPago: dto.splitPago ?? null,
+        montoEfectivo: 0,
+        montoTarjeta: 0,
+        montoTransferencia: 0,
+        montoOtro: 0,
         estado: EstadoVenta.PENDIENTE,
         observaciones: dto.observaciones ?? null,
-        activo: true,
       });
 
       const ventaGuardada = await manager.getRepository(Venta).save(ventaEntity);
+
+      const stockDisponiblePorVariante = new Map<string, number>();
 
       for (const item of dto.items) {
         const variante = await manager.getRepository(Variante).findOne({
@@ -128,57 +191,82 @@ export class VentasService {
         const detalle = manager.getRepository(DetalleVenta).create({
           ventaId: ventaGuardada.id,
           varianteId: item.varianteId,
+          productoId: producto.id,
           cantidad: item.cantidad,
           precioUnitario,
+          precioCostoSnap: Number(producto.precioCosto),
           descuentoItem,
+          impuestoItem: subtotalItem * (Number(producto.iva) / 100),
           subtotal: subtotalItem,
-          activo: true,
         });
 
-        await manager.getRepository(DetalleVenta).save(detalle);
+        if (!stockDisponiblePorVariante.has(item.varianteId)) {
+          const stock = await manager
+            .getRepository(StockSede)
+            .createQueryBuilder('stock')
+            .setLock('pessimistic_write')
+            .where('stock.varianteId = :varianteId', { varianteId: item.varianteId })
+            .andWhere('stock.sedeId = :sedeId', { sedeId: dto.sedeId })
+            .getOne();
 
-        await this.inventarioService.registrarMovimientoConManager(
-          {
-            tipo: TipoMovimiento.SALIDA,
-            varianteId: item.varianteId,
-            sedeId: dto.sedeId,
-            cantidad: item.cantidad,
-            motivo: `Salida por venta ${numero}`,
-          },
-          usuarioId,
-          manager,
-        );
+          stockDisponiblePorVariante.set(item.varianteId, stock?.cantidad ?? 0);
+        }
+
+        const stockRestante = Number(stockDisponiblePorVariante.get(item.varianteId) ?? 0);
+        if (stockRestante < item.cantidad) {
+          throw new BadRequestException('Stock insuficiente para uno de los items de la venta');
+        }
+
+        stockDisponiblePorVariante.set(item.varianteId, stockRestante - item.cantidad);
+
+        await manager.getRepository(DetalleVenta).save(detalle);
       }
 
       ventaGuardada.subtotal = subtotal;
       ventaGuardada.impuesto = impuesto;
       ventaGuardada.total = subtotal + impuesto - descuentoGeneral;
 
-      if (dto.metodoPago === MetodoPago.COMBINADO) {
-        if (!dto.splitPago) {
-          throw new BadRequestException('Debe enviar splitPago para metodo COMBINADO');
-        }
-
-        const totalSplit =
-          Number(dto.splitPago.efectivo ?? 0) +
-          Number(dto.splitPago.tarjeta ?? 0) +
-          Number(dto.splitPago.transferencia ?? 0);
-
-        if (Math.abs(totalSplit - ventaGuardada.total) > 0.01) {
-          throw new BadRequestException(
-            'La suma del split de pago debe coincidir con el total de la venta',
-          );
-        }
-      } else if (dto.splitPago) {
-        throw new BadRequestException('splitPago solo aplica cuando el metodo es COMBINADO');
-      }
-
       if (ventaGuardada.total < 0) {
         throw new BadRequestException('El total de la venta no puede ser negativo');
       }
 
+      if (descuentoGeneral > subtotal + impuesto) {
+        throw new BadRequestException(
+          'El descuento general no puede superar el subtotal + impuesto',
+        );
+      }
+
+      const montos = this.aplicarMontosSegunMetodo(
+        dto.metodoPago,
+        Number(ventaGuardada.total),
+        dto.splitPago,
+      );
+      ventaGuardada.montoEfectivo = montos.montoEfectivo;
+      ventaGuardada.montoTarjeta = montos.montoTarjeta;
+      ventaGuardada.montoTransferencia = montos.montoTransferencia;
+      ventaGuardada.montoOtro = montos.montoOtro;
+
       ventaGuardada.estado = EstadoVenta.COMPLETADA;
       const ventaCompleta = await manager.getRepository(Venta).save(ventaGuardada);
+
+      const cantidadPorVariante = dto.items.reduce((acc, item) => {
+        acc.set(item.varianteId, (acc.get(item.varianteId) ?? 0) + item.cantidad);
+        return acc;
+      }, new Map<string, number>());
+
+      for (const [varianteId, cantidad] of cantidadPorVariante) {
+        await this.inventarioService.registrarMovimientoConManager(
+          {
+            tipo: TipoMovimiento.SALIDA,
+            varianteId,
+            sedeId: dto.sedeId,
+            cantidad,
+            motivo: `Venta ${ventaCompleta.numero}`,
+          },
+          usuarioId,
+          manager,
+        );
+      }
 
       if (dto.clienteId) {
         const cliente = await manager.getRepository(Cliente).findOne({
@@ -197,20 +285,16 @@ export class VentasService {
         where: {
           cajaId: cajaAbierta.id,
           estado: EstadoVenta.COMPLETADA,
-          activo: true,
         },
       });
 
-      const caja = await manager.getRepository(CierreCaja).findOne({
+      const caja = await manager.getRepository(SesionCaja).findOne({
         where: { id: cajaAbierta.id, activo: true },
       });
 
       if (caja) {
         caja.totalVentas = ventasCompletadas.reduce((acc, item) => acc + Number(item.total), 0);
-        caja.totalEfectivo = ventasCompletadas
-          .filter((item) => item.metodoPago === MetodoPago.EFECTIVO)
-          .reduce((acc, item) => acc + Number(item.total), 0);
-        await manager.getRepository(CierreCaja).save(caja);
+        await manager.getRepository(SesionCaja).save(caja);
       }
 
       return ventaCompleta;
@@ -222,7 +306,7 @@ export class VentasService {
   async anularVenta(ventaId: string, dto: AnularVentaDto, usuarioId: string): Promise<Venta> {
     return this.dataSource.transaction(async (manager) => {
       const venta = await manager.getRepository(Venta).findOne({
-        where: { id: ventaId, activo: true },
+        where: { id: ventaId },
         relations: ['detalles'],
       });
 
@@ -234,7 +318,11 @@ export class VentasService {
         throw new BadRequestException('La venta ya se encuentra anulada');
       }
 
-      for (const detalle of venta.detalles.filter((item) => item.activo)) {
+      if (venta.estado !== EstadoVenta.COMPLETADA) {
+        throw new BadRequestException('Solo se pueden anular ventas completadas');
+      }
+
+      for (const detalle of venta.detalles) {
         await this.inventarioService.registrarMovimientoConManager(
           {
             tipo: TipoMovimiento.DEVOLUCION,
@@ -255,22 +343,33 @@ export class VentasService {
 
       const ventaAnulada = await manager.getRepository(Venta).save(venta);
 
-      const ventasCompletadas = await manager.getRepository(Venta).find({
-        where: {
-          cajaId: venta.cajaId,
-          estado: EstadoVenta.COMPLETADA,
-          activo: true,
-        },
-      });
-      const caja = await manager.getRepository(CierreCaja).findOne({
-        where: { id: venta.cajaId, activo: true },
-      });
-      if (caja && caja.estado === EstadoCaja.ABIERTA) {
+      if (venta.clienteId) {
+        const cliente = await manager
+          .getRepository(Cliente)
+          .findOne({ where: { id: venta.clienteId } });
+        if (cliente) {
+          const puntosOtorgados = Math.floor(Number(venta.total) / 1000);
+          cliente.puntosFidelidad = Math.max(0, cliente.puntosFidelidad - puntosOtorgados);
+          await manager.getRepository(Cliente).save(cliente);
+        }
+      }
+
+      const ventasCompletadas = venta.cajaId
+        ? await manager.getRepository(Venta).find({
+            where: {
+              cajaId: venta.cajaId,
+              estado: EstadoVenta.COMPLETADA,
+            },
+          })
+        : [];
+      const caja = venta.cajaId
+        ? await manager.getRepository(SesionCaja).findOne({
+            where: { id: venta.cajaId },
+          })
+        : null;
+      if (caja && caja.activo) {
         caja.totalVentas = ventasCompletadas.reduce((acc, item) => acc + Number(item.total), 0);
-        caja.totalEfectivo = ventasCompletadas
-          .filter((item) => item.metodoPago === MetodoPago.EFECTIVO)
-          .reduce((acc, item) => acc + Number(item.total), 0);
-        await manager.getRepository(CierreCaja).save(caja);
+        await manager.getRepository(SesionCaja).save(caja);
       }
 
       return ventaAnulada;
@@ -280,8 +379,7 @@ export class VentasService {
   async getVentasByFecha(sedeId?: string, fecha?: string): Promise<Venta[]> {
     const query = this.ventasRepository
       .createQueryBuilder('venta')
-      .leftJoinAndSelect('venta.detalles', 'detalle', 'detalle.activo = true')
-      .where('venta.activo = true')
+      .leftJoinAndSelect('venta.detalles', 'detalle')
       .orderBy('venta.createdAt', 'DESC');
 
     if (sedeId) {
@@ -297,7 +395,7 @@ export class VentasService {
 
   async getVentaById(id: string): Promise<Venta> {
     const venta = await this.ventasRepository.findOne({
-      where: { id, activo: true },
+      where: { id },
       relations: ['detalles'],
     });
     if (!venta) {
@@ -311,7 +409,7 @@ export class VentasService {
     const venta = await this.getVentaById(ventaId);
     const sede = await this.sedesRepository.findOne({ where: { id: venta.sedeId, activo: true } });
 
-    const detallesActivos = venta.detalles.filter((detalle) => detalle.activo);
+    const detallesActivos = venta.detalles;
     const variantes = await this.variantesRepository.find({
       where: detallesActivos.map((item) => ({ id: item.varianteId, activo: true })),
     });

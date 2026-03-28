@@ -12,6 +12,14 @@ export class MarcasService {
     private readonly marcasRepository: Repository<Marca>,
   ) {}
 
+  private async findById(id: string): Promise<Marca> {
+    const marca = await this.marcasRepository.findOne({ where: { id } });
+    if (!marca) {
+      throw new NotFoundException('Marca no encontrada');
+    }
+    return marca;
+  }
+
   async create(createMarcaDto: CreateMarcaDto): Promise<Marca> {
     const existente = await this.marcasRepository.findOne({
       where: { nombre: createMarcaDto.nombre },
@@ -31,23 +39,23 @@ export class MarcasService {
     return this.marcasRepository.save(marca);
   }
 
-  async findAll(): Promise<Marca[]> {
+  async findAll(activosSolo = true): Promise<Marca[]> {
     return this.marcasRepository.find({
-      where: { activo: true },
+      where: activosSolo ? { activo: true } : undefined,
       order: { nombre: 'ASC' },
     });
   }
 
   async findOne(id: string): Promise<Marca> {
-    const marca = await this.marcasRepository.findOne({ where: { id, activo: true } });
-    if (!marca) {
-      throw new NotFoundException('Marca no encontrada');
+    const marca = await this.findById(id);
+    if (!marca.activo) {
+      throw new NotFoundException('Marca no encontrada o inactiva');
     }
     return marca;
   }
 
   async update(id: string, updateMarcaDto: UpdateMarcaDto): Promise<Marca> {
-    const marca = await this.findOne(id);
+    const marca = await this.findById(id);
 
     if (updateMarcaDto.nombre && updateMarcaDto.nombre !== marca.nombre) {
       const existeNombre = await this.marcasRepository.findOne({
@@ -63,8 +71,14 @@ export class MarcasService {
   }
 
   async remove(id: string): Promise<void> {
-    const marca = await this.findOne(id);
+    const marca = await this.findById(id);
     marca.activo = false;
     await this.marcasRepository.save(marca);
+  }
+
+  async restore(id: string): Promise<Marca> {
+    const marca = await this.findById(id);
+    marca.activo = true;
+    return this.marcasRepository.save(marca);
   }
 }

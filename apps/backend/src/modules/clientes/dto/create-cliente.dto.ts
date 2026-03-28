@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TipoDocumento } from '@cosmeticos/shared-types';
-import { IsDateString, IsEmail, IsEnum, IsOptional, IsString, Length } from 'class-validator';
+import { IsDateString, IsEmail, IsOptional, IsString, Length } from 'class-validator';
 
 export class CreateClienteDto {
   @ApiProperty({ example: 'Luisa' })
@@ -11,9 +10,10 @@ export class CreateClienteDto {
   @IsString()
   apellido: string;
 
-  @ApiProperty({ enum: TipoDocumento, example: TipoDocumento.CC })
-  @IsEnum(TipoDocumento)
-  tipoDocumento: TipoDocumento;
+  @ApiProperty({ example: 'CC' })
+  @IsString()
+  @Length(1, 20)
+  tipoDocumento: string;
 
   @ApiProperty({ example: '1032456789' })
   @IsString()

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CajaModule } from '../caja/caja.module';
-import { CierreCaja } from '../caja/entities/cierre-caja.entity';
+import { SesionCaja } from '../caja/entities/sesion-caja.entity';
 import { Cliente } from '../clientes/entities/cliente.entity';
 import { ClientesModule } from '../clientes/clientes.module';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
@@ -26,7 +26,7 @@ import { ReportesService } from './reportes.service';
       Variante,
       StockSede,
       Cliente,
-      CierreCaja,
+      SesionCaja,
       Usuario,
     ]),
     VentasModule,

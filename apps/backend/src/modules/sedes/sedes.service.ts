@@ -21,9 +21,7 @@ export class SedesService {
     }
 
     const sede = this.sedesRepository.create(createSedeDto);
-    if (sede.moneda) {
-      sede.moneda = sede.moneda.trim().toUpperCase();
-    }
+    sede.codigo = `SED-${Date.now().toString().slice(-6)}`;
     return this.sedesRepository.save(sede);
   }
 
@@ -70,16 +68,12 @@ export class SedesService {
       sede.telefono = dto.telefono?.trim() ? dto.telefono.trim() : undefined;
     }
 
+    if (dto.responsable !== undefined) {
+      sede.responsable = dto.responsable?.trim() ? dto.responsable.trim() : undefined;
+    }
+
     if (dto.tipo !== undefined) {
       sede.tipo = dto.tipo;
-    }
-
-    if (dto.moneda !== undefined) {
-      sede.moneda = dto.moneda.trim().toUpperCase();
-    }
-
-    if (dto.impuestoPorcentaje !== undefined) {
-      sede.impuestoPorcentaje = dto.impuestoPorcentaje;
     }
 
     return this.sedesRepository.save(sede);

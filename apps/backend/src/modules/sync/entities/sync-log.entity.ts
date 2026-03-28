@@ -1,12 +1,6 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-export type SyncEstado = 'OK' | 'ERROR';
+export type SyncEstado = 'PENDIENTE' | 'SINCRONIZADO' | 'ERROR' | 'IGNORADO';
 
 @Entity('sync_logs')
 export class SyncLog {
@@ -16,24 +10,27 @@ export class SyncLog {
   @Column({ length: 100 })
   tabla: string;
 
-  @Column({ length: 50 })
+  @Column({ length: 20 })
   operacion: string;
 
-  @Column({ type: 'int', default: 0 })
-  registrosAfectados: number;
+  @Column({ name: 'registro_id', type: 'uuid' })
+  registroId: string;
 
-  @Column({ type: 'varchar', length: 10 })
+  @Column({ type: 'jsonb', nullable: true })
+  payload?: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 20 })
   estado: SyncEstado;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'int', default: 0 })
+  intentos: number;
+
+  @Column({ name: 'error_msg', type: 'text', nullable: true })
   error?: string | null;
 
-  @Column({ default: true })
-  activo: boolean;
+  @Column({ name: 'sincronizado_en', type: 'timestamp with time zone', nullable: true })
+  sincronizadoEn?: Date | null;
 
-  @CreateDateColumn({ name: 'creado_en' })
-  creadoEn: Date;
-
-  @UpdateDateColumn({ name: 'actualizado_en' })
-  actualizadoEn: Date;
+  @CreateDateColumn({ name: 'createdAt' })
+  createdAt: Date;
 }

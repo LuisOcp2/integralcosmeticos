@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { TipoMovimiento } from '@cosmeticos/shared-types';
 
-@Entity('movimiento_inventarios')
+@Entity('movimientos_inventario')
 export class MovimientoInventario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -12,26 +12,35 @@ export class MovimientoInventario {
   })
   tipo: TipoMovimiento;
 
-  @Column('uuid')
+  @Column({ name: 'numero_doc', type: 'varchar', length: 40, unique: true })
+  numeroDoc: string;
+
+  @Column({ name: 'varianteId', type: 'uuid' })
   varianteId: string;
 
-  @Column('uuid')
-  sedeId: string;
+  @Column({ name: 'productoId', type: 'uuid' })
+  productoId: string;
+
+  @Column({ name: 'sedeOrigenId', type: 'uuid', nullable: true })
+  sedeId?: string | null;
 
   @Column({ type: 'int' })
   cantidad: number;
 
-  @Column('uuid', { nullable: true })
+  @Column({ name: 'sedeDestinoId', type: 'uuid', nullable: true })
   sedeDestinoId?: string | null;
 
-  @Column('uuid')
+  @Column({ name: 'usuarioId', type: 'uuid' })
   usuarioId: string;
 
   @Column({ type: 'text', nullable: true })
   motivo?: string;
 
-  @Column({ default: true })
-  activo: boolean;
+  @Column({ name: 'stock_anterior', type: 'int', default: 0 })
+  stockAnterior: number;
+
+  @Column({ name: 'stock_nuevo', type: 'int', default: 0 })
+  stockNuevo: number;
 
   @CreateDateColumn()
   createdAt: Date;

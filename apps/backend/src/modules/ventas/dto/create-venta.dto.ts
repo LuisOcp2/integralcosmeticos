@@ -5,6 +5,7 @@ import {
   IsDefined,
   IsArray,
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -20,7 +21,7 @@ class CreateDetalleVentaDto {
   varianteId: string;
 
   @ApiProperty({ example: 1 })
-  @IsNumber()
+  @IsInt()
   @Min(1)
   cantidad: number;
 

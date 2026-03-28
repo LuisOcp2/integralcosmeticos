@@ -25,6 +25,12 @@ export class InventarioService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private generarNumeroMovimiento(): string {
+    const year = new Date().getFullYear();
+    const correlativo = Date.now().toString().slice(-6);
+    return `MOV-${year}-${correlativo}`;
+  }
+
   private async validarSedeActiva(sedeId: string): Promise<void> {
     const sede = await this.sedesRepository.findOne({ where: { id: sedeId, activo: true } });
     if (!sede) {
@@ -71,13 +77,10 @@ export class InventarioService {
         sedeId: dto.sedeId,
         cantidad: 0,
         stockMinimo: 0,
-        activo: true,
       });
     }
 
-    if (!stock.activo) {
-      stock.activo = true;
-    }
+    const stockAnterior = stock.cantidad;
 
     const tipoSuma = [
       TipoMovimiento.ENTRADA,
@@ -96,15 +99,23 @@ export class InventarioService {
 
     const stockGuardado = await stockRepo.save(stock);
 
+    const variante = await this.variantesRepository.findOne({ where: { id: dto.varianteId } });
+    if (!variante) {
+      throw new NotFoundException('Variante no encontrada para registrar movimiento');
+    }
+
     const movimiento = movimientoRepo.create({
+      numeroDoc: this.generarNumeroMovimiento(),
       tipo: dto.tipo,
       varianteId: dto.varianteId,
+      productoId: variante.productoId,
       sedeId: dto.sedeId,
       cantidad: dto.cantidad,
       sedeDestinoId: dto.sedeDestinoId,
       usuarioId,
       motivo: dto.motivo,
-      activo: true,
+      stockAnterior,
+      stockNuevo: stockGuardado.cantidad,
     });
 
     const movimientoGuardado = await movimientoRepo.save(movimiento);
@@ -119,7 +130,7 @@ export class InventarioService {
     await this.validarSedeActiva(sedeId);
 
     const stocks = await this.stockRepository.find({
-      where: { sedeId, activo: true },
+      where: { sedeId },
       order: { cantidad: 'ASC' },
     });
 
@@ -151,7 +162,7 @@ export class InventarioService {
         where: { varianteId: dto.varianteId, sedeId: dto.sedeOrigen },
       });
 
-      if (!stockOrigen || !stockOrigen.activo || stockOrigen.cantidad < dto.cantidad) {
+      if (!stockOrigen || stockOrigen.cantidad < dto.cantidad) {
         throw new BadRequestException('Stock insuficiente en sede origen para el traslado');
       }
 
@@ -165,13 +176,11 @@ export class InventarioService {
           sedeId: dto.sedeDestino,
           cantidad: 0,
           stockMinimo: 0,
-          activo: true,
         });
       }
 
-      if (!stockDestino.activo) {
-        stockDestino.activo = true;
-      }
+      const stockAnteriorOrigen = stockOrigen.cantidad;
+      const stockAnteriorDestino = stockDestino.cantidad;
 
       stockOrigen.cantidad -= dto.cantidad;
       stockDestino.cantidad += dto.cantidad;
@@ -181,18 +190,41 @@ export class InventarioService {
         stockRepo.save(stockDestino),
       ]);
 
+      const variante = await this.variantesRepository.findOne({ where: { id: dto.varianteId } });
+      if (!variante) {
+        throw new NotFoundException('Variante no encontrada para registrar traslado');
+      }
+
       const movimiento = movimientoRepo.create({
+        numeroDoc: this.generarNumeroMovimiento(),
         tipo: TipoMovimiento.TRASLADO,
         varianteId: dto.varianteId,
+        productoId: variante.productoId,
         sedeId: dto.sedeOrigen,
         sedeDestinoId: dto.sedeDestino,
         cantidad: dto.cantidad,
         usuarioId,
         motivo: dto.motivo,
-        activo: true,
+        stockAnterior: stockAnteriorOrigen,
+        stockNuevo: stockOrigenGuardado.cantidad,
       });
 
       const movimientoGuardado = await movimientoRepo.save(movimiento);
+
+      await movimientoRepo.save(
+        movimientoRepo.create({
+          numeroDoc: this.generarNumeroMovimiento(),
+          tipo: TipoMovimiento.ENTRADA,
+          varianteId: dto.varianteId,
+          productoId: variante.productoId,
+          sedeId: dto.sedeDestino,
+          cantidad: dto.cantidad,
+          usuarioId,
+          motivo: dto.motivo,
+          stockAnterior: stockAnteriorDestino,
+          stockNuevo: stockDestinoGuardado.cantidad,
+        }),
+      );
 
       return {
         movimiento: movimientoGuardado,
@@ -204,7 +236,6 @@ export class InventarioService {
 
   async getMovimientos() {
     return this.movimientoRepository.find({
-      where: { activo: true },
       order: { createdAt: 'DESC' },
     });
   }

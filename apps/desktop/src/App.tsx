@@ -13,6 +13,10 @@ const CajaPage = lazy(() => import('./pages/CajaPage'));
 const POSPage = lazy(() => import('./pages/POSPage'));
 const ReportesPage = lazy(() => import('./pages/ReportesPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
+const ImportacionesPage = lazy(() => import('./pages/ImportacionesPage'));
+const DiagnosticoPage = lazy(() => import('./pages/DiagnosticoPage'));
+const ConfiguracionesPage = lazy(() => import('./pages/ConfiguracionesPage'));
+const isDev = import.meta.env.DEV;
 
 function RouteLoader() {
   return (
@@ -21,7 +25,7 @@ function RouteLoader() {
       style={{ backgroundColor: '#F3EFF1', color: '#735946' }}
     >
       <div className="text-sm font-bold uppercase tracking-widest animate-pulse">
-        Cargando modulo...
+        Cargando módulo...
       </div>
     </div>
   );
@@ -147,6 +151,32 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/importaciones"
+            element={
+              <ProtectedRoute path="/importaciones" allowedRoles={[Rol.ADMIN]}>
+                <ImportacionesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/configuraciones"
+            element={
+              <ProtectedRoute path="/configuraciones" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <ConfiguracionesPage />
+              </ProtectedRoute>
+            }
+          />
+          {isDev && (
+            <Route
+              path="/diagnostico"
+              element={
+                <ProtectedRoute path="/diagnostico" allowedRoles={[Rol.ADMIN]}>
+                  <DiagnosticoPage />
+                </ProtectedRoute>
+              }
+            />
+          )}
           <Route path="*" element={<DefaultRedirect />} />
         </Routes>
       </Suspense>

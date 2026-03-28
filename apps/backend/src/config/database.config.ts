@@ -6,4 +6,5 @@ export default registerAs('database', () => ({
   username: process.env.POSTGRES_USER || 'admin',
   password: process.env.POSTGRES_PASSWORD || 'cosmeticos2026',
   name: process.env.POSTGRES_DB || 'cosmeticos_db',
+  synchronize: (process.env.DB_SYNCHRONIZE || 'false').toLowerCase() === 'true',
 }));

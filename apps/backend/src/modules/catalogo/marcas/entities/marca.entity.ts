@@ -17,7 +17,7 @@ export class Marca {
   @Column({ type: 'text', nullable: true })
   descripcion?: string;
 
-  @Column({ default: true })
+  @Column({ name: 'activa', default: true })
   activo: boolean;
 
   @CreateDateColumn()

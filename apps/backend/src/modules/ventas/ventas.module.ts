@@ -1,7 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InventarioModule } from '../inventario/inventario.module';
-import { CierreCaja } from '../caja/entities/cierre-caja.entity';
+import { SesionCaja } from '../caja/entities/sesion-caja.entity';
 import { Cliente } from '../clientes/entities/cliente.entity';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
@@ -13,7 +13,7 @@ import { VentasService } from './ventas.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Venta, DetalleVenta, CierreCaja, Variante, Producto, Cliente, Sede]),
+    TypeOrmModule.forFeature([Venta, DetalleVenta, SesionCaja, Variante, Producto, Cliente, Sede]),
     forwardRef(() => InventarioModule),
   ],
   controllers: [VentasController],

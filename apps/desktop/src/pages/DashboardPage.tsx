@@ -272,7 +272,7 @@ export default function DashboardPage() {
             }}
           >
             <p className="text-sm font-semibold">
-              No pudimos cargar por completo la informacion del dashboard.
+              No pudimos cargar por completo la información del dashboard.
             </p>
             <button
               onClick={retryAll}
@@ -295,10 +295,10 @@ export default function DashboardPage() {
               className="text-3xl font-extrabold tracking-tight"
               style={{ color: dashboardTheme.textStrong }}
             >
-              Dashboard General
+              Panel General
             </h1>
             <p className="font-medium text-sm" style={{ color: dashboardTheme.textSoft }}>
-              Bienvenido al panel de Integral Cosmeticos.
+              Bienvenido al panel de Integral Cosméticos.
             </p>
           </div>
           {usuario?.rol === Rol.ADMIN && sedesDisponibles.length > 0 && (
@@ -376,7 +376,7 @@ export default function DashboardPage() {
         >
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold" style={{ color: dashboardTheme.textStrong }}>
-              Ventas ultimos 7 dias
+              Ventas últimos 7 días
             </h3>
             <div className="flex items-center gap-2">
               <div
@@ -397,7 +397,7 @@ export default function DashboardPage() {
               style={{ backgroundColor: dashboardTheme.borderSoft }}
             />
           ) : ventas7Dias.data && ventas7Dias.data.length > 0 ? (
-            <div className="h-64" aria-label="Grafica de ventas de los ultimos 7 dias">
+            <div className="h-64" aria-label="Gráfica de ventas de los últimos 7 días">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={ventas7Dias.data}>
                   <CartesianGrid strokeDasharray="3 3" stroke={dashboardTheme.borderSoft} />
@@ -426,7 +426,7 @@ export default function DashboardPage() {
               style={{ borderColor: dashboardTheme.borderSoft }}
             >
               <p className="text-sm font-semibold" style={{ color: dashboardTheme.textSoft }}>
-                Aun no hay ventas registradas esta semana.
+                Aún no hay ventas registradas esta semana.
               </p>
             </div>
           )}
@@ -434,13 +434,13 @@ export default function DashboardPage() {
 
         {/* Bottom Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Top Productos */}
+          {/* Productos mas vendidos */}
           <div
             className="rounded-xl shadow-sm border p-6 md:p-8"
             style={{ backgroundColor: dashboardTheme.cardBg, borderColor: dashboardTheme.border }}
           >
             <h3 className="text-xl font-bold mb-6" style={{ color: dashboardTheme.textStrong }}>
-              Top 5 Productos
+              5 productos mas vendidos
             </h3>
             {topProductos.isLoading ? (
               <div
@@ -492,7 +492,7 @@ export default function DashboardPage() {
             style={{ backgroundColor: dashboardTheme.cardBg, borderColor: dashboardTheme.border }}
           >
             <h3 className="text-xl font-bold mb-6" style={{ color: dashboardTheme.textStrong }}>
-              Ventas por metodo de pago
+              Ventas por método de pago
             </h3>
             {resumenHoy.isLoading ? (
               <div
@@ -500,7 +500,7 @@ export default function DashboardPage() {
                 style={{ backgroundColor: dashboardTheme.borderSoft }}
               />
             ) : pieData.length > 0 ? (
-              <div className="h-56" aria-label="Distribucion de ventas por metodo de pago">
+              <div className="h-56" aria-label="Distribución de ventas por método de pago">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -525,14 +525,14 @@ export default function DashboardPage() {
                 style={{ borderColor: dashboardTheme.borderSoft }}
               >
                 <p className="text-sm font-semibold" style={{ color: dashboardTheme.textSoft }}>
-                  No hay metodos de pago para mostrar hoy.
+                  No hay métodos de pago para mostrar hoy.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Stock Bajo Table */}
+        {/* Tabla de stock bajo */}
         <div
           className="rounded-xl shadow-sm overflow-hidden border"
           style={{ backgroundColor: dashboardTheme.cardBg, borderColor: dashboardTheme.border }}
@@ -542,14 +542,14 @@ export default function DashboardPage() {
             style={{ borderColor: dashboardTheme.borderSoft }}
           >
             <h3 className="text-xl font-bold" style={{ color: dashboardTheme.textStrong }}>
-              Productos bajo stock minimo
+              Productos bajo stock mínimo
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead style={{ backgroundColor: dashboardTheme.bgSoft }}>
                 <tr>
-                  {['Producto', 'Variante', 'Stock Actual', 'Mínimo', 'Estado'].map((h) => (
+                  {['Producto', 'Variante', 'Stock actual', 'Minimo', 'Estado'].map((h) => (
                     <th
                       key={h}
                       scope="col"

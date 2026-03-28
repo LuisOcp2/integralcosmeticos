@@ -5,6 +5,7 @@ import { Cliente } from './entities/cliente.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { Venta } from '../ventas/entities/venta.entity';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
+import { TipoDocumentoConfiguracion } from '../configuraciones/entities/tipo-documento-configuracion.entity';
 
 @Injectable()
 export class ClientesService {
@@ -13,9 +14,13 @@ export class ClientesService {
     private readonly clientesRepository: Repository<Cliente>,
     @InjectRepository(Venta)
     private readonly ventasRepository: Repository<Venta>,
+    @InjectRepository(TipoDocumentoConfiguracion)
+    private readonly tiposDocumentoRepository: Repository<TipoDocumentoConfiguracion>,
   ) {}
 
   async create(dto: CreateClienteDto): Promise<Cliente> {
+    const tipoDocumento = await this.validarTipoDocumentoActivo(dto.tipoDocumento);
+
     const [porDocumento, porEmail] = await Promise.all([
       this.clientesRepository.findOne({ where: { documento: dto.documento } }),
       dto.email ? this.clientesRepository.findOne({ where: { email: dto.email } }) : null,
@@ -31,6 +36,7 @@ export class ClientesService {
 
     const cliente = this.clientesRepository.create({
       ...dto,
+      tipoDocumento: tipoDocumento.codigo,
       fechaNacimiento: dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : null,
       activo: true,
       puntosFidelidad: 0,
@@ -119,7 +125,8 @@ export class ClientesService {
     }
 
     if (dto.tipoDocumento !== undefined) {
-      cliente.tipoDocumento = dto.tipoDocumento;
+      const tipoDocumento = await this.validarTipoDocumentoActivo(dto.tipoDocumento);
+      cliente.tipoDocumento = tipoDocumento.codigo;
     }
 
     if (dto.telefono !== undefined) {
@@ -153,9 +160,36 @@ export class ClientesService {
     await this.findOne(clienteId);
 
     return this.ventasRepository.find({
-      where: { clienteId, activo: true },
+      where: { clienteId },
       relations: ['detalles'],
       order: { createdAt: 'DESC' },
     });
+  }
+
+  private async validarTipoDocumentoActivo(codigo: string): Promise<TipoDocumentoConfiguracion> {
+    const codigoNormalizado = codigo.trim().toUpperCase();
+    const tipoDocumento = await this.tiposDocumentoRepository.findOne({
+      where: { codigo: codigoNormalizado, activo: true },
+    });
+
+    if (!tipoDocumento) {
+      const totalActivos = await this.tiposDocumentoRepository.count({ where: { activo: true } });
+      const legacyPermitidos = ['CC', 'NIT', 'PASAPORTE'];
+
+      if (totalActivos === 0 && legacyPermitidos.includes(codigoNormalizado)) {
+        return {
+          id: 'legacy-default',
+          codigo: codigoNormalizado,
+          nombre: codigoNormalizado,
+          activo: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as TipoDocumentoConfiguracion;
+      }
+
+      throw new NotFoundException('Tipo de documento no encontrado o inactivo en configuracion');
+    }
+
+    return tipoDocumento;
   }
 }

@@ -20,6 +20,11 @@ export class CreateSedeDto {
   @IsOptional()
   telefono?: string;
 
+  @ApiPropertyOptional({ example: 'Laura Martinez' })
+  @IsString()
+  @IsOptional()
+  responsable?: string;
+
   @ApiProperty({ enum: TipoSede, example: TipoSede.TIENDA })
   @IsEnum(TipoSede)
   tipo: TipoSede;

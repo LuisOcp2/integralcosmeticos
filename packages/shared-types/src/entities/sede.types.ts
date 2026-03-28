@@ -6,6 +6,7 @@ export interface ISede {
   direccion: string;
   ciudad: string;
   telefono?: string;
+  responsable?: string;
   tipo: TipoSede;
   moneda?: string;
   impuestoPorcentaje?: number;

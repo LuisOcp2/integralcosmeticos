@@ -12,6 +12,14 @@ export class CategoriasService {
     private readonly categoriasRepository: Repository<Categoria>,
   ) {}
 
+  private async findById(id: string): Promise<Categoria> {
+    const categoria = await this.categoriasRepository.findOne({ where: { id } });
+    if (!categoria) {
+      throw new NotFoundException('Categoria no encontrada');
+    }
+    return categoria;
+  }
+
   async create(createCategoriaDto: CreateCategoriaDto): Promise<Categoria> {
     const existente = await this.categoriasRepository.findOne({
       where: { nombre: createCategoriaDto.nombre },
@@ -31,23 +39,23 @@ export class CategoriasService {
     return this.categoriasRepository.save(categoria);
   }
 
-  async findAll(): Promise<Categoria[]> {
+  async findAll(activosSolo = true): Promise<Categoria[]> {
     return this.categoriasRepository.find({
-      where: { activo: true },
+      where: activosSolo ? { activo: true } : undefined,
       order: { nombre: 'ASC' },
     });
   }
 
   async findOne(id: string): Promise<Categoria> {
-    const categoria = await this.categoriasRepository.findOne({ where: { id, activo: true } });
-    if (!categoria) {
-      throw new NotFoundException('Categoria no encontrada');
+    const categoria = await this.findById(id);
+    if (!categoria.activo) {
+      throw new NotFoundException('Categoria no encontrada o inactiva');
     }
     return categoria;
   }
 
   async update(id: string, updateCategoriaDto: UpdateCategoriaDto): Promise<Categoria> {
-    const categoria = await this.findOne(id);
+    const categoria = await this.findById(id);
 
     if (updateCategoriaDto.nombre && updateCategoriaDto.nombre !== categoria.nombre) {
       const existeNombre = await this.categoriasRepository.findOne({
@@ -63,8 +71,14 @@ export class CategoriasService {
   }
 
   async remove(id: string): Promise<void> {
-    const categoria = await this.findOne(id);
+    const categoria = await this.findById(id);
     categoria.activo = false;
     await this.categoriasRepository.save(categoria);
+  }
+
+  async restore(id: string): Promise<Categoria> {
+    const categoria = await this.findById(id);
+    categoria.activo = true;
+    return this.categoriasRepository.save(categoria);
   }
 }

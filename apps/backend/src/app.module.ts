@@ -13,12 +13,14 @@ import { CategoriasModule } from './modules/catalogo/categorias/categorias.modul
 import { MarcasModule } from './modules/catalogo/marcas/marcas.module';
 import { ProductosModule } from './modules/catalogo/productos/productos.module';
 import { VariantesModule } from './modules/catalogo/variantes/variantes.module';
+import { ImportacionesModule } from './modules/catalogo/importaciones/importaciones.module';
 import { InventarioModule } from './modules/inventario/inventario.module';
 import { CajaModule } from './modules/caja/caja.module';
 import { VentasModule } from './modules/ventas/ventas.module';
 import { ClientesModule } from './modules/clientes/clientes.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { SyncModule } from './modules/sync/sync.module';
+import { ConfiguracionesModule } from './modules/configuraciones/configuraciones.module';
 import databaseConfig from './config/database.config';
 import appConfig from './config/app.config';
 
@@ -42,7 +44,7 @@ import appConfig from './config/app.config';
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.name'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get<string>('app.nodeEnv') !== 'production',
+        synchronize: configService.get<boolean>('database.synchronize') ?? false,
         logging: configService.get<string>('app.nodeEnv') === 'local',
         autoLoadEntities: true,
       }),
@@ -76,12 +78,14 @@ import appConfig from './config/app.config';
     MarcasModule,
     ProductosModule,
     VariantesModule,
+    ImportacionesModule,
     InventarioModule,
     CajaModule,
     VentasModule,
     ClientesModule,
     ReportesModule,
     SyncModule,
+    ConfiguracionesModule,
   ],
   controllers: [AppController],
   providers: [AppService, ThrottlerGuard],

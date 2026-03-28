@@ -28,7 +28,12 @@ describe('SyncProcessor', () => {
     const result = await processor.handleSync(job);
 
     expect(result).toEqual({ estado: 'OK', registrosAfectados: 1 });
-    expect(syncService.registrarSync).toHaveBeenCalledWith('ventas', 'upsert', 1, 'OK');
+    expect(syncService.registrarSync).toHaveBeenCalledWith(
+      'ventas',
+      'upsert',
+      'v1',
+      'SINCRONIZADO',
+    );
   });
 
   it('registra log ERROR con intento y vuelve a lanzar excepcion', async () => {
@@ -44,7 +49,7 @@ describe('SyncProcessor', () => {
     expect(syncService.registrarSync).toHaveBeenCalledWith(
       'clientes',
       'upsert-intento-2',
-      0,
+      'c1',
       'ERROR',
       'fallo de red',
     );

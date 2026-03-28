@@ -1,5 +1,6 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
+import { randomUUID } from 'node:crypto';
 import { SyncService } from './sync.service';
 
 interface SyncJobData {
@@ -22,7 +23,7 @@ export class SyncProcessor {
         registros as unknown as Record<string, unknown>[],
       );
 
-      await this.syncService.registrarSync(tabla, 'upsert', resultado.count, 'OK');
+      await this.syncService.registrarSync(tabla, 'upsert', ids[0] ?? randomUUID(), 'SINCRONIZADO');
 
       return { estado: 'OK', registrosAfectados: resultado.count };
     } catch (error) {
@@ -31,7 +32,7 @@ export class SyncProcessor {
       await this.syncService.registrarSync(
         tabla,
         `upsert-intento-${intentos}`,
-        0,
+        ids[0] ?? randomUUID(),
         'ERROR',
         mensaje,
       );

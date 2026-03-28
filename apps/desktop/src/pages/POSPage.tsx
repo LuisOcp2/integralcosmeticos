@@ -6,7 +6,6 @@ import { offlineDB } from '../lib/offline.db';
 import { useAuthStore } from '../store/auth.store';
 import { SplitPago, usePosStore } from '../store/pos.store';
 import AppLayout from './components/AppLayout';
-import { tokens } from '../styles/tokens';
 
 const cop = new Intl.NumberFormat('es-CO', {
   style: 'currency',
@@ -14,17 +13,44 @@ const cop = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 0,
 });
 const S = {
-  primary: tokens.color.primary,
-  fuchsia: tokens.color.accent,
-  brown: tokens.color.textStrong,
-  secondary: tokens.color.textMuted,
-  surface: tokens.color.bgSoft,
-  white: tokens.color.bgCard,
-  border: tokens.color.border,
-  pink: tokens.color.accentSoft,
-  error: tokens.color.danger,
-  errorBg: tokens.color.dangerBg,
+  primary: '#85264b',
+  fuchsia: '#a43e63',
+  brown: '#2a1709',
+  secondary: '#735946',
+  surface: '#f1edef',
+  white: '#FFFFFF',
+  border: '#dac0c5',
+  error: '#B91C1C',
+  errorBg: '#FEE2E2',
+  success: '#2e7d32',
+  successBg: '#e8f5e9',
+  warning: '#e65100',
+  warningBg: '#fff8e1',
+  panel: '#fcf8fa',
+  panelSoft: '#ebe7e9',
+  ring: '#9f3a5f',
+  backdrop: 'rgba(46, 27, 12, 0.5)',
+  heroFrom: '#fcf8fa',
+  heroVia: '#f6f2f4',
+  heroTo: '#f1edef',
 };
+
+function inferCategoria(nombre: string): string {
+  const n = nombre.toLowerCase();
+  if (n.includes('labial') || n.includes('base') || n.includes('rubor') || n.includes('sombras')) {
+    return 'Maquillaje';
+  }
+  if (n.includes('serum') || n.includes('crema') || n.includes('limpiador') || n.includes('skin')) {
+    return 'Skincare';
+  }
+  if (n.includes('perfume') || n.includes('fragancia') || n.includes('colonia')) {
+    return 'Fragancias';
+  }
+  if (n.includes('brocha') || n.includes('esponja') || n.includes('accesorio')) {
+    return 'Accesorios';
+  }
+  return 'Todos';
+}
 
 async function buscarVariantes(q: string): Promise<(IVariante & { stockDisponible?: number })[]> {
   const { data } = await api.get('/catalogo/variantes', { params: { q } });
@@ -84,11 +110,11 @@ function ModalCobro({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(46,27,12,0.5)' }}
+      className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4"
+      style={{ backgroundColor: S.backdrop }}
     >
       <div
-        className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+        className="max-h-[92dvh] w-full max-w-md overflow-hidden rounded-2xl shadow-2xl"
         style={{ backgroundColor: S.white }}
       >
         {/* Header */}
@@ -98,7 +124,7 @@ function ModalCobro({
         >
           <div>
             <h2 className="text-xl font-black text-white">Confirmar Cobro</h2>
-            <p className="text-sm" style={{ color: '#FBA9E5' }}>
+            <p className="text-sm" style={{ color: '#ffd4de' }}>
               Total a cobrar
             </p>
           </div>
@@ -107,16 +133,19 @@ function ModalCobro({
           </div>
         </div>
 
-        <div className="p-8 space-y-6">
+        <div className="max-h-[calc(92dvh-8rem)] space-y-6 overflow-y-auto p-5 sm:p-8">
           {/* Toggle split */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-bold" style={{ color: S.secondary }}>
               Pago dividido
             </span>
             <button
+              type="button"
               onClick={() => setUsarSplit(!usarSplit)}
               className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
               style={{ backgroundColor: usarSplit ? S.fuchsia : S.border }}
+              aria-pressed={usarSplit}
+              aria-label="Activar o desactivar pago dividido"
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${usarSplit ? 'translate-x-6' : 'translate-x-1'}`}
@@ -130,12 +159,13 @@ function ModalCobro({
               <div className="grid grid-cols-2 gap-2">
                 {metodos.map((m) => (
                   <button
+                    type="button"
                     key={m.key}
                     onClick={() => setMetodoPago(m.key)}
-                    className="py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
+                    className="min-h-11 rounded-xl px-2 py-3 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all"
                     style={
                       metodoPago === m.key
-                        ? { backgroundColor: S.fuchsia, color: S.white }
+                        ? { backgroundColor: S.primary, color: S.white }
                         : {
                             backgroundColor: S.surface,
                             color: S.secondary,
@@ -181,9 +211,10 @@ function ModalCobro({
                   <div className="grid grid-cols-4 gap-2 pt-1">
                     {[50000, 100000, 200000, 500000].map((v) => (
                       <button
+                        type="button"
                         key={v}
                         onClick={() => setRecibido(String(v))}
-                        className="py-2 rounded-lg text-xs font-bold transition-all"
+                        className="min-h-11 rounded-lg py-2 text-xs font-bold transition-all"
                         style={{ backgroundColor: S.surface, color: S.secondary }}
                       >
                         ${(v / 1000).toFixed(0)}k
@@ -241,17 +272,19 @@ function ModalCobro({
           {/* Acciones */}
           <div className="flex gap-3 pt-2">
             <button
+              type="button"
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all"
+              className="min-h-11 flex-1 rounded-xl py-3 font-bold text-sm border-2 transition-all"
               style={{ borderColor: S.border, color: S.secondary }}
             >
               Cancelar
             </button>
             <button
+              type="button"
               onClick={onCobrar}
               disabled={loading || !splitOk}
-              className="flex-1 py-3 rounded-xl font-black text-sm text-white uppercase tracking-widest transition-all disabled:opacity-50"
-              style={{ backgroundColor: S.brown }}
+              className="min-h-11 flex-1 rounded-xl py-3 font-black text-sm text-white uppercase tracking-widest transition-all disabled:opacity-50"
+              style={{ backgroundColor: S.primary }}
             >
               {loading ? 'Procesando...' : 'COBRAR'}
             </button>
@@ -274,11 +307,11 @@ function ModalVariantes({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(46,27,12,0.5)' }}
+      className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4"
+      style={{ backgroundColor: S.backdrop }}
     >
       <div
-        className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden"
+        className="max-h-[92dvh] w-full max-w-sm overflow-hidden rounded-2xl shadow-2xl"
         style={{ backgroundColor: S.white }}
       >
         <div
@@ -288,19 +321,20 @@ function ModalVariantes({
           <h3 className="text-lg font-black" style={{ color: S.brown }}>
             Seleccionar Variante
           </h3>
-          <button onClick={onClose}>
+          <button type="button" onClick={onClose} aria-label="Cerrar selector de variantes">
             <span className="material-symbols-outlined" style={{ color: S.secondary }}>
               close
             </span>
           </button>
         </div>
-        <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
+        <div className="max-h-[calc(92dvh-5rem)] space-y-2 overflow-y-auto p-4">
           {variantes.map((v) => (
             <button
+              type="button"
               key={v.id}
               onClick={() => onSeleccionar(v)}
               disabled={(v.stockDisponible ?? 1) === 0}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all disabled:opacity-40"
+              className="min-h-11 w-full rounded-xl px-4 py-3 text-left transition-all disabled:opacity-40 flex items-center justify-between"
               style={{ backgroundColor: S.surface }}
             >
               <div>
@@ -316,7 +350,7 @@ function ModalVariantes({
                   className="text-xs font-bold"
                   style={{ color: (v.stockDisponible ?? 1) < 5 ? S.error : S.primary }}
                 >
-                  {v.stockDisponible !== undefined ? `Stock: ${v.stockDisponible}` : ''}
+                  {v.stockDisponible !== undefined ? `Existencias: ${v.stockDisponible}` : ''}
                 </p>
                 {(v.stockDisponible ?? 1) === 0 && (
                   <span
@@ -349,11 +383,11 @@ function ModalSuspendidas({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(46,27,12,0.5)' }}
+      className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4"
+      style={{ backgroundColor: S.backdrop }}
     >
       <div
-        className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+        className="max-h-[92dvh] w-full max-w-md overflow-hidden rounded-2xl shadow-2xl"
         style={{ backgroundColor: S.white }}
       >
         <div
@@ -363,13 +397,13 @@ function ModalSuspendidas({
           <h3 className="text-lg font-black" style={{ color: S.brown }}>
             Ventas Suspendidas ({ventas.length})
           </h3>
-          <button onClick={onClose}>
+          <button type="button" onClick={onClose} aria-label="Cerrar ventas suspendidas">
             <span className="material-symbols-outlined" style={{ color: S.secondary }}>
               close
             </span>
           </button>
         </div>
-        <div className="p-4 space-y-3 max-h-96 overflow-y-auto">
+        <div className="max-h-[calc(92dvh-5rem)] space-y-3 overflow-y-auto p-4">
           {ventas.length === 0 && (
             <p className="text-center py-8 text-sm" style={{ color: S.secondary }}>
               No hay ventas suspendidas
@@ -386,7 +420,11 @@ function ModalSuspendidas({
                     {v.items.length} producto(s) • Suspendida: {v.suspendidaEn}
                   </p>
                 </div>
-                <button onClick={() => onEliminar(v.id)}>
+                <button
+                  type="button"
+                  onClick={() => onEliminar(v.id)}
+                  aria-label="Eliminar venta suspendida"
+                >
                   <span className="material-symbols-outlined text-sm" style={{ color: S.error }}>
                     delete
                   </span>
@@ -394,12 +432,13 @@ function ModalSuspendidas({
               </div>
               <div className="flex gap-2 mt-3">
                 <button
+                  type="button"
                   onClick={() => {
                     onRetomar(v.id);
                     onClose();
                   }}
-                  className="flex-1 py-2 rounded-xl text-xs font-black uppercase text-white transition-all"
-                  style={{ backgroundColor: S.fuchsia }}
+                  className="min-h-11 flex-1 rounded-xl py-2 text-xs font-black uppercase text-white transition-all"
+                  style={{ backgroundColor: S.primary }}
                 >
                   Retomar
                 </button>
@@ -418,7 +457,6 @@ export default function POSPage() {
   const {
     items,
     clienteId,
-    clienteNombre,
     metodoPago,
     splitPago,
     usarSplit,
@@ -454,6 +492,7 @@ export default function POSPage() {
     (IVariante & { stockDisponible?: number })[]
   >([]);
   const [showSuspendidas, setShowSuspendidas] = useState(false);
+  const [categoriaActiva, setCategoriaActiva] = useState('Todos');
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -579,7 +618,17 @@ export default function POSPage() {
         map.set(v.productoId, { nombre: v.nombre.split(' - ')[0], categoria: '', variantes: [] });
       map.get(v.productoId)!.variantes.push(v);
     }
-    return [...map.values()];
+    return [...map.values()]
+      .map((p) => ({ ...p, categoria: p.categoria || inferCategoria(p.nombre) }))
+      .filter((p) => categoriaActiva === 'Todos' || p.categoria === categoriaActiva);
+  }, [variantesQuery.data, categoriaActiva]);
+
+  const categorias = useMemo(() => {
+    const source = variantesQuery.data ?? [];
+    if (source.length === 0) return ['Todos'];
+    const set = new Set<string>(['Todos']);
+    source.forEach((v) => set.add(inferCategoria(v.nombre)));
+    return [...set];
   }, [variantesQuery.data]);
 
   return (
@@ -614,14 +663,32 @@ export default function POSPage() {
         />
       )}
 
-      <div className="flex h-[calc(100vh-64px-64px)] gap-0 -m-8 overflow-hidden">
+      <div className="-m-4 flex min-h-[calc(100dvh-64px-32px)] flex-col gap-4 overflow-hidden p-4 md:-m-6 md:p-6 lg:-m-8 lg:p-8 xl:flex-row">
         {/* ── LEFT: Catálogo ───────────────────────── */}
         <div
-          className="flex flex-col flex-1 p-8 overflow-hidden"
-          style={{ backgroundColor: S.surface }}
+          className="flex min-h-[58dvh] flex-1 flex-col overflow-hidden rounded-2xl border p-4 shadow-sm md:p-6"
+          style={{ backgroundColor: S.panel, borderColor: S.border }}
         >
           {/* Search */}
-          <div className="flex gap-3 mb-6">
+          <div
+            className="mb-4 rounded-2xl border p-3 md:mb-6 md:p-4"
+            style={{
+              borderColor: S.border,
+              background: `linear-gradient(135deg, ${S.heroFrom} 0%, ${S.heroVia} 52%, ${S.heroTo} 100%)`,
+            }}
+          >
+            <p
+              className="text-xs font-extrabold uppercase tracking-[0.18em]"
+              style={{ color: S.secondary }}
+            >
+              Ventas POS
+            </p>
+            <p className="mt-1 text-sm font-semibold" style={{ color: S.brown }}>
+              Escanea o busca por nombre y agrega al carrito
+            </p>
+          </div>
+
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
               <span
                 className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined"
@@ -634,23 +701,32 @@ export default function POSPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar producto o código de barras..."
-                className="w-full rounded-xl py-3.5 pl-11 pr-4 text-sm font-medium outline-none border-2 transition-colors"
+                className="h-14 w-full rounded-xl border py-3.5 pl-11 pr-12 text-sm font-semibold outline-none transition-colors focus-visible:ring-2"
                 style={{
                   backgroundColor: S.white,
                   borderColor: search ? S.fuchsia : S.border,
                   color: S.brown,
+                  boxShadow: `0 0 0 0 ${S.ring}`,
                 }}
               />
+              <span
+                className="absolute right-4 top-1/2 -translate-y-1/2 material-symbols-outlined"
+                style={{ color: S.secondary, fontSize: 20, opacity: 0.6 }}
+              >
+                barcode_scanner
+              </span>
             </div>
             {/* Suspendidas badge */}
             <button
+              type="button"
               onClick={() => setShowSuspendidas(true)}
-              className="relative px-4 rounded-xl text-sm font-bold flex items-center gap-2 transition-all"
+              className="relative min-h-11 rounded-xl border-2 px-4 text-sm font-bold transition-all flex items-center gap-2"
               style={{
-                backgroundColor: ventasSuspendidas.length > 0 ? '#fff8e1' : S.white,
+                backgroundColor: ventasSuspendidas.length > 0 ? S.warningBg : S.white,
                 color: S.secondary,
-                border: `2px solid ${S.border}`,
+                borderColor: S.border,
               }}
+              aria-label="Ver ventas suspendidas"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
                 pause_circle
@@ -666,9 +742,30 @@ export default function POSPage() {
             </button>
           </div>
 
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {categorias.map((cat) => {
+              const activa = categoriaActiva === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoriaActiva(cat)}
+                  className="whitespace-nowrap rounded-full px-5 py-2 text-sm font-bold transition-colors"
+                  style={
+                    activa
+                      ? { backgroundColor: '#fdd9c1', color: '#5a4230' }
+                      : { backgroundColor: '#e5e1e3', color: '#554246' }
+                  }
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+
           {/* Product grid */}
           <div
-            className="flex-1 overflow-y-auto grid grid-cols-2 xl:grid-cols-3 gap-4 pr-1"
+            className="grid flex-1 grid-cols-1 gap-6 overflow-y-auto pr-1 sm:grid-cols-2 2xl:grid-cols-3"
             style={{ scrollbarWidth: 'thin', scrollbarColor: `${S.border} transparent` }}
           >
             {search.length > 1 &&
@@ -688,58 +785,71 @@ export default function POSPage() {
                 <div
                   key={i}
                   onClick={() => !agotado && handleClickProducto(prod.variantes)}
-                  className="rounded-xl p-4 flex flex-col gap-3 cursor-pointer transition-all"
+                  className="group flex cursor-pointer flex-col gap-3"
                   style={{
-                    backgroundColor: S.white,
                     opacity: agotado ? 0.5 : 1,
                     cursor: agotado ? 'not-allowed' : 'pointer',
-                    border: `1px solid ${S.border}`,
                   }}
                 >
-                  {/* Stock badge */}
-                  <div className="flex justify-between items-center">
-                    <span
-                      className="text-xs font-bold uppercase tracking-widest"
-                      style={{ color: S.secondary }}
-                    >
-                      {prod.categoria || 'Producto'}
-                    </span>
-                    <span
-                      className="text-xs font-black px-2 py-0.5 rounded-full"
-                      style={
-                        agotado
-                          ? { backgroundColor: S.errorBg, color: S.error }
-                          : bajStock
-                            ? { backgroundColor: '#fff3e0', color: '#e65100' }
-                            : { backgroundColor: '#e8f5e9', color: '#2e7d32' }
-                      }
-                    >
-                      {agotado ? 'Agotado' : `${totalStock} uds`}
-                    </span>
+                  <div
+                    className="relative aspect-square overflow-hidden rounded-xl"
+                    style={{ backgroundColor: S.surface }}
+                  >
+                    <div
+                      className="h-full w-full transition-transform duration-500 group-hover:scale-105"
+                      style={{
+                        background:
+                          'radial-gradient(circle at 30% 20%, rgba(159,58,95,0.35), transparent 42%), radial-gradient(circle at 70% 80%, rgba(133,38,75,0.22), transparent 48%), linear-gradient(135deg, #fff 0%, #f6f2f4 100%)',
+                      }}
+                    />
+                    <div className="absolute inset-x-3 top-3 flex items-center justify-between">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                        style={{ backgroundColor: '#ffffffcc', color: S.secondary }}
+                      >
+                        {prod.categoria || 'Producto'}
+                      </span>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-black"
+                        style={
+                          agotado
+                            ? { backgroundColor: S.errorBg, color: S.error }
+                            : bajStock
+                              ? { backgroundColor: S.warningBg, color: S.warning }
+                              : { backgroundColor: S.successBg, color: S.success }
+                        }
+                      >
+                        {agotado ? 'Agotado' : `${totalStock} uds`}
+                      </span>
+                    </div>
                   </div>
+                  {/* Insignia de existencias */}
                   <div className="flex-1">
-                    <h3 className="font-bold text-sm leading-snug" style={{ color: S.brown }}>
+                    <h3 className="font-bold text-base leading-snug" style={{ color: S.brown }}>
                       {prod.nombre}
                     </h3>
                     {prod.variantes.length > 1 && (
-                      <p className="text-xs mt-0.5" style={{ color: S.secondary }}>
+                      <p
+                        className="text-xs mt-0.5 uppercase tracking-wide"
+                        style={{ color: S.secondary }}
+                      >
                         {prod.variantes.length} variantes disponibles
                       </p>
                     )}
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold" style={{ color: S.primary }}>
+                    <span className="font-extrabold" style={{ color: '#1c1b1d' }}>
                       desde {cop.format(Math.min(...prod.variantes.map((v) => v.precioExtra || 0)))}
                     </span>
                     <button
-                      className="text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all"
-                      style={{ backgroundColor: agotado ? S.border : S.fuchsia }}
+                      type="button"
+                      className="flex size-10 items-center justify-center rounded-full text-white transition-all active:scale-90"
+                      style={{ backgroundColor: agotado ? S.border : S.primary }}
                       disabled={agotado}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
                         add
                       </span>
-                      Agregar
                     </button>
                   </div>
                 </div>
@@ -769,7 +879,7 @@ export default function POSPage() {
 
           {/* Cliente */}
           <div
-            className="mt-6 pt-5 border-t flex gap-4 items-end"
+            className="mt-6 flex flex-col gap-3 border-t pt-5 lg:flex-row lg:items-end"
             style={{ borderColor: S.border }}
           >
             <div className="flex-1">
@@ -785,13 +895,15 @@ export default function POSPage() {
                   onChange={(e) => setDocCliente(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && buscarClienteMutation.mutate(docCliente)}
                   placeholder="C.C. o NIT..."
-                  className="flex-1 rounded-xl px-4 py-3 text-sm outline-none border-2 transition-colors"
-                  style={{ backgroundColor: S.white, borderColor: S.border, color: S.brown }}
+                  className="h-12 flex-1 rounded-lg border-none px-4 text-sm outline-none"
+                  style={{ backgroundColor: S.surface, color: S.brown }}
                 />
                 <button
+                  type="button"
                   onClick={() => buscarClienteMutation.mutate(docCliente)}
-                  className="px-4 py-3 rounded-xl text-sm font-bold transition-all"
-                  style={{ backgroundColor: S.fuchsia, color: S.white }}
+                  className="min-h-11 rounded-lg px-4 py-3 text-sm font-bold transition-all"
+                  style={{ backgroundColor: S.primary, color: S.white }}
+                  aria-label="Buscar cliente por documento"
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
                     person_search
@@ -801,34 +913,32 @@ export default function POSPage() {
             </div>
             {clienteEncontrado && (
               <div
-                className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-                style={{ borderColor: S.border, backgroundColor: S.white }}
+                className="flex items-center gap-3 rounded-full px-3 py-1.5 text-xs font-bold"
+                style={{ borderColor: S.border, backgroundColor: '#ffdcc4', color: '#2a1709' }}
               >
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black"
-                  style={{ backgroundColor: S.fuchsia }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-white text-[10px] font-black"
+                  style={{ backgroundColor: S.primary }}
                 >
                   {clienteEncontrado.nombre[0]}
                   {clienteEncontrado.apellido[0]}
                 </div>
                 <div>
-                  <p className="text-xs font-bold" style={{ color: S.brown }}>
+                  <p className="text-xs font-bold" style={{ color: '#2a1709' }}>
                     {clienteEncontrado.nombre} {clienteEncontrado.apellido}
                   </p>
-                  <p className="text-[10px]" style={{ color: S.secondary }}>
+                  <p className="text-[10px]" style={{ color: '#5a4230' }}>
                     {clienteEncontrado.documento}
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => {
                     setClienteEncontrado(null);
                     setCliente(null);
                   }}
                 >
-                  <span
-                    className="material-symbols-outlined text-sm"
-                    style={{ color: S.secondary }}
-                  >
+                  <span className="material-symbols-outlined text-sm" style={{ color: '#5a4230' }}>
                     close
                   </span>
                 </button>
@@ -838,17 +948,29 @@ export default function POSPage() {
         </div>
 
         {/* ── RIGHT: Carrito ───────────────────────── */}
-        <div className="flex flex-col w-96 p-6 shadow-2xl" style={{ backgroundColor: '#ebe7e9' }}>
+        <div
+          className="flex w-full flex-col rounded-2xl border p-4 shadow-sm md:p-6 xl:w-[40%]"
+          style={{ backgroundColor: S.panelSoft, borderColor: S.border }}
+        >
           {/* Header carrito */}
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-black" style={{ color: S.brown }}>
-              Carrito
+              Carrito de Venta
             </h2>
             <div className="flex gap-2">
+              {items.length > 0 && (
+                <span
+                  className="rounded-full px-3 py-1 text-xs font-bold"
+                  style={{ backgroundColor: '#a43e63', color: '#ffd4de' }}
+                >
+                  {items.length} item(s)
+                </span>
+              )}
               <button
+                type="button"
                 onClick={suspenderVenta}
                 title="Suspender venta"
-                className="p-2 rounded-xl transition-all"
+                className="min-h-11 min-w-11 rounded-xl p-2 transition-all"
                 style={{ backgroundColor: S.white, color: S.secondary }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -856,9 +978,10 @@ export default function POSPage() {
                 </span>
               </button>
               <button
+                type="button"
                 onClick={limpiarCarrito}
                 title="Vaciar carrito"
-                className="p-2 rounded-xl transition-all"
+                className="min-h-11 min-w-11 rounded-xl p-2 transition-all"
                 style={{ backgroundColor: S.white, color: S.error }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -889,41 +1012,45 @@ export default function POSPage() {
               return (
                 <div
                   key={item.varianteId}
-                  className="rounded-xl p-4 space-y-3"
-                  style={{ backgroundColor: S.white }}
+                  className="space-y-3"
+                  style={{ backgroundColor: 'transparent' }}
                 >
-                  <div className="flex justify-between items-start gap-2">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <p className="text-sm font-bold leading-tight" style={{ color: S.brown }}>
                         {item.nombre}
                       </p>
-                      <p className="text-xs" style={{ color: S.secondary }}>
-                        {cop.format(item.precioUnitario)} c/u
+                      <p
+                        className="text-[10px] uppercase tracking-tight"
+                        style={{ color: S.secondary }}
+                      >
+                        {item.codigoBarras || 'Sin codigo'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-sm font-black" style={{ color: S.primary }}>
                         {cop.format(lineTotal)}
                       </span>
-                      <button onClick={() => quitarItem(item.varianteId)}>
-                        <span
-                          className="material-symbols-outlined text-sm"
-                          style={{ color: S.error, fontSize: 16 }}
-                        >
-                          close
-                        </span>
+                      <button
+                        type="button"
+                        onClick={() => quitarItem(item.varianteId)}
+                        aria-label="Quitar producto del carrito"
+                        className="text-[#877176] transition-colors hover:text-[#ba1a1a]"
+                      >
+                        <span className="material-symbols-outlined text-lg">delete</span>
                       </button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     {/* Qty */}
                     <div
-                      className="flex items-center gap-1 rounded-full px-2 py-1"
-                      style={{ backgroundColor: S.surface }}
+                      className="flex items-center rounded-lg border px-1 py-1"
+                      style={{ backgroundColor: S.white, borderColor: S.border }}
                     >
                       <button
+                        type="button"
                         onClick={() => actualizarCantidad(item.varianteId, item.cantidad - 1)}
-                        className="w-6 h-6 rounded-full flex items-center justify-center"
+                        className="flex h-6 w-6 items-center justify-center rounded transition-colors"
                         style={{ color: S.primary }}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
@@ -931,14 +1058,15 @@ export default function POSPage() {
                         </span>
                       </button>
                       <span
-                        className="text-sm font-black w-6 text-center"
+                        className="w-8 text-center text-sm font-black"
                         style={{ color: S.brown }}
                       >
                         {item.cantidad}
                       </span>
                       <button
+                        type="button"
                         onClick={() => actualizarCantidad(item.varianteId, item.cantidad + 1)}
-                        className="w-6 h-6 rounded-full flex items-center justify-center"
+                        className="flex h-6 w-6 items-center justify-center rounded transition-colors"
                         style={{ color: S.primary }}
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
@@ -948,7 +1076,10 @@ export default function POSPage() {
                     </div>
                     {/* Descuento ítem */}
                     <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold" style={{ color: S.secondary }}>
+                      <span
+                        className="text-[10px] font-bold uppercase"
+                        style={{ color: '#877176' }}
+                      >
                         DTO
                       </span>
                       <div className="relative">
@@ -961,11 +1092,11 @@ export default function POSPage() {
                             aplicarDescuentoItem(item.varianteId, Number(e.target.value))
                           }
                           placeholder="0"
-                          className="w-14 text-center rounded-lg px-2 py-1 text-sm font-bold outline-none border"
+                          className="h-6 w-12 rounded-md border px-2 text-center text-[10px] font-bold outline-none"
                           style={{
                             borderColor: S.border,
                             color: S.primary,
-                            backgroundColor: S.surface,
+                            backgroundColor: S.white,
                           }}
                         />
                         <span
@@ -985,7 +1116,7 @@ export default function POSPage() {
           {/* Descuento global */}
           {items.length > 0 && (
             <div
-              className="mt-4 p-3 rounded-xl border"
+              className="mt-4 rounded-xl border p-3"
               style={{ backgroundColor: S.white, borderColor: S.border }}
             >
               <p
@@ -1000,8 +1131,8 @@ export default function POSPage() {
                   onChange={(e) =>
                     setDescuentoGlobal(descuentoGlobal, e.target.value as 'porcentaje' | 'monto')
                   }
-                  className="rounded-lg px-2 py-1.5 text-xs font-bold outline-none border"
-                  style={{ borderColor: S.border, color: S.brown, backgroundColor: S.surface }}
+                  className="rounded-lg border px-2 py-1.5 text-xs font-bold outline-none"
+                  style={{ borderColor: S.border, color: S.brown, backgroundColor: S.white }}
                 >
                   <option value="porcentaje">%</option>
                   <option value="monto">$</option>
@@ -1012,11 +1143,11 @@ export default function POSPage() {
                   value={descuentoGlobal || ''}
                   onChange={(e) => setDescuentoGlobal(Number(e.target.value), tipoDescuentoGlobal)}
                   placeholder={tipoDescuentoGlobal === 'porcentaje' ? '0%' : '$0'}
-                  className="flex-1 rounded-lg px-3 py-1.5 text-sm font-bold text-center outline-none border"
-                  style={{ borderColor: S.border, color: S.primary, backgroundColor: S.surface }}
+                  className="flex-1 rounded-lg border px-3 py-1.5 text-center text-sm font-bold outline-none"
+                  style={{ borderColor: S.border, color: S.primary, backgroundColor: S.white }}
                 />
                 {descuentoGlobal > 0 && (
-                  <button onClick={() => setDescuentoGlobal(0, tipoDescuentoGlobal)}>
+                  <button type="button" onClick={() => setDescuentoGlobal(0, tipoDescuentoGlobal)}>
                     <span
                       className="material-symbols-outlined text-sm"
                       style={{ color: S.secondary }}
@@ -1031,7 +1162,7 @@ export default function POSPage() {
 
           {/* Resumen */}
           {items.length > 0 && (
-            <div className="mt-3 space-y-1 px-1">
+            <div className="mb-6 mt-3 space-y-3 px-1">
               <div className="flex justify-between text-xs" style={{ color: S.secondary }}>
                 <span>Subtotal</span>
                 <span>{cop.format(totales.subtotal)}</span>
@@ -1053,13 +1184,13 @@ export default function POSPage() {
                 <span>{cop.format(totales.impuesto)}</span>
               </div>
               <div
-                className="flex justify-between items-end pt-2 border-t"
+                className="flex items-end justify-between border-t pt-4"
                 style={{ borderColor: S.border }}
               >
                 <span className="text-sm font-black uppercase" style={{ color: S.brown }}>
                   Total
                 </span>
-                <span className="text-3xl font-black" style={{ color: S.primary }}>
+                <span className="text-4xl font-black" style={{ color: S.primary }}>
                   {cop.format(totales.total)}
                 </span>
               </div>
@@ -1072,27 +1203,29 @@ export default function POSPage() {
             onChange={(e) => setObservaciones(e.target.value)}
             placeholder="Nota interna (opcional)"
             rows={2}
-            className="mt-3 w-full rounded-xl px-3 py-2 text-xs outline-none border resize-none"
+            className="mt-3 w-full resize-none rounded-xl border px-3 py-2 text-xs outline-none"
             style={{ borderColor: S.border, backgroundColor: S.white, color: S.brown }}
           />
 
           {/* Acciones */}
           <div className="mt-3 space-y-2">
             <button
+              type="button"
               onClick={() => items.length > 0 && setShowModalCobro(true)}
               disabled={!items.length || !usuario?.sedeId}
-              className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-sm text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl py-5 text-lg font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-50"
               style={{ backgroundColor: S.brown }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                shopping_basket
+                point_of_sale
               </span>
               COBRAR
             </button>
             <button
+              type="button"
               onClick={() => void imprimirTicket()}
               disabled={!ultimaVentaId}
-              className="w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-2 border-2"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border-2 py-3 text-sm font-bold uppercase tracking-wide transition-all disabled:opacity-50"
               style={{ borderColor: S.primary, color: S.primary, backgroundColor: 'transparent' }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>

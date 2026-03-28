@@ -34,3 +34,11 @@ coverage/
 
 # Electron
 out/
+
+# Agent and local tooling artifacts
+.agents/
+SKILL.md
+skills-lock.json
+
+# Local/generated docs artifacts
+documentacion/schema.md

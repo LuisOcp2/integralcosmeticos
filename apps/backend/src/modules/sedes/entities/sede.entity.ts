@@ -1,10 +1,19 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { TipoSede } from '@cosmeticos/shared-types';
 
 @Entity('sedes')
 export class Sede {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ length: 20, unique: true })
+  codigo: string;
 
   @Column({ length: 100 })
   nombre: string;
@@ -18,22 +27,26 @@ export class Sede {
   @Column({ length: 20, nullable: true })
   telefono?: string;
 
-  @Column({ length: 10, default: 'COP' })
-  moneda: string;
-
-  @Column({ type: 'decimal', precision: 5, scale: 2, default: 19 })
-  impuestoPorcentaje: number;
+  @Column({ length: 150, nullable: true })
+  responsable?: string;
 
   @Column({
     type: 'enum',
     enum: TipoSede,
-    default: TipoSede.TIENDA,
+    default: TipoSede.PRINCIPAL,
+    transformer: {
+      to: (value?: TipoSede) => (value === TipoSede.TIENDA ? 'SUCURSAL' : value),
+      from: (value?: string) => (value === 'SUCURSAL' ? TipoSede.TIENDA : (value as TipoSede)),
+    },
   })
   tipo: TipoSede;
 
-  @Column({ default: true })
+  @Column({ name: 'activa', default: true })
   activo: boolean;
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

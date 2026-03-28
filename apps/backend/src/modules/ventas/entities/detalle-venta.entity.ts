@@ -5,8 +5,8 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+import { Producto } from '../../catalogo/productos/entities/producto.entity';
 import { Venta } from './venta.entity';
 
 @Entity('detalle_ventas')
@@ -24,24 +24,27 @@ export class DetalleVenta {
   @Column('uuid')
   varianteId: string;
 
+  @Column({ name: 'productoId', type: 'uuid' })
+  productoId: string;
+
   @Column({ type: 'int' })
   cantidad: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column({ name: 'precio_unitario', type: 'decimal', precision: 12, scale: 2 })
   precioUnitario: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({ name: 'precio_costo_snap', type: 'decimal', precision: 12, scale: 2, nullable: true })
+  precioCostoSnap?: number | null;
+
+  @Column({ name: 'descuento_item', type: 'decimal', precision: 12, scale: 2, default: 0 })
   descuentoItem: number;
+
+  @Column({ name: 'impuesto_item', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  impuestoItem: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   subtotal: number;
 
-  @Column({ default: true })
-  activo: boolean;
-
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

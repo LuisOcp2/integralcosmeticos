@@ -11,7 +11,8 @@ import {
   IVentasPorSede,
 } from '@cosmeticos/shared-types';
 import { Repository } from 'typeorm';
-import { CierreCaja } from '../caja/entities/cierre-caja.entity';
+import { SesionCaja } from '../caja/entities/sesion-caja.entity';
+import { Caja } from '../caja/entities/caja.entity';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { StockSede } from '../inventario/entities/stock-sede.entity';
@@ -36,8 +37,8 @@ export class ReportesService {
     private readonly detalleVentasRepository: Repository<DetalleVenta>,
     @InjectRepository(StockSede)
     private readonly stockRepository: Repository<StockSede>,
-    @InjectRepository(CierreCaja)
-    private readonly cajaRepository: Repository<CierreCaja>,
+    @InjectRepository(SesionCaja)
+    private readonly cajaRepository: Repository<SesionCaja>,
   ) {}
 
   private getDayRange(fecha: string): { inicio: Date; fin: Date } {
@@ -66,7 +67,6 @@ export class ReportesService {
       .addSelect('COUNT(venta.id)', 'cantidadTransacciones')
       .where('venta.sedeId = :sedeId', { sedeId })
       .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
-      .andWhere('venta.activo = true')
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', { inicio, fin })
       .getRawOne<{ totalVentas: string; cantidadTransacciones: string }>();
 
@@ -75,7 +75,6 @@ export class ReportesService {
       .select('COALESCE(SUM(venta.total), 0)', 'totalVentas')
       .where('venta.sedeId = :sedeId', { sedeId })
       .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
-      .andWhere('venta.activo = true')
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', {
         inicio: inicioAnterior,
         fin: finAnterior,
@@ -89,7 +88,6 @@ export class ReportesService {
       .addSelect('COUNT(venta.id)', 'cantidad')
       .where('venta.sedeId = :sedeId', { sedeId })
       .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
-      .andWhere('venta.activo = true')
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', { inicio, fin })
       .groupBy('venta.metodoPago')
       .getRawMany<DesgloseMetodoRaw>();
@@ -130,7 +128,6 @@ export class ReportesService {
       .addSelect('COALESCE(SUM(venta.total), 0)', 'totalVentas')
       .addSelect('COUNT(venta.id)', 'cantidadTransacciones')
       .where('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
-      .andWhere('venta.activo = true')
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', { inicio, fin })
       .groupBy('venta.sedeId')
       .addGroupBy('sede.nombre')
@@ -164,7 +161,7 @@ export class ReportesService {
       .innerJoin(
         Variante,
         'variante',
-        'variante.id = detalle.varianteId AND variante.activo = true',
+        'variante.id = detalle.varianteId AND variante.activa = true',
       )
       .innerJoin(
         Producto,
@@ -175,8 +172,7 @@ export class ReportesService {
       .addSelect('producto.nombre', 'nombre')
       .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'totalUnidades')
       .addSelect('COALESCE(SUM(detalle.subtotal), 0)', 'totalRevenue')
-      .where('detalle.activo = true')
-      .andWhere('venta.activo = true')
+      .where('1=1')
       .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
       .andWhere('venta.sedeId = :sedeId', { sedeId })
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', { inicio, fin })
@@ -212,7 +208,7 @@ export class ReportesService {
       .innerJoin(
         Variante,
         'variante',
-        'variante.id = detalle.varianteId AND variante.activo = true',
+        'variante.id = detalle.varianteId AND variante.activa = true',
       )
       .innerJoin(
         Producto,
@@ -223,8 +219,7 @@ export class ReportesService {
       .addSelect('producto.nombre', 'nombre')
       .addSelect('COALESCE(SUM(detalle.cantidad * producto.precioCosto), 0)', 'costoTotal')
       .addSelect('COALESCE(SUM(detalle.precioUnitario * detalle.cantidad), 0)', 'revenueTotal')
-      .where('detalle.activo = true')
-      .andWhere('venta.activo = true')
+      .where('1=1')
       .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
       .andWhere('venta.sedeId = :sedeId', { sedeId })
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', { inicio, fin })
@@ -257,7 +252,7 @@ export class ReportesService {
   async stockActualPorSede(sedeId: string): Promise<IStockReporte[]> {
     const rows = await this.stockRepository
       .createQueryBuilder('stock')
-      .innerJoin(Variante, 'variante', 'variante.id = stock.varianteId AND variante.activo = true')
+      .innerJoin(Variante, 'variante', 'variante.id = stock.varianteId AND variante.activa = true')
       .innerJoin(
         Producto,
         'producto',
@@ -270,7 +265,6 @@ export class ReportesService {
       .addSelect('stock.cantidad', 'cantidad')
       .addSelect('stock.stockMinimo', 'stockMinimo')
       .where('stock.sedeId = :sedeId', { sedeId })
-      .andWhere('stock.activo = true')
       .orderBy('stock.cantidad', 'ASC')
       .getRawMany<{
         varianteId: string;
@@ -299,7 +293,7 @@ export class ReportesService {
   async productosBajoMinimo(sedeId: string): Promise<IStockReporte[]> {
     const rows = await this.stockRepository
       .createQueryBuilder('stock')
-      .innerJoin(Variante, 'variante', 'variante.id = stock.varianteId AND variante.activo = true')
+      .innerJoin(Variante, 'variante', 'variante.id = stock.varianteId AND variante.activa = true')
       .innerJoin(
         Producto,
         'producto',
@@ -312,7 +306,6 @@ export class ReportesService {
       .addSelect('stock.cantidad', 'cantidad')
       .addSelect('stock.stockMinimo', 'stockMinimo')
       .where('stock.sedeId = :sedeId', { sedeId })
-      .andWhere('stock.activo = true')
       .andWhere('stock.cantidad <= stock.stockMinimo')
       .orderBy('(stock.stockMinimo - stock.cantidad)', 'DESC')
       .getRawMany<{
@@ -354,7 +347,6 @@ export class ReportesService {
       .addSelect('COUNT(venta.id)', 'totalCompras')
       .addSelect('COALESCE(SUM(venta.total), 0)', 'totalGastado')
       .where('venta.sedeId = :sedeId', { sedeId })
-      .andWhere('venta.activo = true')
       .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
       .andWhere('venta.clienteId IS NOT NULL')
       .andWhere('venta.createdAt BETWEEN :inicio AND :fin', { inicio, fin })
@@ -391,19 +383,22 @@ export class ReportesService {
 
     const row = await this.cajaRepository
       .createQueryBuilder('caja')
-      .leftJoin(Usuario, 'usuario', 'usuario.id = caja.usuarioId AND usuario.activo = true')
+      .innerJoin(Caja, 'cajaFisica', 'cajaFisica.id = caja.cajaId')
+      .leftJoin(Usuario, 'usuario', 'usuario.id = caja.usuarioAperturaId AND usuario.activo = true')
       .select('caja.id', 'cajaId')
       .addSelect('caja.montoInicial', 'montoInicial')
       .addSelect('caja.montoFinal', 'montoFinal')
       .addSelect('caja.totalVentas', 'totalVentas')
-      .addSelect('caja.totalEfectivo', 'totalEfectivo')
+      .addSelect(
+        "COALESCE((SELECT SUM(v.total) FROM ventas v WHERE v.\"sesionCajaId\" = caja.id AND v.metodo_pago = 'EFECTIVO' AND v.estado = 'COMPLETADA'), 0)",
+        'totalEfectivo',
+      )
       .addSelect('COALESCE(caja.diferencia, 0)', 'diferencia')
       .addSelect('caja.fechaCierre', 'fechaCierre')
       .addSelect('caja.fechaApertura', 'fechaApertura')
       .addSelect('usuario.nombre', 'nombreUsuario')
       .addSelect('usuario.apellido', 'apellidoUsuario')
-      .where('caja.sedeId = :sedeId', { sedeId })
-      .andWhere('caja.activo = true')
+      .where('cajaFisica.sedeId = :sedeId', { sedeId })
       .andWhere('caja.fechaApertura BETWEEN :inicio AND :fin', { inicio, fin })
       .orderBy('caja.fechaApertura', 'DESC')
       .getRawOne<{

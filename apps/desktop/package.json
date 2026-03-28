@@ -57,12 +57,16 @@
     "@cosmeticos/shared-types": "*",
     "@tanstack/react-query": "^5.56.2",
     "axios": "^1.7.7",
+    "clsx": "^2.1.1",
     "dexie": "^4.0.8",
     "electron-updater": "^6.8.3",
+    "framer-motion": "^12.38.0",
+    "lucide-react": "^1.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "recharts": "^3.8.1",
+    "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

@@ -5,5 +5,8 @@ export interface IVariante {
   codigoBarras: string;
   sku: string;
   precioExtra: number;
+  precioVenta?: number | null;
+  precioCosto?: number | null;
+  imagenUrl?: string;
   activo: boolean;
 }

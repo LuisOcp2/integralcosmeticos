@@ -1,15 +1,37 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ICliente } from '@cosmeticos/shared-types';
+import { ICliente, ITipoDocumentoConfiguracion } from '@cosmeticos/shared-types';
 import api from '../lib/api';
 import AppLayout from './components/AppLayout';
-import { tokens } from '../styles/tokens';
 
 const cop = new Intl.NumberFormat('es-CO', {
   style: 'currency',
   currency: 'COP',
   maximumFractionDigits: 0,
 });
+
+const S = {
+  primary: '#85264b',
+  accent: '#a43e63',
+  textStrong: '#2a1709',
+  textMuted: '#735946',
+  surface: '#f1edef',
+  card: '#FFFFFF',
+  border: '#dac0c5',
+  success: '#2e7d32',
+  successBg: '#e8f5e9',
+  info: '#3949ab',
+  infoBg: '#e8eaf6',
+  warning: '#e65100',
+  warningBg: '#fff8e1',
+  danger: '#B91C1C',
+  dangerBg: '#FEE2E2',
+  panel: '#fcf8fa',
+  backdrop: 'rgba(46, 27, 12, 0.5)',
+  heroFrom: '#fcf8fa',
+  heroVia: '#f6f2f4',
+  heroTo: '#f1edef',
+};
 
 async function getClientes(): Promise<ICliente[]> {
   const { data } = await api.get('/clientes');
@@ -26,8 +48,18 @@ async function getClientePorDocumento(documento: string): Promise<ICliente | nul
   }
 }
 
+async function getTiposDocumento(): Promise<ITipoDocumentoConfiguracion[]> {
+  const { data } = await api.get('/configuraciones/tipos-documento');
+  return data;
+}
+
 function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-surface-container ${className ?? ''}`} />;
+  return (
+    <div
+      className={`animate-pulse rounded-xl ${className ?? ''}`}
+      style={{ backgroundColor: S.surface }}
+    />
+  );
 }
 
 const nivelCliente = (puntos: number) => {
@@ -56,10 +88,12 @@ const emptyForm: FormState = {
 
 function ClienteModal({
   cliente,
+  tiposDocumento,
   onClose,
   onSaved,
 }: {
   cliente?: ICliente | null;
+  tiposDocumento: ITipoDocumentoConfiguracion[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -75,6 +109,13 @@ function ClienteModal({
         }
       : emptyForm,
   );
+
+  const opcionesTipoDocumento = tiposDocumento.length
+    ? tiposDocumento
+    : [
+        { id: 'legacy-cc', codigo: 'CC', nombre: 'Cedula de Ciudadania' },
+        { id: 'legacy-nit', codigo: 'NIT', nombre: 'Numero de Identificacion Tributaria' },
+      ];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -93,37 +134,49 @@ function ClienteModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(46,27,12,0.5)' }}
+      className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4"
+      style={{ backgroundColor: S.backdrop }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div
+        className="max-h-[92dvh] w-full max-w-md overflow-hidden rounded-2xl shadow-2xl"
+        style={{ backgroundColor: S.card }}
+      >
         <div
           className="px-6 py-5 flex items-center justify-between"
-          style={{ backgroundColor: '#2a1709' }}
+          style={{ backgroundColor: S.textStrong }}
         >
           <div>
             <h3 className="text-xl font-black text-white">
               {cliente ? 'Editar cliente' : 'Nuevo cliente'}
             </h3>
-            <p className="text-sm mt-0.5" style={{ color: '#fba9e5' }}>
+            <p className="text-sm mt-0.5" style={{ color: '#BFDBFE' }}>
               Datos de contacto y documento
             </p>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-white/60 hover:text-white transition-colors"
+            aria-label="Cerrar formulario de cliente"
+          >
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="max-h-[calc(92dvh-5rem)] space-y-4 overflow-y-auto p-6">
           <div className="grid grid-cols-2 gap-3">
             {(['nombre', 'apellido'] as const).map((field) => (
               <div key={field}>
-                <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                <label
+                  className="mb-1 block text-xs font-bold uppercase tracking-widest"
+                  style={{ color: S.textMuted }}
+                >
                   {field}
                 </label>
                 <input
                   value={form[field]}
                   onChange={f(field)}
-                  className="w-full rounded-xl px-3 py-2.5 text-sm border-2 border-outline-variant/30 bg-surface-container-lowest focus:border-primary focus:outline-none"
+                  className="min-h-11 w-full rounded-xl border-2 px-3 py-2.5 text-sm focus:outline-none"
+                  style={{ borderColor: S.border, backgroundColor: S.panel, color: S.textStrong }}
                   placeholder={field === 'nombre' ? 'María' : 'González'}
                 />
               </div>
@@ -131,57 +184,74 @@ function ClienteModal({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+              <label
+                className="mb-1 block text-xs font-bold uppercase tracking-widest"
+                style={{ color: S.textMuted }}
+              >
                 Tipo doc.
               </label>
               <select
                 value={form.tipoDocumento}
                 onChange={f('tipoDocumento')}
-                className="w-full rounded-xl px-3 py-2.5 text-sm border-2 border-outline-variant/30 bg-surface-container-lowest focus:border-primary focus:outline-none"
+                className="min-h-11 w-full rounded-xl border-2 px-3 py-2.5 text-sm focus:outline-none"
+                style={{ borderColor: S.border, backgroundColor: S.panel, color: S.textStrong }}
               >
-                {['CC', 'CE', 'NIT', 'PP'].map((t) => (
-                  <option key={t}>{t}</option>
+                {opcionesTipoDocumento.map((tipo) => (
+                  <option key={tipo.id} value={tipo.codigo}>
+                    {tipo.codigo}
+                  </option>
                 ))}
               </select>
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+              <label
+                className="mb-1 block text-xs font-bold uppercase tracking-widest"
+                style={{ color: S.textMuted }}
+              >
                 Documento
               </label>
               <input
                 value={form.documento}
                 onChange={f('documento')}
-                className="w-full rounded-xl px-3 py-2.5 text-sm border-2 border-outline-variant/30 bg-surface-container-lowest focus:border-primary focus:outline-none"
+                className="min-h-11 w-full rounded-xl border-2 px-3 py-2.5 text-sm focus:outline-none"
+                style={{ borderColor: S.border, backgroundColor: S.panel, color: S.textStrong }}
                 placeholder="1032456789"
               />
             </div>
           </div>
           {(['email', 'telefono'] as const).map((field) => (
             <div key={field}>
-              <label className="block text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+              <label
+                className="mb-1 block text-xs font-bold uppercase tracking-widest"
+                style={{ color: S.textMuted }}
+              >
                 {field}
               </label>
               <input
                 value={form[field]}
                 onChange={f(field)}
                 type={field === 'email' ? 'email' : 'tel'}
-                className="w-full rounded-xl px-3 py-2.5 text-sm border-2 border-outline-variant/30 bg-surface-container-lowest focus:border-primary focus:outline-none"
+                className="min-h-11 w-full rounded-xl border-2 px-3 py-2.5 text-sm focus:outline-none"
+                style={{ borderColor: S.border, backgroundColor: S.panel, color: S.textStrong }}
                 placeholder={field === 'email' ? 'maria@gmail.com' : '300 123 4567'}
               />
             </div>
           ))}
           <div className="flex gap-3 pt-2">
             <button
+              type="button"
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl font-bold text-sm border-2 border-outline-variant text-secondary hover:bg-surface-container transition-all"
+              className="min-h-11 flex-1 rounded-xl border-2 py-3 text-sm font-bold transition-all"
+              style={{ borderColor: S.border, color: S.textMuted }}
             >
               Cancelar
             </button>
             <button
+              type="button"
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
-              className="flex-1 py-3 rounded-xl font-black text-sm text-white disabled:opacity-60 transition-all"
-              style={{ backgroundColor: tokens.color.bgDark }}
+              className="min-h-11 flex-1 rounded-2xl py-3 text-sm font-black text-white disabled:opacity-60 transition-all"
+              style={{ backgroundColor: S.primary }}
             >
               {saveMutation.isPending
                 ? 'Guardando...'
@@ -206,6 +276,12 @@ export default function ClientesPage() {
     queryKey: ['clientes'],
     queryFn: getClientes,
     refetchInterval: 60000,
+  });
+
+  const tiposDocumentoQuery = useQuery({
+    queryKey: ['configuraciones', 'tipos-documento'],
+    queryFn: getTiposDocumento,
+    staleTime: 120000,
   });
 
   const clienteDocQuery = useQuery({
@@ -239,6 +315,7 @@ export default function ClientesPage() {
       {(modalOpen || clienteEdit) && (
         <ClienteModal
           cliente={clienteEdit}
+          tiposDocumento={tiposDocumentoQuery.data ?? []}
           onClose={() => {
             setModalOpen(false);
             setClienteEdit(null);
@@ -249,19 +326,20 @@ export default function ClientesPage() {
 
       <div className="space-y-8">
         {/* Header */}
-        <header className="flex justify-between items-start">
+        <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">
+            <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: S.textStrong }}>
               Clientes
             </h1>
-            <p className="text-secondary font-medium mt-1">
+            <p className="mt-1 font-medium" style={{ color: S.textMuted }}>
               Gestión de clientes y programa de fidelidad
             </p>
           </div>
           <button
+            type="button"
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl font-black text-sm text-white uppercase tracking-widest transition-all"
-            style={{ backgroundColor: tokens.color.bgDark }}
+            className="flex min-h-11 items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition-all"
+            style={{ backgroundColor: S.primary }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
               person_add
@@ -270,33 +348,66 @@ export default function ClientesPage() {
           </button>
         </header>
 
+        <div
+          className="rounded-2xl border p-4"
+          style={{
+            borderColor: S.border,
+            background: `linear-gradient(135deg, ${S.heroFrom} 0%, ${S.heroVia} 52%, ${S.heroTo} 100%)`,
+          }}
+        >
+          <p
+            className="text-xs font-extrabold uppercase tracking-[0.18em]"
+            style={{ color: S.textMuted }}
+          >
+            CRM en Caja
+          </p>
+          <p className="mt-1 text-sm font-semibold" style={{ color: S.textStrong }}>
+            Consulta, registra y edita clientes durante la venta sin salir del flujo
+          </p>
+        </div>
+
         {/* KPI rápido */}
         {!clientesQuery.isLoading && (
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-surface-container-low p-5 rounded-2xl border-l-4 border-primary">
-              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              className="rounded-2xl border-l-4 p-5"
+              style={{ backgroundColor: S.card, borderLeftColor: S.primary }}
+            >
+              <p
+                className="mb-1 text-xs font-bold uppercase tracking-widest"
+                style={{ color: S.textMuted }}
+              >
                 Total clientes
               </p>
-              <p className="text-2xl font-black text-on-secondary-fixed">
+              <p className="text-2xl font-black" style={{ color: S.textStrong }}>
                 {clientesQuery.data?.length ?? 0}
               </p>
             </div>
             <div
-              className="bg-surface-container-low p-5 rounded-2xl border-l-4"
-              style={{ borderColor: '#f9a825' }}
+              className="rounded-2xl border-l-4 p-5"
+              style={{ backgroundColor: S.card, borderLeftColor: S.warning }}
             >
-              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+              <p
+                className="mb-1 text-xs font-bold uppercase tracking-widest"
+                style={{ color: S.textMuted }}
+              >
                 Nivel Oro
               </p>
-              <p className="text-2xl font-black text-on-secondary-fixed">
+              <p className="text-2xl font-black" style={{ color: S.textStrong }}>
                 {clientesQuery.data?.filter((c) => c.puntosFidelidad >= 800).length ?? 0}
               </p>
             </div>
-            <div className="bg-surface-container-low p-5 rounded-2xl border-l-4 border-secondary">
-              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+            <div
+              className="rounded-2xl border-l-4 p-5"
+              style={{ backgroundColor: S.card, borderLeftColor: S.info }}
+            >
+              <p
+                className="mb-1 text-xs font-bold uppercase tracking-widest"
+                style={{ color: S.textMuted }}
+              >
                 Nivel Plata
               </p>
-              <p className="text-2xl font-black text-on-secondary-fixed">
+              <p className="text-2xl font-black" style={{ color: S.textStrong }}>
                 {clientesQuery.data?.filter(
                   (c) => c.puntosFidelidad >= 200 && c.puntosFidelidad < 800,
                 ).length ?? 0}
@@ -306,20 +417,27 @@ export default function ClientesPage() {
         )}
 
         {/* Barra de búsqueda */}
-        <div className="flex items-center bg-surface-container-lowest border-2 border-outline-variant/30 rounded-xl px-4 gap-3 focus-within:border-primary transition-colors">
-          <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>
+        <div
+          className="flex items-center gap-3 rounded-xl border px-4 transition-colors"
+          style={{ backgroundColor: S.card, borderColor: S.border }}
+        >
+          <span className="material-symbols-outlined" style={{ color: S.textMuted, fontSize: 20 }}>
             search
           </span>
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="flex-1 bg-transparent py-3 text-sm font-medium text-on-surface placeholder-secondary/50 focus:outline-none"
+            className="min-h-11 flex-1 bg-transparent py-3 text-sm font-medium focus:outline-none"
+            style={{ color: S.textStrong }}
             placeholder="Buscar por nombre, apellido o documento..."
           />
           {busqueda && (
             <button
+              type="button"
               onClick={() => setBusqueda('')}
-              className="text-secondary hover:text-on-surface transition-colors"
+              className="transition-colors"
+              style={{ color: S.textMuted }}
+              aria-label="Limpiar búsqueda"
             >
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
                 close
@@ -329,7 +447,10 @@ export default function ClientesPage() {
         </div>
 
         {/* Tabla */}
-        <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
+        <div
+          className="overflow-x-auto rounded-2xl border shadow-sm"
+          style={{ borderColor: S.border, backgroundColor: S.card }}
+        >
           {clientesQuery.isLoading ? (
             <div className="p-6 space-y-3">
               {[...Array(5)].map((_, i) => (
@@ -338,13 +459,20 @@ export default function ClientesPage() {
             </div>
           ) : clientes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <span className="material-symbols-outlined text-5xl text-outline">person_search</span>
-              <p className="text-sm font-bold text-secondary">No se encontraron clientes</p>
+              <span className="material-symbols-outlined text-5xl" style={{ color: S.border }}>
+                person_search
+              </span>
+              <p className="text-sm font-bold" style={{ color: S.textMuted }}>
+                No se encontraron clientes
+              </p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
+                <tr
+                  className="text-xs font-bold uppercase tracking-widest"
+                  style={{ backgroundColor: S.surface, color: S.textMuted }}
+                >
                   <th className="px-6 py-4">Cliente</th>
                   <th className="px-6 py-4">Documento</th>
                   <th className="px-6 py-4">Contacto</th>
@@ -359,32 +487,37 @@ export default function ClientesPage() {
                   return (
                     <tr
                       key={cliente.id}
-                      className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                      style={{
+                        borderBottom: `1px solid ${S.border}`,
+                        backgroundColor: i % 2 === 0 ? S.card : S.panel,
+                      }}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-9 h-9 rounded-full flex items-center justify-center font-black text-sm text-white"
-                            style={{ backgroundColor: '#85264b' }}
+                            style={{ backgroundColor: S.primary }}
                           >
                             {cliente.nombre[0]}
                             {cliente.apellido[0]}
                           </div>
                           <div>
-                            <p className="font-bold text-on-surface">
+                            <p className="font-bold" style={{ color: S.textStrong }}>
                               {cliente.nombre} {cliente.apellido}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-secondary">
+                      <td className="px-6 py-4" style={{ color: S.textMuted }}>
                         {cliente.tipoDocumento} {cliente.documento}
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-secondary">{cliente.email ?? '—'}</p>
-                        <p className="text-secondary text-xs">{cliente.telefono ?? ''}</p>
+                        <p style={{ color: S.textMuted }}>{cliente.email ?? '—'}</p>
+                        <p className="text-xs" style={{ color: S.textMuted }}>
+                          {cliente.telefono ?? ''}
+                        </p>
                       </td>
-                      <td className="px-6 py-4 text-right font-black text-primary">
+                      <td className="px-6 py-4 text-right font-black" style={{ color: S.primary }}>
                         {cliente.puntosFidelidad.toLocaleString('es-CO')}
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -397,8 +530,11 @@ export default function ClientesPage() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <button
+                          type="button"
                           onClick={() => setClienteEdit(cliente)}
-                          className="p-2 rounded-lg hover:bg-surface-container transition-colors text-secondary hover:text-primary"
+                          className="min-h-11 min-w-11 rounded-lg p-2 transition-colors"
+                          style={{ color: S.textMuted }}
+                          aria-label="Editar cliente"
                         >
                           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
                             edit

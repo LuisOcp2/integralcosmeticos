@@ -70,7 +70,7 @@ function AjusteModal({
         </div>
         <div className="p-6 space-y-4">
           <div className="p-4 rounded-xl bg-surface-container flex justify-between">
-            <span className="text-sm text-secondary font-medium">Stock actual</span>
+            <span className="text-sm text-secondary font-medium">Existencias actuales</span>
             <span className="font-black text-on-secondary-fixed text-lg">{stock.cantidad}</span>
           </div>
           <div>
@@ -195,7 +195,7 @@ export default function InventarioPage() {
               Inventario
             </h1>
             <p className="text-secondary font-medium mt-1">
-              Stock por sede y alertas de reposición
+              Existencias por sede y alertas de reposición
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -307,7 +307,7 @@ export default function InventarioPage() {
                   <thead>
                     <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
                       <th className="px-6 py-4">Variante</th>
-                      <th className="px-6 py-4 text-right">Stock actual</th>
+                      <th className="px-6 py-4 text-right">Existencias actuales</th>
                       <th className="px-6 py-4 text-right">Mínimo</th>
                       <th className="px-6 py-4 text-center">Estado</th>
                       <th className="px-6 py-4 text-center">Ajuste</th>

@@ -4,8 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 import { Rol } from '@cosmeticos/shared-types';
 
@@ -33,7 +31,7 @@ export class Usuario {
   })
   rol: Rol;
 
-  @Column({ nullable: true })
+  @Column({ name: 'sedeId', nullable: true })
   sedeId: string;
 
   @Column({ default: true })

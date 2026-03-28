@@ -22,7 +22,11 @@ type ReportTab =
   | 'clientes-frecuentes'
   | 'cierre-caja';
 
-const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+const cop = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  maximumFractionDigits: 0,
+});
 
 const toISODate = (date: Date) => {
   const y = date.getFullYear();
@@ -43,8 +47,18 @@ function Skeleton({ className }: { className?: string }) {
 }
 
 function StatCard({
-  label, value, delta, deltaLabel, accent,
-}: { label: string; value: string; delta?: string; deltaLabel?: string; accent: string }) {
+  label,
+  value,
+  delta,
+  deltaLabel,
+  accent,
+}: {
+  label: string;
+  value: string;
+  delta?: string;
+  deltaLabel?: string;
+  accent: string;
+}) {
   return (
     <div
       className="bg-surface-container-low p-6 rounded-2xl border-l-4"
@@ -55,7 +69,11 @@ function StatCard({
       {delta && (
         <p className="text-xs font-bold mt-2 flex items-center gap-1" style={{ color: accent }}>
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-            {delta.startsWith('+') ? 'trending_up' : delta === '0' ? 'horizontal_rule' : 'trending_down'}
+            {delta.startsWith('+')
+              ? 'trending_up'
+              : delta === '0'
+                ? 'horizontal_rule'
+                : 'trending_down'}
           </span>
           {deltaLabel}
         </p>
@@ -72,11 +90,22 @@ async function getVentasPorSede(fechaInicio: string, fechaFin: string): Promise<
   const { data } = await api.get('/reportes/ventas-sede', { params: { fechaInicio, fechaFin } });
   return data;
 }
-async function getProductosMasVendidos(sedeId: string, fechaInicio: string, fechaFin: string, limit: number): Promise<IProductoMasVendido[]> {
-  const { data } = await api.get('/reportes/productos-mas-vendidos', { params: { sedeId, fechaInicio, fechaFin, limit } });
+async function getProductosMasVendidos(
+  sedeId: string,
+  fechaInicio: string,
+  fechaFin: string,
+  limit: number,
+): Promise<IProductoMasVendido[]> {
+  const { data } = await api.get('/reportes/productos-mas-vendidos', {
+    params: { sedeId, fechaInicio, fechaFin, limit },
+  });
   return data;
 }
-async function getMargenPorProducto(sedeId: string, fechaInicio: string, fechaFin: string): Promise<IMargenProducto[]> {
+async function getMargenPorProducto(
+  sedeId: string,
+  fechaInicio: string,
+  fechaFin: string,
+): Promise<IMargenProducto[]> {
   const { data } = await api.get('/reportes/margen', { params: { sedeId, fechaInicio, fechaFin } });
   return data;
 }
@@ -84,8 +113,15 @@ async function getStockPorSede(sedeId: string): Promise<IStockReporte[]> {
   const { data } = await api.get('/reportes/stock', { params: { sedeId } });
   return data;
 }
-async function getClientesFrecuentes(sedeId: string, fechaInicio: string, fechaFin: string, limit: number): Promise<IClienteFrecuente[]> {
-  const { data } = await api.get('/reportes/clientes-frecuentes', { params: { sedeId, fechaInicio, fechaFin, limit } });
+async function getClientesFrecuentes(
+  sedeId: string,
+  fechaInicio: string,
+  fechaFin: string,
+  limit: number,
+): Promise<IClienteFrecuente[]> {
+  const { data } = await api.get('/reportes/clientes-frecuentes', {
+    params: { sedeId, fechaInicio, fechaFin, limit },
+  });
   return data;
 }
 async function getCierreCaja(sedeId: string, fecha: string): Promise<IResumenCierreCaja | null> {
@@ -159,14 +195,19 @@ export default function ReportesPage() {
 
   const ventasSedeFiltradas = useMemo(() => {
     if (usuario?.rol === Rol.ADMIN)
-      return (ventasSedeQuery.data ?? []).filter((i) => !selectedSedeId || i.sedeId === selectedSedeId);
+      return (ventasSedeQuery.data ?? []).filter(
+        (i) => !selectedSedeId || i.sedeId === selectedSedeId,
+      );
     return (ventasSedeQuery.data ?? []).filter((i) => i.sedeId === effectiveSedeId);
   }, [effectiveSedeId, selectedSedeId, usuario?.rol, ventasSedeQuery.data]);
 
   const productosConMargen = useMemo(() => {
-    const margenMap = new Map((margenesQuery.data ?? []).map((i) => [i.productoId, i.margenPorcentaje]));
+    const margenMap = new Map(
+      (margenesQuery.data ?? []).map((i) => [i.productoId, i.margenPorcentaje]),
+    );
     return (productosMasVendidosQuery.data ?? []).map((i) => ({
-      ...i, margenPorcentaje: margenMap.get(i.productoId) ?? 0,
+      ...i,
+      margenPorcentaje: margenMap.get(i.productoId) ?? 0,
     }));
   }, [productosMasVendidosQuery.data, margenesQuery.data]);
 
@@ -192,8 +233,12 @@ export default function ReportesPage() {
   const exportarStockCSV = () => {
     const headers = ['Producto', 'Variante', 'SedeId', 'StockActual', 'StockMinimo', 'Alerta'];
     const rows = stockFiltrado.map((i) => [
-      i.nombreProducto, i.nombreVariante, i.sedeId,
-      String(i.cantidad), String(i.stockMinimo), i.alerta ? 'SI' : 'NO',
+      i.nombreProducto,
+      i.nombreVariante,
+      i.sedeId,
+      String(i.cantidad),
+      String(i.stockMinimo),
+      i.alerta ? 'SI' : 'NO',
     ]);
     const content = [headers, ...rows]
       .map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -213,11 +258,11 @@ export default function ReportesPage() {
   };
 
   const tabs: { id: ReportTab; label: string; icon: string }[] = [
-    { id: 'ventas-periodo',     label: 'Ventas por período',    icon: 'bar_chart' },
+    { id: 'ventas-periodo', label: 'Ventas por período', icon: 'bar_chart' },
     { id: 'productos-vendidos', label: 'Productos más vendidos', icon: 'workspace_premium' },
-    { id: 'inventario-stock',   label: 'Inventario',            icon: 'inventory_2' },
-    { id: 'clientes-frecuentes',label: 'Clientes frecuentes',   icon: 'group' },
-    { id: 'cierre-caja',        label: 'Cierre de caja',        icon: 'payments' },
+    { id: 'inventario-stock', label: 'Inventario', icon: 'inventory_2' },
+    { id: 'clientes-frecuentes', label: 'Clientes frecuentes', icon: 'group' },
+    { id: 'cierre-caja', label: 'Cierre de caja', icon: 'payments' },
   ];
 
   return (
@@ -226,30 +271,55 @@ export default function ReportesPage() {
         {/* ── Header ── */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">Reportes</h1>
-            <p className="text-secondary font-medium mt-1">Análisis detallado de rendimiento y gestión</p>
+            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">
+              Reportes
+            </h1>
+            <p className="text-secondary font-medium mt-1">
+              Análisis detallado de rendimiento y gestión
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             {/* Rango de fechas */}
             <div className="flex items-center bg-surface-container-lowest border border-outline-variant/30 px-4 py-2.5 rounded-xl shadow-sm gap-2">
-              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>calendar_today</span>
-              <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0 w-32" />
+              <span className="material-symbols-outlined text-secondary" style={{ fontSize: 20 }}>
+                calendar_today
+              </span>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0 w-32"
+              />
               <span className="text-secondary text-sm">—</span>
-              <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0 w-32" />
+              <input
+                type="date"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+                className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0 w-32"
+              />
             </div>
             {/* Sedes */}
-            <select value={effectiveSedeId} onChange={(e) => setSelectedSedeId(e.target.value)}
+            <select
+              value={effectiveSedeId}
+              onChange={(e) => setSelectedSedeId(e.target.value)}
               disabled={usuario?.rol !== Rol.ADMIN}
-              className="bg-surface-container-lowest border border-outline-variant/30 px-4 py-2.5 rounded-xl shadow-sm text-sm font-semibold text-on-surface focus:border-primary focus:ring-0 min-w-[160px]">
+              className="bg-surface-container-lowest border border-outline-variant/30 px-4 py-2.5 rounded-xl shadow-sm text-sm font-semibold text-on-surface focus:border-primary focus:ring-0 min-w-[160px]"
+            >
               <option value="">Todas las sedes</option>
-              {sedesDisponibles.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              {sedesDisponibles.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nombre}
+                </option>
+              ))}
             </select>
             {/* Export */}
-            <button onClick={exportarStockCSV}
-              className="flex items-center gap-2 px-5 py-2.5 border-2 border-on-secondary-fixed text-on-secondary-fixed font-bold rounded-xl hover:bg-on-secondary-fixed hover:text-white transition-all">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
+            <button
+              onClick={exportarStockCSV}
+              className="flex items-center gap-2 px-5 py-2.5 border-2 border-on-secondary-fixed text-on-secondary-fixed font-bold rounded-xl hover:bg-on-secondary-fixed hover:text-white transition-all"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                download
+              </span>
               Exportar CSV
             </button>
           </div>
@@ -258,13 +328,18 @@ export default function ReportesPage() {
         {/* ── Tabs ── */}
         <nav className="flex border-b border-outline-variant/20 overflow-x-auto whitespace-nowrap">
           {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={`px-6 py-4 text-sm font-bold flex items-center gap-2 border-b-4 transition-all duration-200 ${
                 activeTab === tab.id
                   ? 'text-primary border-primary'
                   : 'text-secondary border-transparent hover:text-primary'
-              }`}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{tab.icon}</span>
+              }`}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                {tab.icon}
+              </span>
               {tab.label}
             </button>
           ))}
@@ -272,10 +347,34 @@ export default function ReportesPage() {
 
         {/* ── KPI summary cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Ventas Totales" value={cop.format(kpis.totalVentas)} delta="+" deltaLabel="Período seleccionado" accent="#85264b" />
-          <StatCard label="Tickets Generados" value={kpis.totalTx.toLocaleString('es-CO')} delta="+" deltaLabel="Período seleccionado" accent="#733266" />
-          <StatCard label="Ticket Promedio" value={cop.format(kpis.ticketProm)} delta="0" deltaLabel="Estable" accent="#735946" />
-          <StatCard label="Margen Neto Prom." value={`${kpis.margenProm.toFixed(1)}%`} delta="+" deltaLabel="Eficiencia" accent="#85264b" />
+          <StatCard
+            label="Ventas Totales"
+            value={cop.format(kpis.totalVentas)}
+            delta="+"
+            deltaLabel="Período seleccionado"
+            accent="#85264b"
+          />
+          <StatCard
+            label="Tickets Generados"
+            value={kpis.totalTx.toLocaleString('es-CO')}
+            delta="+"
+            deltaLabel="Período seleccionado"
+            accent="#733266"
+          />
+          <StatCard
+            label="Ticket Promedio"
+            value={cop.format(kpis.ticketProm)}
+            delta="0"
+            deltaLabel="Estable"
+            accent="#735946"
+          />
+          <StatCard
+            label="Margen Neto Prom."
+            value={`${kpis.margenProm.toFixed(1)}%`}
+            delta="+"
+            deltaLabel="Eficiencia"
+            accent="#85264b"
+          />
         </div>
 
         {/* ══ TAB: Ventas por período ══ */}
@@ -292,18 +391,29 @@ export default function ReportesPage() {
                 </div>
                 {ventasSedeQuery.isLoading ? (
                   <div className="space-y-6">
-                    {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                    {[...Array(3)].map((_, i) => (
+                      <Skeleton key={i} className="h-10 w-full" />
+                    ))}
                   </div>
                 ) : (
                   <>
                     {/* Recharts */}
                     <div className="h-60 w-full mb-8">
                       <ResponsiveContainer>
-                        <BarChart data={ventasSedeFiltradas} margin={{ top: 4, right: 8, left: 16, bottom: 4 }}>
+                        <BarChart
+                          data={ventasSedeFiltradas}
+                          margin={{ top: 4, right: 8, left: 16, bottom: 4 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#dac0c5" />
                           <XAxis dataKey="nombreSede" tick={{ fontSize: 12, fill: '#735946' }} />
-                          <YAxis tickFormatter={(v) => `${(Number(v) / 1e6).toFixed(0)}M`} tick={{ fontSize: 11, fill: '#877176' }} />
-                          <Tooltip formatter={(v) => cop.format(Number(v))} cursor={{ fill: '#ffd9e1' }} />
+                          <YAxis
+                            tickFormatter={(v) => `${(Number(v) / 1e6).toFixed(0)}M`}
+                            tick={{ fontSize: 11, fill: '#877176' }}
+                          />
+                          <Tooltip
+                            formatter={(v) => cop.format(Number(v))}
+                            cursor={{ fill: '#ffd9e1' }}
+                          />
                           <Bar dataKey="totalVentas" fill="#85264b" radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
@@ -317,8 +427,10 @@ export default function ReportesPage() {
                             <span>{cop.format(Number(sede.totalVentas))}</span>
                           </div>
                           <div className="h-5 w-full bg-surface-container rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full transition-all duration-500"
-                              style={{ width: `${(Number(sede.totalVentas) / maxVenta) * 100}%` }} />
+                            <div
+                              className="h-full bg-primary rounded-full transition-all duration-500"
+                              style={{ width: `${(Number(sede.totalVentas) / maxVenta) * 100}%` }}
+                            />
                           </div>
                         </div>
                       ))}
@@ -339,14 +451,22 @@ export default function ReportesPage() {
                   </thead>
                   <tbody className="text-sm">
                     {ventasSedeFiltradas.map((item, i) => {
-                      const ticketProm = item.cantidadTransacciones > 0
-                        ? Number(item.totalVentas) / Number(item.cantidadTransacciones)
-                        : 0;
+                      const ticketProm =
+                        item.cantidadTransacciones > 0
+                          ? Number(item.totalVentas) / Number(item.cantidadTransacciones)
+                          : 0;
                       return (
-                        <tr key={item.sedeId} className={`border-b border-outline-variant/5 ${ i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low' }`}>
+                        <tr
+                          key={item.sedeId}
+                          className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                        >
                           <td className="px-6 py-5 font-bold text-on-surface">{item.nombreSede}</td>
-                          <td className="px-6 py-5 text-right font-medium">{cop.format(Number(item.totalVentas))}</td>
-                          <td className="px-6 py-5 text-right">{item.cantidadTransacciones.toLocaleString('es-CO')}</td>
+                          <td className="px-6 py-5 text-right font-medium">
+                            {cop.format(Number(item.totalVentas))}
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            {item.cantidadTransacciones.toLocaleString('es-CO')}
+                          </td>
                           <td className="px-6 py-5 text-right">{cop.format(ticketProm)}</td>
                         </tr>
                       );
@@ -360,24 +480,43 @@ export default function ReportesPage() {
             <section>
               <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm">
                 <h3 className="text-xl font-bold text-on-secondary-fixed mb-6 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1", fontSize: 22 }}>workspace_premium</span>
+                  <span
+                    className="material-symbols-outlined text-primary"
+                    style={{ fontVariationSettings: "'FILL' 1", fontSize: 22 }}
+                  >
+                    workspace_premium
+                  </span>
                   Productos más vendidos
                 </h3>
                 {productosMasVendidosQuery.isLoading ? (
-                  <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+                  <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-16" />
+                    ))}
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     {productosConMargen.slice(0, 5).map((item, index) => (
-                      <div key={item.productoId}
-                        className={`p-4 rounded-xl border flex items-center gap-4 ${ index < 3 ? 'bg-tertiary-fixed/30 border-outline-variant/30' : 'bg-surface-container' }`}>
-                        <div className={`w-8 h-8 flex items-center justify-center font-bold rounded-lg text-sm ${ index < 3 ? 'bg-tertiary text-white' : 'bg-outline-variant text-on-surface-variant' }`}>
+                      <div
+                        key={item.productoId}
+                        className={`p-4 rounded-xl border flex items-center gap-4 ${index < 3 ? 'bg-tertiary-fixed/30 border-outline-variant/30' : 'bg-surface-container'}`}
+                      >
+                        <div
+                          className={`w-8 h-8 flex items-center justify-center font-bold rounded-lg text-sm ${index < 3 ? 'bg-tertiary text-white' : 'bg-outline-variant text-on-surface-variant'}`}
+                        >
                           {index + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-on-surface truncate">{item.nombre}</p>
+                          <p className="text-sm font-bold text-on-surface truncate">
+                            {item.nombre}
+                          </p>
                           <div className="flex justify-between mt-1">
-                            <span className="text-xs text-secondary font-medium">{item.totalUnidades} uds</span>
-                            <span className={`text-xs font-bold ${ index < 3 ? 'text-tertiary' : 'text-on-surface-variant' }`}>
+                            <span className="text-xs text-secondary font-medium">
+                              {item.totalUnidades} uds
+                            </span>
+                            <span
+                              className={`text-xs font-bold ${index < 3 ? 'text-tertiary' : 'text-on-surface-variant'}`}
+                            >
                               {item.margenPorcentaje.toFixed(0)}% Mar.
                             </span>
                           </div>
@@ -398,9 +537,14 @@ export default function ReportesPage() {
               <h2 className="text-xl font-bold text-on-secondary-fixed">Productos más vendidos</h2>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-secondary">Mostrar</span>
-                <input type="number" min={1} max={30} value={limit}
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={limit}
                   onChange={(e) => setLimit(Math.max(1, Number(e.target.value) || 10))}
-                  className="w-20 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm text-center font-bold bg-surface-container-lowest" />
+                  className="w-20 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm text-center font-bold bg-surface-container-lowest"
+                />
               </div>
             </div>
             {productosMasVendidosQuery.isLoading || margenesQuery.isLoading ? (
@@ -410,10 +554,19 @@ export default function ReportesPage() {
                 <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm">
                   <div className="h-72">
                     <ResponsiveContainer>
-                      <BarChart layout="vertical" data={productosConMargen.slice(0, 10)} margin={{ left: 24, right: 24 }}>
+                      <BarChart
+                        layout="vertical"
+                        data={productosConMargen.slice(0, 10)}
+                        margin={{ left: 24, right: 24 }}
+                      >
                         <CartesianGrid strokeDasharray="3 3" stroke="#dac0c5" />
                         <XAxis type="number" tick={{ fontSize: 11, fill: '#877176' }} />
-                        <YAxis type="category" dataKey="nombre" width={180} tick={{ fontSize: 11, fill: '#2a1709' }} />
+                        <YAxis
+                          type="category"
+                          dataKey="nombre"
+                          width={180}
+                          tick={{ fontSize: 11, fill: '#2a1709' }}
+                        />
                         <Tooltip />
                         <Bar dataKey="totalUnidades" fill="#a43e63" radius={[0, 6, 6, 0]} />
                       </BarChart>
@@ -433,13 +586,28 @@ export default function ReportesPage() {
                     </thead>
                     <tbody className="text-sm">
                       {productosConMargen.map((item, index) => (
-                        <tr key={item.productoId} className={`border-b border-outline-variant/5 ${ index % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low' }`}>
+                        <tr
+                          key={item.productoId}
+                          className={`border-b border-outline-variant/5 ${index % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                        >
                           <td className="px-6 py-4 font-black text-secondary">{index + 1}</td>
                           <td className="px-6 py-4 font-bold text-on-surface">{item.nombre}</td>
                           <td className="px-6 py-4 text-right">{item.totalUnidades}</td>
-                          <td className="px-6 py-4 text-right font-medium">{cop.format(item.totalRevenue)}</td>
+                          <td className="px-6 py-4 text-right font-medium">
+                            {cop.format(item.totalRevenue)}
+                          </td>
                           <td className="px-6 py-4 text-right">
-                            <span className="font-bold" style={{ color: item.margenPorcentaje >= 20 ? '#2e7d32' : item.margenPorcentaje >= 10 ? '#e65100' : '#ba1a1a' }}>
+                            <span
+                              className="font-bold"
+                              style={{
+                                color:
+                                  item.margenPorcentaje >= 20
+                                    ? '#2e7d32'
+                                    : item.margenPorcentaje >= 10
+                                      ? '#e65100'
+                                      : '#ba1a1a',
+                              }}
+                            >
                               {item.margenPorcentaje.toFixed(1)}%
                             </span>
                           </td>
@@ -457,16 +625,27 @@ export default function ReportesPage() {
         {activeTab === 'inventario-stock' && (
           <section className="space-y-6">
             <div className="flex flex-wrap justify-between items-center gap-3">
-              <h2 className="text-xl font-bold text-on-secondary-fixed">Inventario y Stock</h2>
+              <h2 className="text-xl font-bold text-on-secondary-fixed">
+                Inventario y existencias
+              </h2>
               <div className="flex gap-3">
-                <button onClick={() => setSoloBajoMinimo((p) => !p)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${ soloBajoMinimo ? 'bg-error/10 border-error text-error' : 'border-outline-variant/30 text-secondary' }`}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>warning</span>
+                <button
+                  onClick={() => setSoloBajoMinimo((p) => !p)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${soloBajoMinimo ? 'bg-error/10 border-error text-error' : 'border-outline-variant/30 text-secondary'}`}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                    warning
+                  </span>
                   {soloBajoMinimo ? 'Mostrando alertas' : 'Ver solo bajo mínimo'}
                 </button>
-                <button onClick={exportarStockCSV}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all" style={{ backgroundColor: '#85264b' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>download</span>
+                <button
+                  onClick={exportarStockCSV}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all"
+                  style={{ backgroundColor: '#85264b' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                    download
+                  </span>
                   Exportar CSV
                 </button>
               </div>
@@ -475,43 +654,77 @@ export default function ReportesPage() {
             {!stockQuery.isLoading && (
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-surface-container-low p-4 rounded-2xl border-l-4 border-primary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total productos</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{stockQuery.data?.length ?? 0}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Total productos
+                  </p>
+                  <p className="text-2xl font-black text-on-secondary-fixed">
+                    {stockQuery.data?.length ?? 0}
+                  </p>
                 </div>
                 <div className="bg-error-container/40 p-4 rounded-2xl border-l-4 border-error">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Alertas de stock</p>
-                  <p className="text-2xl font-black text-error">{stockQuery.data?.filter((i) => i.alerta).length ?? 0}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Alertas de stock
+                  </p>
+                  <p className="text-2xl font-black text-error">
+                    {stockQuery.data?.filter((i) => i.alerta).length ?? 0}
+                  </p>
                 </div>
-                <div className="bg-surface-container-low p-4 rounded-2xl border-l-4" style={{ borderColor: '#2e7d32' }}>
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Sin alerta</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{stockQuery.data?.filter((i) => !i.alerta).length ?? 0}</p>
+                <div
+                  className="bg-surface-container-low p-4 rounded-2xl border-l-4"
+                  style={{ borderColor: '#2e7d32' }}
+                >
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Sin alerta
+                  </p>
+                  <p className="text-2xl font-black text-on-secondary-fixed">
+                    {stockQuery.data?.filter((i) => !i.alerta).length ?? 0}
+                  </p>
                 </div>
               </div>
             )}
             <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
               {stockQuery.isLoading ? (
-                <div className="p-6 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+                <div className="p-6 space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-10" />
+                  ))}
+                </div>
               ) : (
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
                       <th className="px-6 py-4">Producto</th>
                       <th className="px-6 py-4">Variante</th>
-                      <th className="px-6 py-4 text-right">Stock</th>
+                      <th className="px-6 py-4 text-right">Existencias</th>
                       <th className="px-6 py-4 text-right">Mínimo</th>
                       <th className="px-6 py-4 text-center">Estado</th>
                     </tr>
                   </thead>
                   <tbody className="text-sm">
                     {stockFiltrado.map((item, i) => (
-                      <tr key={`${item.sedeId}-${item.varianteId}`} className={`border-b border-outline-variant/5 ${ i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low' }`}>
-                        <td className="px-6 py-4 font-bold text-on-surface">{item.nombreProducto}</td>
+                      <tr
+                        key={`${item.sedeId}-${item.varianteId}`}
+                        className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                      >
+                        <td className="px-6 py-4 font-bold text-on-surface">
+                          {item.nombreProducto}
+                        </td>
                         <td className="px-6 py-4 text-secondary">{item.nombreVariante}</td>
-                        <td className={`px-6 py-4 text-right font-black ${ item.alerta ? 'text-error' : 'text-on-surface' }`}>{item.cantidad}</td>
+                        <td
+                          className={`px-6 py-4 text-right font-black ${item.alerta ? 'text-error' : 'text-on-surface'}`}
+                        >
+                          {item.cantidad}
+                        </td>
                         <td className="px-6 py-4 text-right text-secondary">{item.stockMinimo}</td>
                         <td className="px-6 py-4 text-center">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold"
-                            style={item.alerta ? { backgroundColor: '#ffdad6', color: '#ba1a1a' } : { backgroundColor: '#e8f5e9', color: '#2e7d32' }}>
+                          <span
+                            className="px-3 py-1 rounded-full text-xs font-bold"
+                            style={
+                              item.alerta
+                                ? { backgroundColor: '#ffdad6', color: '#ba1a1a' }
+                                : { backgroundColor: '#e8f5e9', color: '#2e7d32' }
+                            }
+                          >
                             {item.alerta ? '⚠ Alerta' : '✓ OK'}
                           </span>
                         </td>
@@ -530,7 +743,11 @@ export default function ReportesPage() {
             <h2 className="text-xl font-bold text-on-secondary-fixed">Clientes Frecuentes</h2>
             <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
               {clientesQuery.isLoading ? (
-                <div className="p-6 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+                <div className="p-6 space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-14" />
+                  ))}
+                </div>
               ) : (
                 <table className="w-full text-left">
                   <thead>
@@ -548,16 +765,25 @@ export default function ReportesPage() {
                     {(clientesQuery.data ?? []).map((item, index) => {
                       const nivel = nivelCliente(item.totalCompras);
                       return (
-                        <tr key={item.clienteId} className={`border-b border-outline-variant/5 ${ index % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low' }`}>
+                        <tr
+                          key={item.clienteId}
+                          className={`border-b border-outline-variant/5 ${index % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                        >
                           <td className="px-6 py-4 font-black text-secondary">{index + 1}</td>
                           <td className="px-6 py-4 font-bold text-on-surface">{item.nombre}</td>
                           <td className="px-6 py-4 text-secondary">{item.documento}</td>
                           <td className="px-6 py-4 text-right">{item.totalCompras}</td>
-                          <td className="px-6 py-4 text-right font-medium">{cop.format(item.totalGastado)}</td>
-                          <td className="px-6 py-4 text-right font-bold text-primary">{item.puntosAcumulados}</td>
+                          <td className="px-6 py-4 text-right font-medium">
+                            {cop.format(item.totalGastado)}
+                          </td>
+                          <td className="px-6 py-4 text-right font-bold text-primary">
+                            {item.puntosAcumulados}
+                          </td>
                           <td className="px-6 py-4 text-center">
-                            <span className="px-3 py-1 rounded-full text-xs font-black"
-                              style={{ backgroundColor: nivel.bg, color: nivel.color }}>
+                            <span
+                              className="px-3 py-1 rounded-full text-xs font-black"
+                              style={{ backgroundColor: nivel.bg, color: nivel.color }}
+                            >
                               {nivel.label}
                             </span>
                           </td>
@@ -577,9 +803,15 @@ export default function ReportesPage() {
             <div className="flex items-center gap-4">
               <h2 className="text-xl font-bold text-on-secondary-fixed">Cierre de Caja</h2>
               <div className="flex items-center bg-surface-container-lowest border border-outline-variant/30 px-4 py-2 rounded-xl gap-2">
-                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>event</span>
-                <input type="date" value={fechaCaja} onChange={(e) => setFechaCaja(e.target.value)}
-                  className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0" />
+                <span className="material-symbols-outlined text-secondary" style={{ fontSize: 18 }}>
+                  event
+                </span>
+                <input
+                  type="date"
+                  value={fechaCaja}
+                  onChange={(e) => setFechaCaja(e.target.value)}
+                  className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0"
+                />
               </div>
             </div>
             {cierreCajaQuery.isLoading ? (
@@ -587,36 +819,67 @@ export default function ReportesPage() {
             ) : cierreCajaQuery.data ? (
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-secondary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Monto Inicial</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cierreCajaQuery.data.montoInicial))}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Monto Inicial
+                  </p>
+                  <p className="text-2xl font-black text-on-secondary-fixed">
+                    {cop.format(Number(cierreCajaQuery.data.montoInicial))}
+                  </p>
                 </div>
                 <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-primary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total Ventas</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cierreCajaQuery.data.totalVentas))}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Total Ventas
+                  </p>
+                  <p className="text-2xl font-black text-on-secondary-fixed">
+                    {cop.format(Number(cierreCajaQuery.data.totalVentas))}
+                  </p>
                 </div>
                 <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-tertiary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total Efectivo</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cierreCajaQuery.data.totalEfectivo))}</p>
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Total Efectivo
+                  </p>
+                  <p className="text-2xl font-black text-on-secondary-fixed">
+                    {cop.format(Number(cierreCajaQuery.data.totalEfectivo))}
+                  </p>
                 </div>
-                <div className="p-6 rounded-2xl border-l-4"
+                <div
+                  className="p-6 rounded-2xl border-l-4"
                   style={{
-                    borderColor: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a',
-                    backgroundColor: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#e8f5e9' : '#ffdad6',
-                  }}>
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Diferencia</p>
-                  <p className="text-2xl font-black"
-                    style={{ color: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a' }}>
+                    borderColor:
+                      Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a',
+                    backgroundColor:
+                      Number(cierreCajaQuery.data.diferencia) >= 0 ? '#e8f5e9' : '#ffdad6',
+                  }}
+                >
+                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                    Diferencia
+                  </p>
+                  <p
+                    className="text-2xl font-black"
+                    style={{
+                      color: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a',
+                    }}
+                  >
                     {cop.format(Number(cierreCajaQuery.data.diferencia))}
                   </p>
-                  <p className="text-xs font-bold mt-2" style={{ color: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a' }}>
-                    {Number(cierreCajaQuery.data.diferencia) >= 0 ? '✓ Cuadre correcto' : '⚠ Revisar diferencia'}
+                  <p
+                    className="text-xs font-bold mt-2"
+                    style={{
+                      color: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a',
+                    }}
+                  >
+                    {Number(cierreCajaQuery.data.diferencia) >= 0
+                      ? '✓ Cuadre correcto'
+                      : '⚠ Revisar diferencia'}
                   </p>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-outline-variant/10 bg-surface-container-lowest">
                 <span className="material-symbols-outlined text-5xl text-outline">payments</span>
-                <p className="text-sm font-bold text-secondary">No hay cierre de caja para la fecha seleccionada</p>
+                <p className="text-sm font-bold text-secondary">
+                  No hay cierre de caja para la fecha seleccionada
+                </p>
               </div>
             )}
           </section>

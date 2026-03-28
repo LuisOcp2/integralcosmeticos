@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import type { Producto } from '@/types';
 
 interface ProductoCardProps {
@@ -50,7 +51,7 @@ export default function ProductoCard({ producto, onAgregar }: ProductoCardProps)
             onClick={() => onAgregar(producto)}
             className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center hover:bg-on-primary-container hover:text-primary-container active:scale-90 transition-all duration-150 shadow-elevation1"
           >
-            <span className="material-icon text-lg">add</span>
+            <Plus className="w-4 h-4" />
           </button>
         </div>
       </div>

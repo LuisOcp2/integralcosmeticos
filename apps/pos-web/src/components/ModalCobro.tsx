@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { X, CheckCircle2 } from 'lucide-react';
 
 const IVA_RATE = 0.19;
 const formatCOP = (v: number) =>
@@ -38,7 +39,7 @@ export default function ModalCobro({ subtotal, descuentoGlobal, metodoPago, onCo
             onClick={onCancelar}
             className="w-9 h-9 rounded-full hover:bg-surface-2 flex items-center justify-center transition-colors"
           >
-            <span className="material-icon text-on-surface-variant">close</span>
+            <X className="w-5 h-5 text-on-surface-variant" />
           </button>
         </div>
 
@@ -87,13 +88,13 @@ export default function ModalCobro({ subtotal, descuentoGlobal, metodoPago, onCo
           <button
             onClick={() => onConfirmar(esEfectivo ? monto : null)}
             disabled={!puedeConfirmar}
-            className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all
+            className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2
               ${puedeConfirmar
                 ? 'bg-primary text-on-primary hover:opacity-90 active:scale-95'
                 : 'bg-surface-3 text-outline cursor-not-allowed'
               }`}
           >
-            <span className="material-icon align-middle mr-1 text-lg">check_circle</span>
+            <CheckCircle2 className="w-5 h-5" />
             Confirmar
           </button>
         </div>

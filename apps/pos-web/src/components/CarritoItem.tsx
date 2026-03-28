@@ -1,3 +1,4 @@
+import { Trash2, Minus, Plus, Percent } from 'lucide-react';
 import type { ItemCarrito } from '@/types';
 
 interface CarritoItemProps {
@@ -37,7 +38,7 @@ export default function CarritoItem({ item, onCambiarCantidad, onCambiarDescuent
             onClick={() => onQuitar(item.key)}
             className="shrink-0 w-7 h-7 rounded-full hover:bg-error-container hover:text-error flex items-center justify-center transition-colors"
           >
-            <span className="material-icon text-base text-outline">delete_outline</span>
+            <Trash2 className="w-4 h-4 text-outline" />
           </button>
         </div>
 
@@ -61,7 +62,7 @@ export default function CarritoItem({ item, onCambiarCantidad, onCambiarDescuent
               onClick={() => onCambiarCantidad(item.key, item.cantidad - 1)}
               className="w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-3 active:scale-90 transition-all"
             >
-              <span className="material-icon text-base">remove</span>
+              <Minus className="w-3.5 h-3.5" />
             </button>
             <span className="text-on-background text-sm font-semibold min-w-[20px] text-center">
               {item.cantidad}
@@ -70,13 +71,13 @@ export default function CarritoItem({ item, onCambiarCantidad, onCambiarDescuent
               onClick={() => onCambiarCantidad(item.key, item.cantidad + 1)}
               className="w-6 h-6 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-3 active:scale-90 transition-all"
             >
-              <span className="material-icon text-base">add</span>
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* Discount input */}
           <div className="flex items-center gap-1 bg-surface-2 border border-outline-variant rounded-full px-2 py-0.5">
-            <span className="material-icon text-[14px] text-outline">percent</span>
+            <Percent className="w-3.5 h-3.5 text-outline" />
             <input
               type="number"
               min={0}

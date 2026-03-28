@@ -1,15 +1,17 @@
+import { Banknote, CreditCard, BadgeCheck, Landmark } from 'lucide-react';
 import type { MetodoPago } from '@/types';
+import type { LucideIcon } from 'lucide-react';
 
 interface MetodoPagoSelectorProps {
   selected: MetodoPago;
   onChange: (m: MetodoPago) => void;
 }
 
-const METODOS: { value: MetodoPago; label: string; icon: string }[] = [
-  { value: 'EFECTIVO', label: 'Efectivo', icon: 'payments' },
-  { value: 'TARJETA_CREDITO', label: 'T. Crédito', icon: 'credit_card' },
-  { value: 'TARJETA_DEBITO', label: 'T. Débito', icon: 'credit_score' },
-  { value: 'TRANSFERENCIA', label: 'Transferencia', icon: 'account_balance' },
+const METODOS: { value: MetodoPago; label: string; icon: LucideIcon }[] = [
+  { value: 'EFECTIVO', label: 'Efectivo', icon: Banknote },
+  { value: 'TARJETA_CREDITO', label: 'T. Crédito', icon: CreditCard },
+  { value: 'TARJETA_DEBITO', label: 'T. Débito', icon: BadgeCheck },
+  { value: 'TRANSFERENCIA', label: 'Transferencia', icon: Landmark },
 ];
 
 export default function MetodoPagoSelector({ selected, onChange }: MetodoPagoSelectorProps) {
@@ -17,6 +19,7 @@ export default function MetodoPagoSelector({ selected, onChange }: MetodoPagoSel
     <div className="grid grid-cols-2 gap-2">
       {METODOS.map((m) => {
         const active = selected === m.value;
+        const Icon = m.icon;
         return (
           <button
             key={m.value}
@@ -27,7 +30,7 @@ export default function MetodoPagoSelector({ selected, onChange }: MetodoPagoSel
                 : 'bg-surface-2 border-outline-variant text-on-surface-variant hover:border-outline hover:bg-surface-3'
               }`}
           >
-            <span className={`material-icon text-xl shrink-0 ${active ? 'filled' : ''}`}>{m.icon}</span>
+            <Icon className="w-5 h-5 shrink-0" />
             <span className="text-xs font-semibold leading-tight">{m.label}</span>
           </button>
         );

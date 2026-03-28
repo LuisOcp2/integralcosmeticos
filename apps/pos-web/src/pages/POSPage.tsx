@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { ShoppingCart, Trash2, CreditCard, Percent } from 'lucide-react';
 import type { MetodoPago, Producto, Cliente } from '@/types';
 import { useCarrito } from '@/hooks/useCarrito';
 import { useProductos } from '@/hooks/useProductos';
@@ -78,7 +79,7 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
           </div>
           <div className="shrink-0">
             <div className="flex items-center gap-2 bg-primary-container rounded-2xl px-4 py-2">
-              <span className="material-icon text-on-primary-container text-lg filled">point_of_sale</span>
+              <CreditCard className="w-5 h-5 text-on-primary-container" />
               <span className="text-on-primary-container text-sm font-semibold hidden md:block">POS Terminal</span>
             </div>
           </div>
@@ -109,7 +110,7 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
         {/* Cart header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant shrink-0">
           <div className="flex items-center gap-2">
-            <span className="material-icon text-on-background text-2xl">shopping_cart</span>
+            <ShoppingCart className="w-6 h-6 text-on-background" />
             <h2 className="text-on-background font-bold text-lg">Carrito</h2>
             {totalItems > 0 && (
               <span className="bg-primary text-on-primary text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
@@ -122,7 +123,7 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
               onClick={limpiarCarrito}
               className="text-on-surface-variant text-xs hover:text-error transition-colors flex items-center gap-1"
             >
-              <span className="material-icon text-base">delete_sweep</span>
+              <Trash2 className="w-4 h-4" />
               Vaciar
             </button>
           )}
@@ -132,7 +133,7 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
         <div className="flex-1 overflow-y-auto px-5">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-on-surface-variant">
-              <span className="material-icon text-6xl opacity-20">shopping_cart</span>
+              <ShoppingCart className="w-16 h-16 opacity-20" />
               <p className="text-sm font-medium">El carrito está vacío</p>
               <p className="text-xs text-center opacity-70">Agrega productos desde el catálogo</p>
             </div>
@@ -170,7 +171,7 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
               <div className="flex items-center gap-2">
                 <span className="text-on-surface-variant text-xs flex-1">Dcto. global (%)</span>
                 <div className="flex items-center gap-1 bg-surface-2 border border-outline-variant rounded-2xl px-3 py-1">
-                  <span className="material-icon text-[13px] text-outline">percent</span>
+                  <Percent className="w-3.5 h-3.5 text-outline" />
                   <input
                     type="number"
                     min={0}
@@ -205,7 +206,7 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
                 <div className="w-5 h-5 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span className="material-icon text-2xl filled">point_of_sale</span>
+                  <CreditCard className="w-6 h-6" />
                   Cobrar {formatCOP(total)}
                 </>
               )}

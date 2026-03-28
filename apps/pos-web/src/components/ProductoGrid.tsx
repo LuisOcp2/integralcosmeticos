@@ -1,3 +1,4 @@
+import { SearchX } from 'lucide-react';
 import type { Producto } from '@/types';
 import ProductoCard from './ProductoCard';
 
@@ -35,7 +36,7 @@ export default function ProductoGrid({ productos, loading, onAgregar, emptyMessa
   if (productos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 text-on-surface-variant">
-        <span className="material-icon text-6xl opacity-30">search_off</span>
+        <SearchX className="w-16 h-16 opacity-30" />
         <p className="text-sm font-medium">{emptyMessage ?? 'No se encontraron productos'}</p>
       </div>
     );

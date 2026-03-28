@@ -1,4 +1,5 @@
 import type { ChangeEvent } from 'react';
+import { Search, X, ScanBarcode } from 'lucide-react';
 
 interface SearchBarProps {
   value: string;
@@ -17,7 +18,7 @@ export default function SearchBar({
 
   return (
     <div className="flex items-center gap-2 bg-surface-2 rounded-2xl px-4 h-14 border border-outline-variant focus-within:border-primary focus-within:bg-surface transition-all duration-200">
-      <span className="material-icon text-on-surface-variant shrink-0">search</span>
+      <Search className="w-5 h-5 text-on-surface-variant shrink-0" />
       <input
         type="text"
         value={value}
@@ -30,7 +31,7 @@ export default function SearchBar({
           onClick={() => onChange('')}
           className="text-on-surface-variant hover:text-on-background transition-colors"
         >
-          <span className="material-icon text-xl">close</span>
+          <X className="w-5 h-5" />
         </button>
       )}
       {onBarcodeScan && (
@@ -39,7 +40,7 @@ export default function SearchBar({
           title="Escanear código de barras"
           className="text-on-surface-variant hover:text-primary transition-colors"
         >
-          <span className="material-icon text-xl">barcode_reader</span>
+          <ScanBarcode className="w-5 h-5" />
         </button>
       )}
     </div>

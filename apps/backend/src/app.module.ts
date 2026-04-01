@@ -23,6 +23,10 @@ import { SyncModule } from './modules/sync/sync.module';
 import { ConfiguracionesModule } from './modules/configuraciones/configuraciones.module';
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { OrdenComprasModule } from './modules/orden-compras/orden-compras.module';
+import { Producto } from './modules/catalogo/productos/entities/producto.entity';
+import { Variante } from './modules/catalogo/variantes/entities/variante.entity';
+import { Categoria } from './modules/catalogo/categorias/entities/categoria.entity';
+import { Marca } from './modules/catalogo/marcas/entities/marca.entity';
 import databaseConfig from './config/database.config';
 import appConfig from './config/app.config';
 
@@ -45,7 +49,7 @@ import appConfig from './config/app.config';
         username: configService.get<string>('database.username'),
         password: configService.get<string>('database.password'),
         database: configService.get<string>('database.name'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        entities: [Producto, Variante, Categoria, Marca, __dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get<boolean>('database.synchronize') ?? false,
         logging: configService.get<string>('app.nodeEnv') === 'local',
         autoLoadEntities: true,

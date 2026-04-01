@@ -34,7 +34,7 @@ import { ImportacionesService } from './importaciones.service';
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Rol.ADMIN)
-@Controller('catalogo/importaciones')
+@Controller(['catalogo/importaciones', 'catalogo'])
 export class ImportacionesController {
   constructor(private readonly importacionesService: ImportacionesService) {}
 
@@ -89,6 +89,40 @@ export class ImportacionesController {
       modo: query.modo,
       createdBy: req.user?.id,
     });
+  }
+
+  @Post('importar-csv')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Importacion masiva CSV de catalogo (todo o nada)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 15 * 1024 * 1024 },
+      fileFilter: (_req, file, callback) => {
+        const name = file.originalname.toLowerCase();
+        if (name.endsWith('.csv')) {
+          callback(null, true);
+          return;
+        }
+        callback(new BadRequestException('Solo se admiten archivos .csv'), false);
+      },
+    }),
+  )
+  importarCsv(@UploadedFile() file: { originalname: string; buffer: Buffer }) {
+    return this.importacionesService.importarCsvCatalogo(file);
   }
 
   @Post(':jobId/ejecutar')

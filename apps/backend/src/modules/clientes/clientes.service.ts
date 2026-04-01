@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { Cliente } from './entities/cliente.entity';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { Venta } from '../ventas/entities/venta.entity';
@@ -22,15 +22,17 @@ export class ClientesService {
     const tipoDocumento = await this.validarTipoDocumentoActivo(dto.tipoDocumento);
 
     const [porDocumento, porEmail] = await Promise.all([
-      this.clientesRepository.findOne({ where: { documento: dto.documento } }),
-      dto.email ? this.clientesRepository.findOne({ where: { email: dto.email } }) : null,
+      this.clientesRepository.findOne({ where: { documento: dto.documento, activo: true } }),
+      dto.email
+        ? this.clientesRepository.findOne({ where: { email: dto.email, activo: true } })
+        : null,
     ]);
 
-    if (porDocumento?.activo) {
+    if (porDocumento) {
       throw new ConflictException('Ya existe un cliente activo con ese documento');
     }
 
-    if (dto.email && porEmail?.activo) {
+    if (dto.email && porEmail) {
       throw new ConflictException('Ya existe un cliente activo con ese email');
     }
 
@@ -42,7 +44,12 @@ export class ClientesService {
       puntosFidelidad: 0,
     });
 
-    return this.clientesRepository.save(cliente);
+    try {
+      return await this.clientesRepository.save(cliente);
+    } catch (error) {
+      this.handleUniqueConstraintError(error);
+      throw error;
+    }
   }
 
   async findAll(): Promise<Cliente[]> {
@@ -93,9 +100,9 @@ export class ClientesService {
     const documento = dto.documento?.trim();
     if (documento && documento !== cliente.documento) {
       const existenteDocumento = await this.clientesRepository.findOne({
-        where: { documento },
+        where: { documento, activo: true },
       });
-      if (existenteDocumento?.activo && existenteDocumento.id !== cliente.id) {
+      if (existenteDocumento && existenteDocumento.id !== cliente.id) {
         throw new ConflictException('Ya existe un cliente activo con ese documento');
       }
       cliente.documento = documento;
@@ -105,9 +112,9 @@ export class ClientesService {
     if (emailNormalizado !== undefined && emailNormalizado !== (cliente.email ?? undefined)) {
       if (emailNormalizado) {
         const existenteEmail = await this.clientesRepository.findOne({
-          where: { email: emailNormalizado },
+          where: { email: emailNormalizado, activo: true },
         });
-        if (existenteEmail?.activo && existenteEmail.id !== cliente.id) {
+        if (existenteEmail && existenteEmail.id !== cliente.id) {
           throw new ConflictException('Ya existe un cliente activo con ese email');
         }
         cliente.email = emailNormalizado;
@@ -141,6 +148,17 @@ export class ClientesService {
       cliente.fechaNacimiento = dto.fechaNacimiento ? new Date(dto.fechaNacimiento) : null;
     }
 
+    try {
+      return await this.clientesRepository.save(cliente);
+    } catch (error) {
+      this.handleUniqueConstraintError(error);
+      throw error;
+    }
+  }
+
+  async remove(id: string): Promise<Cliente> {
+    const cliente = await this.findOne(id);
+    cliente.activo = false;
     return this.clientesRepository.save(cliente);
   }
 
@@ -191,5 +209,28 @@ export class ClientesService {
     }
 
     return tipoDocumento;
+  }
+
+  private handleUniqueConstraintError(error: unknown): never | void {
+    if (!(error instanceof QueryFailedError)) {
+      return;
+    }
+
+    const dbError = error as QueryFailedError & { code?: string; detail?: string };
+    if (dbError.code !== '23505') {
+      return;
+    }
+
+    const detail = dbError.detail?.toLowerCase() ?? '';
+
+    if (detail.includes('documento')) {
+      throw new ConflictException('Ya existe un cliente con ese documento');
+    }
+
+    if (detail.includes('email')) {
+      throw new ConflictException('Ya existe un cliente con ese email');
+    }
+
+    throw new ConflictException('Ya existe un cliente con datos unicos duplicados');
   }
 }

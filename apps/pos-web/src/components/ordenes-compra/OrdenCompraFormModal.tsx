@@ -7,7 +7,7 @@ interface OrdenCompraFormModalProps {
   orden: {
     id: number;
     numeroOrden: string;
-    proveedorId: number;
+    proveedorId: string;
     total: number;
     estado: string;
     fechaEntregaEsperada: string | null;

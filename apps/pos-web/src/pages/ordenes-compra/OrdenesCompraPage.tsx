@@ -7,9 +7,9 @@ import OrdenCompraFormModal from '@/components/ordenes-compra/OrdenCompraFormMod
 interface OrdenCompra {
   id: number;
   numeroOrden: string;
-  proveedorId: number;
+  proveedorId: string;
   proveedor: {
-    id: number;
+    id: string;
     razonSocial: string;
     numeroDocumentoLegal: string | null;
   };

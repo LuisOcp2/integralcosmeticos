@@ -1,6 +1,6 @@
 export class CreateOrdenCompraDto {
   numeroOrden: string;
-  proveedorId: number;
+  proveedorId: string;
   total: number;
   estado?: string;
   fechaEntregaEsperada?: Date;

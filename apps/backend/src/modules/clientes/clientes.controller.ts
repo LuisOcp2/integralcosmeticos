@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Rol } from '@cosmeticos/shared-types';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,7 +28,7 @@ export class ClientesController {
   constructor(private readonly clientesService: ClientesService) {}
 
   @Post()
-  @Roles(Rol.CAJERO)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Crear cliente' })
   create(@Body() dto: CreateClienteDto) {
     return this.clientesService.create(dto);
@@ -69,9 +80,17 @@ export class ClientesController {
   }
 
   @Put(':id')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Actualizar cliente' })
   update(@Param('id') id: string, @Body() dto: UpdateClienteDto) {
     return this.clientesService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  @ApiOperation({ summary: 'Eliminar cliente (soft delete)' })
+  remove(@Param('id') id: string) {
+    return this.clientesService.remove(id);
   }
 
   @Patch(':id/puntos')

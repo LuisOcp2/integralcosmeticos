@@ -19,6 +19,7 @@ import {
   Settings,
   ShoppingCart,
   Users,
+  UserCog,
   Wallet,
 } from 'lucide-react';
 
@@ -55,14 +56,31 @@ const fullSections: NavSection[] = [
         ? [{ label: 'Diagnóstico', icon: Settings, href: '/diagnostico' }]
         : []),
       { label: 'Configuración', icon: Settings, href: '/configuraciones' },
+      { label: 'Usuarios', icon: UserCog, href: '/usuarios' },
     ],
   },
 ];
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate();
-  const { usuario, logout } = useAuthStore();
+  const { usuario, logout, setUsuario } = useAuthStore();
   const [sidebarOffset, setSidebarOffset] = useState(260);
+
+  const meQuery = useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: async () => {
+      const { data } = await api.get('/usuarios/me');
+      return data;
+    },
+    enabled: Boolean(usuario),
+    staleTime: 1000 * 60,
+  });
+
+  useEffect(() => {
+    if (meQuery.data) {
+      setUsuario(meQuery.data);
+    }
+  }, [meQuery.data, setUsuario]);
 
   const importHealthQuery = useQuery({
     queryKey: ['catalogo', 'importaciones', 'health', 'sidebar'],

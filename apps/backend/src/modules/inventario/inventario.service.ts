@@ -40,11 +40,11 @@ export class InventarioService {
 
   private async validarVarianteActiva(varianteId: string): Promise<void> {
     const variante = await this.variantesRepository.findOne({
-      where: { id: varianteId, activo: true },
+      where: { id: varianteId },
       relations: ['producto'],
     });
-    if (!variante || !variante.producto?.activo) {
-      throw new NotFoundException('Variante no encontrada o inactiva');
+    if (!variante || !variante.producto) {
+      throw new NotFoundException('Variante no encontrada');
     }
   }
 
@@ -129,15 +129,49 @@ export class InventarioService {
   async getStockPorSede(sedeId: string) {
     await this.validarSedeActiva(sedeId);
 
-    const stocks = await this.stockRepository.find({
-      where: { sedeId },
-      order: { cantidad: 'ASC' },
-    });
+    const rows = await this.stockRepository
+      .createQueryBuilder('stock')
+      .leftJoin(Variante, 'variante', 'variante.id = stock.varianteId')
+      .leftJoin('productos', 'producto', 'producto.id = variante.productoId')
+      .select('stock.id', 'id')
+      .addSelect('stock.varianteId', 'varianteId')
+      .addSelect('stock.sedeId', 'sedeId')
+      .addSelect('stock.cantidad', 'cantidad')
+      .addSelect('stock.stock_minimo', 'stockMinimo')
+      .addSelect('variante.nombre', 'nombreVariante')
+      .addSelect('variante.sku', 'skuVariante')
+      .addSelect('variante.codigo_barras', 'codigoBarrasVariante')
+      .addSelect('producto.nombre', 'nombreProducto')
+      .where('stock.sedeId = :sedeId', { sedeId })
+      .orderBy('stock.cantidad', 'ASC')
+      .getRawMany<{
+        id: string;
+        varianteId: string;
+        sedeId: string;
+        cantidad: string;
+        stockMinimo: string;
+        nombreVariante?: string | null;
+        skuVariante?: string | null;
+        codigoBarrasVariante?: string | null;
+        nombreProducto?: string | null;
+      }>();
 
-    return stocks.map((stock) => ({
-      ...stock,
-      alertaStockMinimo: stock.cantidad < stock.stockMinimo,
-    }));
+    return rows.map((row) => {
+      const cantidad = Number(row.cantidad);
+      const stockMinimo = Number(row.stockMinimo);
+      return {
+        id: row.id,
+        varianteId: row.varianteId,
+        sedeId: row.sedeId,
+        cantidad,
+        stockMinimo,
+        nombreVariante: row.nombreVariante ?? undefined,
+        skuVariante: row.skuVariante ?? undefined,
+        codigoBarrasVariante: row.codigoBarrasVariante ?? undefined,
+        nombreProducto: row.nombreProducto ?? undefined,
+        alertaStockMinimo: cantidad < stockMinimo,
+      };
+    });
   }
 
   async getAlertasStockBajo(sedeId: string) {
@@ -235,9 +269,67 @@ export class InventarioService {
   }
 
   async getMovimientos() {
-    return this.movimientoRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+    const rows = await this.movimientoRepository
+      .createQueryBuilder('movimiento')
+      .leftJoin(Variante, 'variante', 'variante.id = movimiento.varianteId')
+      .leftJoin('productos', 'producto', 'producto.id = movimiento.productoId')
+      .select('movimiento.id', 'id')
+      .addSelect('movimiento.numero_doc', 'numeroDoc')
+      .addSelect('movimiento.tipo', 'tipo')
+      .addSelect('movimiento.varianteId', 'varianteId')
+      .addSelect('movimiento.productoId', 'productoId')
+      .addSelect('movimiento.sedeOrigenId', 'sedeId')
+      .addSelect('movimiento.sedeDestinoId', 'sedeDestinoId')
+      .addSelect('movimiento.cantidad', 'cantidad')
+      .addSelect('movimiento.usuarioId', 'usuarioId')
+      .addSelect('movimiento.motivo', 'motivo')
+      .addSelect('movimiento.stock_anterior', 'stockAnterior')
+      .addSelect('movimiento.stock_nuevo', 'stockNuevo')
+      .addSelect('movimiento.createdAt', 'createdAt')
+      .addSelect('variante.nombre', 'nombreVariante')
+      .addSelect('variante.sku', 'skuVariante')
+      .addSelect('variante.codigo_barras', 'codigoBarrasVariante')
+      .addSelect('producto.nombre', 'nombreProducto')
+      .orderBy('movimiento.createdAt', 'DESC')
+      .getRawMany<{
+        id: string;
+        numeroDoc: string;
+        tipo: TipoMovimiento;
+        varianteId: string;
+        productoId: string;
+        sedeId?: string | null;
+        sedeDestinoId?: string | null;
+        cantidad: string;
+        usuarioId: string;
+        motivo?: string | null;
+        stockAnterior: string;
+        stockNuevo: string;
+        createdAt: Date;
+        nombreVariante?: string | null;
+        skuVariante?: string | null;
+        codigoBarrasVariante?: string | null;
+        nombreProducto?: string | null;
+      }>();
+
+    return rows.map((row) => ({
+      id: row.id,
+      numeroDoc: row.numeroDoc,
+      tipo: row.tipo,
+      varianteId: row.varianteId,
+      productoId: row.productoId,
+      sedeId: row.sedeId ?? null,
+      sedeDestinoId: row.sedeDestinoId ?? null,
+      cantidad: Number(row.cantidad),
+      usuarioId: row.usuarioId,
+      motivo: row.motivo ?? undefined,
+      stockAnterior: Number(row.stockAnterior),
+      stockNuevo: Number(row.stockNuevo),
+      createdAt: row.createdAt,
+      nombreVariante: row.nombreVariante ?? undefined,
+      skuVariante: row.skuVariante ?? undefined,
+      codigoBarrasVariante: row.codigoBarrasVariante ?? undefined,
+      nombreProducto: row.nombreProducto ?? undefined,
+    }));
   }
 
   async ajustarStock(dto: AjustarStockDto, usuarioId: string) {

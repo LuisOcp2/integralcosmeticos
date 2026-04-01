@@ -15,8 +15,17 @@ export class AuthService {
     if (!usuario) throw new UnauthorizedException('Credenciales inválidas');
     if (!usuario.activo) throw new UnauthorizedException('Usuario inactivo');
 
+    if (usuario.bloqueadoHasta && usuario.bloqueadoHasta.getTime() > Date.now()) {
+      throw new UnauthorizedException('Usuario temporalmente bloqueado. Intente mas tarde');
+    }
+
     const passwordValido = await bcrypt.compare(password, usuario.password);
-    if (!passwordValido) throw new UnauthorizedException('Credenciales inválidas');
+    if (!passwordValido) {
+      await this.usuariosService.registrarLoginFallido(usuario.id);
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    await this.usuariosService.registrarLoginExitoso(usuario.id);
 
     const { password: _pass, ...result } = usuario;
     return result;

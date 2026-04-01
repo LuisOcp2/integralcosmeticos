@@ -9,6 +9,7 @@ const baseRolePaths: Record<Rol, string[]> = {
     '/dashboard',
     '/reportes',
     '/configuraciones',
+    '/usuarios',
     '/pos',
     '/caja',
     '/clientes',
@@ -20,6 +21,7 @@ const baseRolePaths: Record<Rol, string[]> = {
     '/dashboard',
     '/reportes',
     '/configuraciones',
+    '/usuarios',
     '/sync',
     '/importaciones',
     '/diagnostico',
@@ -45,6 +47,7 @@ interface AuthState {
   accessToken: string | null;
   isAuthenticated: boolean;
   login: (token: string, usuario: Omit<IUsuario, 'createdAt' | 'updatedAt'>) => void;
+  setUsuario: (usuario: Omit<IUsuario, 'createdAt' | 'updatedAt'>) => void;
   logout: () => void;
 }
 
@@ -55,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       isAuthenticated: false,
       login: (accessToken, usuario) => set({ accessToken, usuario, isAuthenticated: true }),
+      setUsuario: (usuario) => set((state) => ({ ...state, usuario })),
       logout: () => set({ accessToken: null, usuario: null, isAuthenticated: false }),
     }),
     {

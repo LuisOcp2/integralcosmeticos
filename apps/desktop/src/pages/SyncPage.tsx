@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CloudOff, CloudCheck, Clock, RotateCw, Hourglass, History } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import AppLayout from './components/AppLayout';
 import api from '../lib/api';
 
@@ -49,7 +50,11 @@ export default function SyncPage() {
   const queryClient = useQueryClient();
   const [desktopEvent, setDesktopEvent] = useState<string | null>(null);
 
-  const syncStatusQuery = useQuery({ queryKey: ['sync', 'status'], queryFn: getSyncStatus, refetchInterval: 30000 });
+  const syncStatusQuery = useQuery({
+    queryKey: ['sync', 'status'],
+    queryFn: getSyncStatus,
+    refetchInterval: 30000,
+  });
 
   const forzarSyncMutation = useMutation({
     mutationFn: forzarSync,
@@ -65,72 +70,126 @@ export default function SyncPage() {
       if (event.type) setDesktopEvent(event.type);
       void queryClient.invalidateQueries({ queryKey: ['sync', 'status'] });
     });
-    return () => { off?.(); };
+    return () => {
+      off?.();
+    };
   }, [queryClient]);
 
   const status = syncStatusQuery.data;
 
-  type EstadoGlobal = { label: string; Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; bg: string; color: string; border: string; };
+  type EstadoGlobal = {
+    label: string;
+    Icon: LucideIcon;
+    bg: string;
+    color: string;
+    border: string;
+  };
   const estadoGlobal: EstadoGlobal =
     status?.errores && status.errores > 0
       ? { label: 'Con errores', Icon: CloudOff, bg: '#ffdad6', color: '#ba1a1a', border: '#ba1a1a' }
       : status?.pendientes && status.pendientes > 0
         ? { label: 'Pendiente', Icon: Clock, bg: '#fff3e0', color: '#e65100', border: '#e65100' }
-        : { label: 'Sincronizado', Icon: CloudCheck, bg: '#e8f5e9', color: '#2e7d32', border: '#2e7d32' };
+        : {
+            label: 'Sincronizado',
+            Icon: CloudCheck,
+            bg: '#e8f5e9',
+            color: '#2e7d32',
+            border: '#2e7d32',
+          };
 
   return (
     <AppLayout>
       <div className="space-y-8">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">Sincronización</h1>
-            <p className="text-secondary font-medium mt-1">Estado en tiempo real de la cola cloud</p>
+            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">
+              Sincronización
+            </h1>
+            <p className="text-secondary font-medium mt-1">
+              Estado en tiempo real de la cola cloud
+            </p>
           </div>
-          <button onClick={() => forzarSyncMutation.mutate()} disabled={forzarSyncMutation.isPending}
+          <button
+            onClick={() => forzarSyncMutation.mutate()}
+            disabled={forzarSyncMutation.isPending}
             className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm text-white uppercase tracking-widest disabled:opacity-60 transition-all"
-            style={{ backgroundColor: '#2a1709' }}>
+            style={{ backgroundColor: '#2a1709' }}
+          >
             {forzarSyncMutation.isPending ? <Hourglass size={18} /> : <RotateCw size={18} />}
             {forzarSyncMutation.isPending ? 'Sincronizando...' : 'Forzar sync ahora'}
           </button>
         </header>
 
-        <div className="rounded-2xl p-6 border-l-4 flex items-center gap-5" style={{ backgroundColor: estadoGlobal.bg, borderColor: estadoGlobal.border }}>
+        <div
+          className="rounded-2xl p-6 border-l-4 flex items-center gap-5"
+          style={{ backgroundColor: estadoGlobal.bg, borderColor: estadoGlobal.border }}
+        >
           <estadoGlobal.Icon size={48} style={{ color: estadoGlobal.color }} />
           <div>
-            <p className="text-xl font-black" style={{ color: estadoGlobal.color }}>{estadoGlobal.label}</p>
+            <p className="text-xl font-black" style={{ color: estadoGlobal.color }}>
+              {estadoGlobal.label}
+            </p>
             {status?.ultimaSync ? (
-              <p className="text-sm text-secondary mt-0.5">Última sync: {formatFecha(status.ultimaSync)}</p>
+              <p className="text-sm text-secondary mt-0.5">
+                Última sync: {formatFecha(status.ultimaSync)}
+              </p>
             ) : (
               <p className="text-sm text-secondary mt-0.5">Sin sincronizaciones recientes</p>
             )}
             {desktopEvent && (
-              <p className="text-xs text-secondary mt-1">Último evento desktop: <span className="font-bold">{desktopEvent}</span></p>
+              <p className="text-xs text-secondary mt-1">
+                Último evento desktop: <span className="font-bold">{desktopEvent}</span>
+              </p>
             )}
           </div>
         </div>
 
         {syncStatusQuery.isLoading ? (
-          <div className="grid grid-cols-3 gap-4">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}</div>
+          <div className="grid grid-cols-3 gap-4">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-28" />
+            ))}
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-primary">
-              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Completados</p>
-              <p className="text-2xl font-black text-on-secondary-fixed">{status?.completados ?? 0}</p>
+              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                Completados
+              </p>
+              <p className="text-2xl font-black text-on-secondary-fixed">
+                {status?.completados ?? 0}
+              </p>
             </div>
-            <div className="p-6 rounded-2xl border-l-4" style={{ backgroundColor: '#fff3e0', borderColor: '#e65100' }}>
-              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Pendientes</p>
-              <p className="text-2xl font-black" style={{ color: '#e65100' }}>{status?.pendientes ?? 0}</p>
+            <div
+              className="p-6 rounded-2xl border-l-4"
+              style={{ backgroundColor: '#fff3e0', borderColor: '#e65100' }}
+            >
+              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                Pendientes
+              </p>
+              <p className="text-2xl font-black" style={{ color: '#e65100' }}>
+                {status?.pendientes ?? 0}
+              </p>
             </div>
-            <div className="p-6 rounded-2xl border-l-4" style={{ backgroundColor: '#ffdad6', borderColor: '#ba1a1a' }}>
-              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Errores</p>
-              <p className="text-2xl font-black" style={{ color: '#ba1a1a' }}>{status?.errores ?? 0}</p>
+            <div
+              className="p-6 rounded-2xl border-l-4"
+              style={{ backgroundColor: '#ffdad6', borderColor: '#ba1a1a' }}
+            >
+              <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">
+                Errores
+              </p>
+              <p className="text-2xl font-black" style={{ color: '#ba1a1a' }}>
+                {status?.errores ?? 0}
+              </p>
             </div>
           </div>
         )}
 
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-on-secondary-fixed">Historial de sincronizaciones</h2>
+            <h2 className="text-xl font-bold text-on-secondary-fixed">
+              Historial de sincronizaciones
+            </h2>
             {syncStatusQuery.isFetching && (
               <div className="flex items-center gap-1.5 text-xs font-bold text-secondary">
                 <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
@@ -140,7 +199,11 @@ export default function SyncPage() {
           </div>
           <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
             {syncStatusQuery.isLoading ? (
-              <div className="p-6 space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+              <div className="p-6 space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-12" />
+                ))}
+              </div>
             ) : !status?.historial?.length ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <History size={48} className="text-outline" />
@@ -158,16 +221,29 @@ export default function SyncPage() {
                 </thead>
                 <tbody className="text-sm">
                   {status.historial.map((item, i) => (
-                    <tr key={item.id} className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
+                    <tr
+                      key={item.id}
+                      className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}
+                    >
                       <td className="px-6 py-4 font-bold text-on-surface">{item.tabla}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className="px-3 py-1 rounded-full text-xs font-bold"
-                          style={isEstadoOk(item.estado) ? { backgroundColor: '#e8f5e9', color: '#2e7d32' } : { backgroundColor: '#ffdad6', color: '#ba1a1a' }}>
+                        <span
+                          className="px-3 py-1 rounded-full text-xs font-bold"
+                          style={
+                            isEstadoOk(item.estado)
+                              ? { backgroundColor: '#e8f5e9', color: '#2e7d32' }
+                              : { backgroundColor: '#ffdad6', color: '#ba1a1a' }
+                          }
+                        >
                           {isEstadoOk(item.estado) ? '✓ OK' : '✗ ERROR'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-secondary">{formatFecha(item.createdAt ?? item.creadoEn)}</td>
-                      <td className="px-6 py-4 text-right font-black text-on-surface">{item.registrosAfectados}</td>
+                      <td className="px-6 py-4 text-secondary">
+                        {formatFecha(item.createdAt ?? item.creadoEn)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-on-surface">
+                        {item.registrosAfectados}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

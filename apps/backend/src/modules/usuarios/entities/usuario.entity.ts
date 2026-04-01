@@ -1,4 +1,5 @@
 import {
+  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
@@ -18,7 +19,8 @@ export class Usuario {
   @Column({ length: 100 })
   apellido: string;
 
-  @Column({ unique: true })
+  @Index({ unique: true })
+  @Column({ length: 150 })
   email: string;
 
   @Column()
@@ -31,11 +33,23 @@ export class Usuario {
   })
   rol: Rol;
 
-  @Column({ name: 'sedeId', nullable: true })
-  sedeId: string;
+  @Column({ name: 'sedeId', type: 'uuid', nullable: true })
+  sedeId?: string | null;
 
   @Column({ default: true })
   activo: boolean;
+
+  @Column({ name: 'ultimo_login', type: 'timestamptz', nullable: true })
+  ultimoLogin?: Date | null;
+
+  @Column({ name: 'intentos_login', type: 'int', default: 0 })
+  intentosLogin: number;
+
+  @Column({ name: 'bloqueado_hasta', type: 'timestamptz', nullable: true })
+  bloqueadoHasta?: Date | null;
+
+  @Column({ name: 'telefono', type: 'varchar', length: 20, nullable: true })
+  telefono?: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

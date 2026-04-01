@@ -17,28 +17,28 @@ export class CajaController {
   constructor(private readonly cajaService: CajaService) {}
 
   @Post('abrir')
-  @Roles(Rol.CAJERO)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Abrir caja para una sede' })
   abrirCaja(@Body() dto: AbrirCajaDto, @Request() req: any) {
     return this.cajaService.abrirCaja(dto.sedeId, req.user.id, dto.montoInicial);
   }
 
   @Post('apertura')
-  @Roles(Rol.CAJERO)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Alias documental para abrir caja' })
   abrirCajaAlias(@Body() dto: AbrirCajaDto, @Request() req: any) {
     return this.cajaService.abrirCaja(dto.sedeId, req.user.id, dto.montoInicial);
   }
 
   @Post('cierre')
-  @Roles(Rol.CAJERO)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Cerrar caja activa por sede con arqueo final' })
   cerrarCajaPorSede(@Body() dto: CerrarCajaSedeDto, @Request() req: any) {
     return this.cajaService.cerrarCajaActivaPorSede(dto.sedeId, req.user.id, dto.montoFinal);
   }
 
   @Post(':id/cerrar')
-  @Roles(Rol.CAJERO)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Cerrar caja con arqueo final' })
   cerrarCaja(@Param('id') cajaId: string, @Body() dto: CerrarCajaDto, @Request() req: any) {
     return this.cajaService.cerrarCaja(cajaId, req.user.id, dto.montoFinal);

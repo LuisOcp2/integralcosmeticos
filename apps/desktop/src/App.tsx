@@ -16,6 +16,7 @@ const SyncPage = lazy(() => import('./pages/SyncPage'));
 const ImportacionesPage = lazy(() => import('./pages/ImportacionesPage'));
 const DiagnosticoPage = lazy(() => import('./pages/DiagnosticoPage'));
 const ConfiguracionesPage = lazy(() => import('./pages/ConfiguracionesPage'));
+const UsuariosPage = lazy(() => import('./pages/UsuariosPage'));
 const isDev = import.meta.env.DEV;
 
 function RouteLoader() {
@@ -164,6 +165,14 @@ export default function App() {
             element={
               <ProtectedRoute path="/configuraciones" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
                 <ConfiguracionesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/usuarios"
+            element={
+              <ProtectedRoute path="/usuarios" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <UsuariosPage />
               </ProtectedRoute>
             }
           />

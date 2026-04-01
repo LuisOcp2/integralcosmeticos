@@ -15,7 +15,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const user = await login(email, password);
-    if (user) onLoginSuccess();
+    if (user) {
+      onLoginSuccess();
+    }
   };
 
   return (
@@ -27,7 +29,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <span className="material-icon text-on-primary text-4xl filled">local_pharmacy</span>
           </div>
           <h1 className="text-on-background font-bold text-2xl text-center">Integral Cosméticos</h1>
-          <p className="text-on-surface-variant text-sm text-center">Sistema POS – Inicia sesión para continuar</p>
+          <p className="text-on-surface-variant text-sm text-center">
+            Sistema POS – Inicia sesión para continuar
+          </p>
         </div>
 
         {/* Form */}
@@ -72,7 +76,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 onClick={() => setShowPwd((v) => !v)}
                 className="text-outline hover:text-on-background transition-colors"
               >
-                <span className="material-icon text-lg">{showPwd ? 'visibility_off' : 'visibility'}</span>
+                <span className="material-icon text-lg">
+                  {showPwd ? 'visibility_off' : 'visibility'}
+                </span>
               </button>
             </div>
           </div>
@@ -100,9 +106,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </button>
         </form>
 
-        <p className="text-center text-outline text-xs">
-          Integral Cosméticos · POS v1.0
-        </p>
+        <p className="text-center text-outline text-xs">Integral Cosméticos · POS v1.0</p>
       </div>
     </div>
   );

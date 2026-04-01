@@ -1,26 +1,23 @@
 import { useState, useCallback } from 'react';
-import { apiClient, parseJwt } from '@/lib/api';
-
-interface JwtPayload {
-  sub: string;
-  email: string;
-  rol: string;
-  sedeId?: string;
-}
+import { apiClient } from '@/lib/api';
 
 export interface AuthUser {
   id: string;
+  nombre?: string;
+  apellido?: string;
   email: string;
   rol: string;
   sedeId?: string;
 }
 
 function loadUser(): AuthUser | null {
-  const token = localStorage.getItem('pos_token');
-  if (!token) return null;
-  const payload = parseJwt<JwtPayload>(token);
-  if (!payload) return null;
-  return { id: payload.sub, email: payload.email, rol: payload.rol, sedeId: payload.sedeId };
+  const raw = localStorage.getItem('pos_user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
 }
 
 export function useAuth() {
@@ -32,10 +29,14 @@ export function useAuth() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.post<{ access_token: string }>('/auth/login', { email, password });
-      const { access_token } = res.data;
-      localStorage.setItem('pos_token', access_token);
-      const usr = loadUser();
+      const res = await apiClient.post<{ accessToken: string; usuario: AuthUser }>('/auth/login', {
+        email,
+        password,
+      });
+      const { accessToken, usuario } = res.data;
+      localStorage.setItem('pos_token', accessToken);
+      localStorage.setItem('pos_user', JSON.stringify(usuario));
+      const usr = usuario;
       setUser(usr);
       return usr;
     } catch {
@@ -52,5 +53,16 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  return { user, login, logout, loading, error };
+  const refreshMe = useCallback(async () => {
+    try {
+      const res = await apiClient.get<AuthUser>('/usuarios/me');
+      localStorage.setItem('pos_user', JSON.stringify(res.data));
+      setUser(res.data);
+      return res.data;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  return { user, login, logout, refreshMe, loading, error };
 }

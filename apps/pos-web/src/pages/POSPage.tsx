@@ -18,14 +18,20 @@ import SideNav from '@/components/SideNav';
 
 const IVA_RATE = 0.19;
 const formatCOP = (v: number) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(v);
 
 interface POSPageProps {
   user: AuthUser;
   sedeId: string;
+  onOpenCaja: () => void;
+  onOpenUsuarios: () => void;
 }
 
-export default function POSPage({ user, sedeId }: POSPageProps) {
+export default function POSPage({ user, sedeId, onOpenCaja, onOpenUsuarios }: POSPageProps) {
   const { logout } = useAuth();
   const [busqueda, setBusqueda] = useState('');
   const [categoriaId, setCategoriaId] = useState<string | null>(null);
@@ -36,12 +42,24 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
 
   const { data: categorias = [] } = useCategorias();
   const { data: productosData, isLoading } = useProductos({ q: busqueda, categoriaId });
-  const { items, agregarProducto, quitarProducto, cambiarCantidad, cambiarDescuentoItem, limpiarCarrito, subtotal, totalItems } = useCarrito();
+  const {
+    items,
+    agregarProducto,
+    quitarProducto,
+    cambiarCantidad,
+    cambiarDescuentoItem,
+    limpiarCarrito,
+    subtotal,
+    totalItems,
+  } = useCarrito();
   const { cobrar, cobrando } = useVenta();
 
-  const handleAgregarProducto = useCallback((producto: Producto) => {
-    agregarProducto(producto);
-  }, [agregarProducto]);
+  const handleAgregarProducto = useCallback(
+    (producto: Producto) => {
+      agregarProducto(producto);
+    },
+    [agregarProducto],
+  );
 
   const baseImponible = subtotal * (1 - descuentoGlobal / 100);
   const iva = baseImponible * IVA_RATE;
@@ -68,7 +86,15 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background font-sans">
       {/* Side Navigation */}
-      <SideNav user={user} onLogout={logout} />
+      <SideNav
+        user={user}
+        onLogout={logout}
+        currentView="pos"
+        onNavigate={(view) => {
+          if (view === 'caja') onOpenCaja();
+          if (view === 'usuarios') onOpenUsuarios();
+        }}
+      />
 
       {/* ── Product catalog ─────────────────────────── */}
       <main className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
@@ -80,7 +106,9 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
           <div className="shrink-0">
             <div className="flex items-center gap-2 bg-primary-container rounded-2xl px-4 py-2">
               <CreditCard className="w-5 h-5 text-on-primary-container" />
-              <span className="text-on-primary-container text-sm font-semibold hidden md:block">POS Terminal</span>
+              <span className="text-on-primary-container text-sm font-semibold hidden md:block">
+                POS Terminal
+              </span>
             </div>
           </div>
         </div>
@@ -100,7 +128,11 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
             productos={productosData?.data ?? []}
             loading={isLoading}
             onAgregar={handleAgregarProducto}
-            emptyMessage={busqueda ? `No se encontraron productos para "${busqueda}"` : 'No hay productos disponibles'}
+            emptyMessage={
+              busqueda
+                ? `No se encontraron productos para "${busqueda}"`
+                : 'No hay productos disponibles'
+            }
           />
         </div>
       </main>
@@ -156,16 +188,15 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
         {items.length > 0 && (
           <div className="px-5 pb-5 pt-3 border-t border-outline-variant flex flex-col gap-4 shrink-0 bg-surface-1">
             {/* Cliente */}
-            <ClienteSelector
-              clienteSeleccionado={cliente}
-              onSeleccionar={setCliente}
-            />
+            <ClienteSelector clienteSeleccionado={cliente} onSeleccionar={setCliente} />
 
             {/* Discounted subtotal */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-on-surface-variant text-xs">Subtotal</span>
-                <span className="text-on-background text-sm font-semibold">{formatCOP(subtotal)}</span>
+                <span className="text-on-background text-sm font-semibold">
+                  {formatCOP(subtotal)}
+                </span>
               </div>
               {/* Global discount */}
               <div className="flex items-center gap-2">
@@ -178,7 +209,9 @@ export default function POSPage({ user, sedeId }: POSPageProps) {
                     max={100}
                     value={descuentoGlobal || ''}
                     placeholder="0"
-                    onChange={(e) => setDescuentoGlobal(Math.min(100, Math.max(0, Number(e.target.value))))}
+                    onChange={(e) =>
+                      setDescuentoGlobal(Math.min(100, Math.max(0, Number(e.target.value))))
+                    }
                     className="w-10 bg-transparent text-on-background text-xs font-medium text-center focus:outline-none"
                   />
                 </div>

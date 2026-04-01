@@ -9,6 +9,8 @@ import { UsuariosService } from '../usuarios/usuarios.service';
 describe('AuthService', () => {
   const usuariosService = {
     findByEmail: jest.fn(),
+    registrarLoginExitoso: jest.fn(),
+    registrarLoginFallido: jest.fn(),
   };
 
   const jwtService = {
@@ -50,6 +52,7 @@ describe('AuthService', () => {
         rol: Rol.ADMIN,
         activo: true,
       });
+      expect(usuariosService.registrarLoginExitoso).toHaveBeenCalledWith('u1');
       expect((result as any).password).toBeUndefined();
     });
 
@@ -86,6 +89,7 @@ describe('AuthService', () => {
       await expect(
         service.validateUser('admin@cosmeticos.com', 'incorrecta'),
       ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(usuariosService.registrarLoginFallido).toHaveBeenCalledWith('u3');
     });
   });
 

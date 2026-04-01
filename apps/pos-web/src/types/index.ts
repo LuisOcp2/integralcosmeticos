@@ -99,6 +99,31 @@ export interface VentaCreada {
   createdAt: string;
 }
 
+export interface VentaCaja {
+  id: string;
+  numero: string;
+  total: number;
+  metodoPago: MetodoPago;
+  createdAt: string;
+}
+
+export interface CajaSesion {
+  id: string;
+  sedeId: string;
+  usuarioId: string;
+  fechaApertura: string;
+  fechaCierre?: string | null;
+  montoInicial: number;
+  montoFinal?: number | null;
+  totalVentas: number;
+  totalEfectivo: number;
+  diferencia?: number | null;
+  estado: 'ABIERTA' | 'CERRADA';
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Sede {
   id: string;
   nombre: string;
@@ -107,7 +132,31 @@ export interface Sede {
 
 export interface ProductosPaginados {
   data: Producto[];
-  total: number;
-  page: number;
-  limit: number;
+  meta?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface UsuarioListado {
+  id: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  rol: string;
+  sedeId?: string | null;
+  activo: boolean;
+  createdAt: string;
+}
+
+export interface UsuariosPaginados {
+  data: UsuarioListado[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }

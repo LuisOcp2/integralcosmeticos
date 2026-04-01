@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 
 interface ProveedorSelectorProps {
-  onProveedorSelected: (proveedorId: number) => void;
-  selectedProveedorId?: number;
+  onProveedorSelected: (proveedorId: string) => void;
+  selectedProveedorId?: string;
   disabled?: boolean;
 }
 
@@ -13,7 +13,7 @@ export default function ProveedorSelector({
   selectedProveedorId,
   disabled = false,
 }: ProveedorSelectorProps) {
-  const [proveedorId, setProveedorId] = useState(selectedProveedorId || null);
+  const [proveedorId, setProveedorId] = useState<string | null>(selectedProveedorId || null);
   const {
     data: proveedores = [],
     isLoading,
@@ -41,8 +41,8 @@ export default function ProveedorSelector({
       <select
         value={proveedorId || ''}
         onChange={(e) => {
-          const id = parseInt(e.target.value);
-          if (!isNaN(id)) {
+          const id = e.target.value;
+          if (id) {
             setProveedorId(id);
             onProveedorSelected(id);
           }

@@ -115,8 +115,8 @@ export class VentasService {
   private async obtenerCajaAbierta(sedeId: string): Promise<SesionCaja> {
     const cajaAbierta = await this.cajaRepository
       .createQueryBuilder('sesion')
-      .innerJoin('cajas', 'caja', 'caja.id = sesion.cajaId')
-      .where('caja.sedeId = :sedeId', { sedeId })
+      .innerJoin('cajas', 'caja', 'caja.id = sesion."cajaId"')
+      .where('caja."sedeId" = :sedeId', { sedeId })
       .andWhere('caja.activa = true')
       .andWhere('sesion.activa = true')
       .orderBy('sesion.fecha_apertura', 'DESC')

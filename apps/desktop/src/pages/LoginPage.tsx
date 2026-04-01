@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth.store';
 import api from '../lib/api';
@@ -20,8 +21,18 @@ export default function LoginPage() {
       const { data } = await api.post('/auth/login', { email, password });
       login(data.accessToken, data.usuario);
       navigate('/');
-    } catch {
-      setError('Email o contraseña incorrectos');
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const backendMessage =
+          typeof err.response?.data?.message === 'string'
+            ? err.response?.data?.message
+            : Array.isArray(err.response?.data?.message)
+              ? err.response?.data?.message?.join('. ')
+              : null;
+        setError(backendMessage ?? 'Email o contrasena incorrectos');
+      } else {
+        setError('Email o contrasena incorrectos');
+      }
     } finally {
       setLoading(false);
     }

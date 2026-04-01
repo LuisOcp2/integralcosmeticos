@@ -21,7 +21,7 @@ export class ProveedoresService {
     return this.proveedorRepository.find();
   }
 
-  async findOne(id: number): Promise<Proveedor> {
+  async findOne(id: string): Promise<Proveedor> {
     const proveedor = await this.proveedorRepository.findOne({ where: { id } });
     if (!proveedor) {
       throw new NotFoundException(`Proveedor con ID ${id} no encontrado`);
@@ -29,12 +29,12 @@ export class ProveedoresService {
     return proveedor;
   }
 
-  async update(id: number, updateProveedorDto: UpdateProveedorDto): Promise<Proveedor> {
+  async update(id: string, updateProveedorDto: UpdateProveedorDto): Promise<Proveedor> {
     await this.proveedorRepository.update(id, updateProveedorDto);
     return this.findOne(id);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const proveedor = await this.findOne(id);
     await this.proveedorRepository.remove(proveedor);
   }

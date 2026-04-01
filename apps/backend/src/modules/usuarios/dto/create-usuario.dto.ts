@@ -1,17 +1,8 @@
-import {
-  IsEmail,
-  IsEnum,
-  IsString,
-  MinLength,
-  IsOptional,
-  IsUUID,
-  Matches,
-  MaxLength,
-  IsBoolean,
-} from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, IsUUID, MaxLength, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Rol } from '@cosmeticos/shared-types';
 import { Transform } from 'class-transformer';
+import { EsPasswordFuerte } from '../../../common/decorators/password-fuerte.decorator';
 
 export class CreateUsuarioDto {
   @ApiProperty({ example: 'Juan', maxLength: 100 })
@@ -33,16 +24,10 @@ export class CreateUsuarioDto {
   email: string;
 
   @ApiProperty({
-    example: 'Password123!',
-    description: 'Minimo 8 chars, 1 mayuscula, 1 numero, 1 especial',
+    example: 'Admin2026!',
+    description: 'Mínimo 8 chars, 1 mayúscula, 1 minúscula, 1 número, 1 especial (@$!%*?&)',
   })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(100)
-  @Matches(/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
-    message:
-      'La contrasena debe tener al menos 1 mayuscula, 1 numero y 1 caracter especial (@$!%*?&)',
-  })
+  @EsPasswordFuerte()
   password: string;
 
   @ApiProperty({ enum: Rol, example: Rol.CAJERO })

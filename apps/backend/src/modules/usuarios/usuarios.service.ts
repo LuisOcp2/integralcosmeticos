@@ -20,6 +20,7 @@ import { CambiarPasswordDto } from './dto/cambiar-password.dto';
 import { ResetPasswordAdminDto } from './dto/reset-password-admin.dto';
 import { GestionarPermisosDto } from './dto/gestionar-permisos.dto';
 import { FiltrosUsuarioDto } from './dto/filtros-usuario.dto';
+import { CambiarRolDto } from './dto/cambiar-rol.dto';
 
 @Injectable()
 export class UsuariosService {
@@ -79,6 +80,9 @@ export class UsuariosService {
     );
     await this.dataSource.query(
       `ALTER TABLE "usuarios" ADD COLUMN IF NOT EXISTS "ultimoLogin" timestamp NULL`,
+    );
+    await this.dataSource.query(
+      `ALTER TABLE "usuarios" ADD COLUMN IF NOT EXISTS "tokenVersion" integer NOT NULL DEFAULT 0`,
     );
 
     await this.dataSource
@@ -632,6 +636,48 @@ export class UsuariosService {
     );
 
     return { total, activos, inactivos: total - activos, bloqueados, porRol };
+  }
+
+  /**
+   * Cambia el rol de un usuario e incrementa `tokenVersion` para invalidar
+   * todos los JWT existentes de esa cuenta.
+   */
+  async cambiarRol(
+    id: string,
+    dto: CambiarRolDto,
+    realizadoPorId: string,
+  ): Promise<Omit<Usuario, 'password'>> {
+    const usuario = await this.usuariosRepo.findOne({ where: { id } });
+    if (!usuario) {
+      throw new NotFoundException(`Usuario ${id} no encontrado`);
+    }
+
+    // Un usuario no puede cambiarse su propio rol
+    if (id === realizadoPorId) {
+      throw new ForbiddenException('No puedes cambiar tu propio rol');
+    }
+
+    const rolAnterior = usuario.rol;
+
+    await this.usuariosRepo.update(id, {
+      rol: dto.rol,
+      tokenVersion: (usuario.tokenVersion ?? 0) + 1,
+    });
+
+    await this.registrarAuditoria({
+      usuarioAfectadoId: id,
+      realizadoPorId,
+      accion: AccionAuditoria.CAMBIAR_ROL,
+      datosAnteriores: { rol: rolAnterior },
+      datosNuevos: { rol: dto.rol },
+      motivo: dto.motivo,
+    });
+
+    const updated = await this.usuariosRepo.findOneOrFail({ where: { id } });
+    this.logger.log(`Rol de ${id} cambiado de ${rolAnterior} → ${dto.rol} por ${realizadoPorId}`);
+
+    const { password, ...resultado } = updated as Usuario & { password: string };
+    return resultado;
   }
 
   private async registrarAuditoria(datos: {

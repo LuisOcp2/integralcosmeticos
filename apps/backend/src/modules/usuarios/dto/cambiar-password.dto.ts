@@ -1,17 +1,16 @@
-import { IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { EsPasswordFuerte } from '../../../common/decorators/password-fuerte.decorator';
 
 export class CambiarPasswordDto {
-  @ApiProperty({ description: 'Contrasena actual' })
+  @ApiProperty({ description: 'Contraseña actual' })
   @IsString()
   passwordActual: string;
 
-  @ApiProperty({ description: 'Nueva contrasena (min 8, 1 mayus, 1 numero, 1 especial)' })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(100)
-  @Matches(/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/, {
-    message: 'La nueva contrasena debe tener al menos 1 mayuscula, 1 numero y 1 caracter especial',
+  @ApiProperty({
+    description: 'Nueva contraseña (mínimo 8 chars, 1 mayúscula, 1 minúscula, 1 número, 1 especial)',
+    example: 'NuevaPass2026!',
   })
+  @EsPasswordFuerte()
   passwordNuevo: string;
 }

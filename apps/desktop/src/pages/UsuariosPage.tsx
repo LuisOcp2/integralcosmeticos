@@ -1,15 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Permiso, PERMISOS_POR_ROL } from '@cosmeticos/shared-types';
+import { Permiso, PERMISOS_POR_ROL, Rol } from '@cosmeticos/shared-types';
 import api from '../lib/api';
 import AppLayout from './components/AppLayout';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+// Re-export for local convenience; Rol comes from @cosmeticos/shared-types
+type RolUsuario = Rol;
 
 type Usuario = {
   id: string;
   nombre: string;
   apellido: string;
   email: string;
-  rol: 'ADMIN' | 'SUPERVISOR' | 'CAJERO' | 'BODEGUERO';
+  rol: RolUsuario;
   sedeId: string | null;
   activo: boolean;
   telefono: string | null;
@@ -42,10 +47,21 @@ type Sede = { id: string; nombre: string };
 
 type AuthUser = {
   id: string;
-  rol: 'ADMIN' | 'SUPERVISOR' | 'CAJERO' | 'BODEGUERO';
+  rol: RolUsuario;
   permisosExtra?: string[];
   permisosRevocados?: string[];
 };
+
+type SesionEntry = {
+  id: string;
+  ip?: string;
+  userAgent?: string;
+  createdAt: string;
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const ROLES: Rol[] = [Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO];
 
 const formatDate = (value: string | null) => {
   if (!value) return 'Nunca';
@@ -59,6 +75,51 @@ const normalizeError = (e: any, fallback: string) => {
   return fallback;
 };
 
+/** Trim + lowercase an email string */
+const sanitizeEmail = (v: string) => v.trim().toLowerCase();
+
+// ─── Password strength hook ───────────────────────────────────────────────────
+
+type PasswordStrength = {
+  minLength: boolean;
+  hasUppercase: boolean;
+  hasLowercase: boolean;
+  hasNumber: boolean;
+  hasSpecial: boolean;
+  isStrong: boolean;
+};
+
+function usePasswordStrength(password: string): PasswordStrength {
+  const minLength = password.length >= 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSpecial = /[@$!%*?&#+\-_]/.test(password);
+  const isStrong = minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+  return { minLength, hasUppercase, hasLowercase, hasNumber, hasSpecial, isStrong };
+}
+
+function PasswordHints({ password, show }: { password: string; show: boolean }) {
+  const s = usePasswordStrength(password);
+  if (!show || !password) return null;
+  const hint = (ok: boolean, label: string) => (
+    <span className={`text-xs ${ok ? 'text-green-600' : 'text-[#b14040]'}`}>
+      {ok ? '✓' : '✗'} {label}
+    </span>
+  );
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+      {hint(s.minLength, 'Mín 8 caracteres')}
+      {hint(s.hasUppercase, 'Mayúscula')}
+      {hint(s.hasLowercase, 'Minúscula')}
+      {hint(s.hasNumber, 'Número')}
+      {hint(s.hasSpecial, 'Carácter especial')}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function UsuariosPage() {
   const queryClient = useQueryClient();
 
@@ -69,13 +130,15 @@ export default function UsuariosPage() {
   const [showPermisos, setShowPermisos] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [showPerfil, setShowPerfil] = useState(false);
+  const [showCambiarRol, setShowCambiarRol] = useState(false);
+  const [showSesiones, setShowSesiones] = useState(false);
 
   const [crearForm, setCrearForm] = useState({
     nombre: '',
     apellido: '',
     email: '',
     password: '',
-    rol: 'CAJERO' as Usuario['rol'],
+    rol: Rol.CAJERO,
     sedeId: '',
     telefono: '',
     notas: '',
@@ -86,7 +149,7 @@ export default function UsuariosPage() {
     nombre: '',
     apellido: '',
     email: '',
-    rol: 'CAJERO' as Usuario['rol'],
+    rol: Rol.CAJERO,
     sedeId: '',
     telefono: '',
     notas: '',
@@ -96,6 +159,9 @@ export default function UsuariosPage() {
 
   const [resetForm, setResetForm] = useState({ passwordNuevo: '', forzarCambio: true, motivo: '' });
   const [perfilForm, setPerfilForm] = useState({ passwordActual: '', passwordNuevo: '' });
+  const [cambiarRolForm, setCambiarRolForm] = useState({ rol: Rol.CAJERO, motivo: '' });
+
+  // ── Queries ────────────────────────────────────────────────────────────────
 
   const meQuery = useQuery({
     queryKey: ['usuarios', 'me'],
@@ -134,15 +200,38 @@ export default function UsuariosPage() {
     },
   });
 
+  const auditoriaQuery = useQuery({
+    queryKey: ['usuarios', 'auditoria', selected?.id],
+    queryFn: async () => {
+      if (!selected) return { data: [], total: 0 } as { data: any[]; total: number };
+      const { data } = await api.get<{ data: any[]; total: number }>(
+        `/usuarios/${selected.id}/auditoria`,
+      );
+      return data;
+    },
+    enabled: Boolean(selected && showPermisos),
+  });
+
+  const sesionesQuery = useQuery({
+    queryKey: ['usuarios', 'me', 'sesiones'],
+    queryFn: async () => {
+      const { data } = await api.get<SesionEntry[]>('/usuarios/me/sesiones');
+      return data;
+    },
+    enabled: showSesiones,
+  });
+
+  // ── Mutations ──────────────────────────────────────────────────────────────
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const payload = {
         nombre: crearForm.nombre.trim(),
         apellido: crearForm.apellido.trim(),
-        email: crearForm.email.trim(),
+        email: sanitizeEmail(crearForm.email),
         password: crearForm.password,
         rol: crearForm.rol,
-        sedeId: crearForm.sedeId || undefined,
+        sedeId: crearForm.sedeId || null,
         telefono: crearForm.telefono || undefined,
         notas: crearForm.notas || undefined,
         forzarCambioPassword: crearForm.forzarCambioPassword,
@@ -156,7 +245,7 @@ export default function UsuariosPage() {
         apellido: '',
         email: '',
         password: '',
-        rol: 'CAJERO',
+        rol: Rol.CAJERO,
         sedeId: '',
         telefono: '',
         notas: '',
@@ -172,7 +261,7 @@ export default function UsuariosPage() {
       await api.patch(`/usuarios/${selected.id}`, {
         nombre: editarForm.nombre.trim(),
         apellido: editarForm.apellido.trim(),
-        email: editarForm.email.trim(),
+        email: sanitizeEmail(editarForm.email),
         rol: editarForm.rol,
         sedeId: editarForm.sedeId || null,
         telefono: editarForm.telefono || null,
@@ -260,17 +349,23 @@ export default function UsuariosPage() {
     },
   });
 
-  const auditoriaQuery = useQuery({
-    queryKey: ['usuarios', 'auditoria', selected?.id],
-    queryFn: async () => {
-      if (!selected) return { data: [], total: 0 } as { data: any[]; total: number };
-      const { data } = await api.get<{ data: any[]; total: number }>(
-        `/usuarios/${selected.id}/auditoria`,
-      );
-      return data;
+  /** Calls the new PATCH /usuarios/:id/rol endpoint */
+  const cambiarRolMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected) return;
+      await api.patch(`/usuarios/${selected.id}/rol`, {
+        rol: cambiarRolForm.rol,
+        motivo: cambiarRolForm.motivo || undefined,
+      });
     },
-    enabled: Boolean(selected && showPermisos),
+    onSuccess: async () => {
+      setShowCambiarRol(false);
+      setCambiarRolForm({ rol: Rol.CAJERO, motivo: '' });
+      await queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+    },
   });
+
+  // ── Derived state ──────────────────────────────────────────────────────────
 
   const effectivePermisos = useMemo(() => {
     const me = meQuery.data;
@@ -286,9 +381,17 @@ export default function UsuariosPage() {
   const usuarios = usuariosQuery.data?.data ?? [];
   const stats = statsQuery.data;
 
+  // Password strength for forms
+  const crearPasswordStrength = usePasswordStrength(crearForm.password);
+  const resetPasswordStrength = usePasswordStrength(resetForm.passwordNuevo);
+  const perfilPasswordStrength = usePasswordStrength(perfilForm.passwordNuevo);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <AppLayout>
       <div className="space-y-5">
+        {/* Header */}
         <div className="rounded-3xl border border-[#ead8dc] bg-white p-6">
           <h1 className="text-3xl font-black text-[#3d2a2d]">Usuarios, Roles y Permisos</h1>
           <p className="mt-1 text-sm text-[#6f5a60]">
@@ -297,6 +400,7 @@ export default function UsuariosPage() {
           </p>
         </div>
 
+        {/* Actions */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <button
             className="rounded-xl bg-[#2e1b0c] px-4 py-3 text-left text-sm font-bold text-white disabled:opacity-50"
@@ -312,16 +416,10 @@ export default function UsuariosPage() {
             Mi perfil
           </button>
           <button
-            className="rounded-xl border border-[#d8c4ca] bg-white px-4 py-3 text-left text-sm font-bold disabled:opacity-50"
-            disabled={!can(Permiso.USUARIOS_VER_AUDITORIA)}
-            onClick={() => {
-              if (usuarios.length) {
-                setSelected(usuarios[0]);
-                setShowPermisos(true);
-              }
-            }}
+            className="rounded-xl border border-[#d8c4ca] bg-white px-4 py-3 text-left text-sm font-bold"
+            onClick={() => setShowSesiones(true)}
           >
-            Ver auditoria
+            Mis sesiones
           </button>
           <button
             className="rounded-xl border border-[#d8c4ca] bg-white px-4 py-3 text-left text-sm font-bold"
@@ -331,6 +429,7 @@ export default function UsuariosPage() {
           </button>
         </div>
 
+        {/* Stats */}
         {stats ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-[#ead8dc] bg-white p-4">
@@ -352,6 +451,7 @@ export default function UsuariosPage() {
           </div>
         ) : null}
 
+        {/* Filters */}
         <div className="rounded-2xl border border-[#ead8dc] bg-white p-4">
           <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
             <input
@@ -368,10 +468,11 @@ export default function UsuariosPage() {
               }
             >
               <option value="">Todos los roles</option>
-              <option value="ADMIN">ADMIN</option>
-              <option value="SUPERVISOR">SUPERVISOR</option>
-              <option value="CAJERO">CAJERO</option>
-              <option value="BODEGUERO">BODEGUERO</option>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
             </select>
             <select
               className="rounded-xl border border-[#d8c4ca] px-3 py-2 text-sm"
@@ -386,6 +487,7 @@ export default function UsuariosPage() {
           </div>
         </div>
 
+        {/* Table */}
         <div className="overflow-x-auto rounded-2xl border border-[#ead8dc] bg-white">
           <table className="w-full min-w-[1050px] text-sm">
             <thead className="bg-[#f8f3f5] text-left text-[#6f5a60]">
@@ -430,7 +532,11 @@ export default function UsuariosPage() {
                         </button>
                         <p className="text-xs text-[#7b676f]">{u.email}</p>
                       </td>
-                      <td className="px-4 py-3">{u.rol}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-[#f2e9ec] px-2 py-0.5 text-xs font-bold text-[#5c4950]">
+                          {u.rol}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <span className="rounded-full bg-[#f2e9ec] px-3 py-1 text-xs font-bold text-[#5c4950]">
                           {bloqueado ? 'Bloqueado' : u.activo ? 'Activo' : 'Inactivo'}
@@ -460,6 +566,19 @@ export default function UsuariosPage() {
                               }}
                             >
                               Editar
+                            </button>
+                          ) : null}
+
+                          {can(Permiso.USUARIOS_CAMBIAR_ROL) ? (
+                            <button
+                              className="rounded-lg bg-[#e8f0fe] px-2 py-1 text-xs font-semibold text-[#1a56a0]"
+                              onClick={() => {
+                                setSelected(u);
+                                setCambiarRolForm({ rol: u.rol, motivo: '' });
+                                setShowCambiarRol(true);
+                              }}
+                            >
+                              Cambiar rol
                             </button>
                           ) : null}
 
@@ -531,6 +650,7 @@ export default function UsuariosPage() {
             </tbody>
           </table>
 
+          {/* Pagination */}
           <div className="flex items-center justify-between border-t border-[#f0e4e8] px-4 py-3 text-sm">
             <span>Total: {usuariosQuery.data?.total ?? 0}</span>
             <div className="flex items-center gap-2">
@@ -555,6 +675,7 @@ export default function UsuariosPage() {
           </div>
         </div>
 
+        {/* ── Modal: Crear usuario ──────────────────────────────────────────── */}
         {showCreate ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
             <div className="w-full max-w-2xl rounded-2xl border border-[#ead8dc] bg-white p-5">
@@ -575,27 +696,33 @@ export default function UsuariosPage() {
                 <input
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2 md:col-span-2"
                   placeholder="Email"
+                  type="email"
                   value={crearForm.email}
                   onChange={(e) => setCrearForm((f) => ({ ...f, email: e.target.value }))}
+                  onBlur={(e) => setCrearForm((f) => ({ ...f, email: sanitizeEmail(e.target.value) }))}
                 />
-                <input
-                  className="rounded-xl border border-[#d8c4ca] px-3 py-2"
-                  type="password"
-                  placeholder="Contrasena"
-                  value={crearForm.password}
-                  onChange={(e) => setCrearForm((f) => ({ ...f, password: e.target.value }))}
-                />
+                <div className="md:col-span-2">
+                  <input
+                    className="w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
+                    type="password"
+                    placeholder="Contraseña"
+                    value={crearForm.password}
+                    onChange={(e) => setCrearForm((f) => ({ ...f, password: e.target.value }))}
+                  />
+                  <PasswordHints password={crearForm.password} show={crearForm.password.length > 0} />
+                </div>
                 <select
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
                   value={crearForm.rol}
                   onChange={(e) =>
-                    setCrearForm((f) => ({ ...f, rol: e.target.value as Usuario['rol'] }))
+                    setCrearForm((f) => ({ ...f, rol: e.target.value as RolUsuario }))
                   }
                 >
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="SUPERVISOR">SUPERVISOR</option>
-                  <option value="CAJERO">CAJERO</option>
-                  <option value="BODEGUERO">BODEGUERO</option>
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
                 </select>
                 <select
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
@@ -611,7 +738,7 @@ export default function UsuariosPage() {
                 </select>
                 <input
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
-                  placeholder="Telefono"
+                  placeholder="Teléfono"
                   value={crearForm.telefono}
                   onChange={(e) => setCrearForm((f) => ({ ...f, telefono: e.target.value }))}
                 />
@@ -629,7 +756,7 @@ export default function UsuariosPage() {
                       setCrearForm((f) => ({ ...f, forzarCambioPassword: e.target.checked }))
                     }
                   />
-                  Forzar cambio de contrasena en primer login
+                  Forzar cambio de contraseña en primer login
                 </label>
               </div>
               <div className="mt-4 flex gap-2">
@@ -640,13 +767,18 @@ export default function UsuariosPage() {
                   Cancelar
                 </button>
                 <button
-                  className="flex-1 rounded-xl bg-[#2e1b0c] px-3 py-2 font-bold text-white"
+                  className="flex-1 rounded-xl bg-[#2e1b0c] px-3 py-2 font-bold text-white disabled:opacity-50"
                   onClick={() => createMutation.mutate()}
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || !crearPasswordStrength.isStrong}
                 >
                   {createMutation.isPending ? 'Creando...' : 'Crear'}
                 </button>
               </div>
+              {!crearPasswordStrength.isStrong && crearForm.password.length > 0 ? (
+                <p className="mt-1 text-xs text-[#8a5a00]">
+                  La contraseña debe cumplir todos los requisitos.
+                </p>
+              ) : null}
               {createMutation.isError ? (
                 <p className="mt-2 text-sm text-[#b12121]">
                   {normalizeError(createMutation.error, 'No se pudo crear usuario')}
@@ -656,6 +788,7 @@ export default function UsuariosPage() {
           </div>
         ) : null}
 
+        {/* ── Modal: Editar usuario ─────────────────────────────────────────── */}
         {showEdit && selected ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
             <div className="w-full max-w-2xl rounded-2xl border border-[#ead8dc] bg-white p-5">
@@ -673,20 +806,23 @@ export default function UsuariosPage() {
                 />
                 <input
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2 md:col-span-2"
+                  type="email"
                   value={editarForm.email}
                   onChange={(e) => setEditarForm((f) => ({ ...f, email: e.target.value }))}
+                  onBlur={(e) => setEditarForm((f) => ({ ...f, email: sanitizeEmail(e.target.value) }))}
                 />
                 <select
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
                   value={editarForm.rol}
                   onChange={(e) =>
-                    setEditarForm((f) => ({ ...f, rol: e.target.value as Usuario['rol'] }))
+                    setEditarForm((f) => ({ ...f, rol: e.target.value as RolUsuario }))
                   }
                 >
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="SUPERVISOR">SUPERVISOR</option>
-                  <option value="CAJERO">CAJERO</option>
-                  <option value="BODEGUERO">BODEGUERO</option>
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
                 </select>
                 <select
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
@@ -704,7 +840,7 @@ export default function UsuariosPage() {
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
                   value={editarForm.telefono}
                   onChange={(e) => setEditarForm((f) => ({ ...f, telefono: e.target.value }))}
-                  placeholder="Telefono"
+                  placeholder="Teléfono"
                 />
                 <textarea
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2 md:col-span-2"
@@ -728,7 +864,7 @@ export default function UsuariosPage() {
                       setEditarForm((f) => ({ ...f, forzarCambioPassword: e.target.checked }))
                     }
                   />
-                  Forzar cambio de contrasena
+                  Forzar cambio de contraseña
                 </label>
               </div>
               <div className="mt-4 flex gap-2">
@@ -755,18 +891,78 @@ export default function UsuariosPage() {
           </div>
         ) : null}
 
+        {/* ── Modal: Cambiar rol ────────────────────────────────────────────── */}
+        {showCambiarRol && selected ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-[#ead8dc] bg-white p-5">
+              <h3 className="text-lg font-black text-[#3d2a2d]">Cambiar rol</h3>
+              <p className="mt-1 text-sm text-[#6f5a60]">
+                {selected.nombre} {selected.apellido} — rol actual:{' '}
+                <span className="font-bold">{selected.rol}</span>
+              </p>
+              <p className="mt-1 text-xs text-[#8a6a00]">
+                ⚠ Cambiar el rol invalidará todos los tokens activos del usuario.
+              </p>
+              <div className="mt-3 space-y-2">
+                <select
+                  className="w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
+                  value={cambiarRolForm.rol}
+                  onChange={(e) =>
+                    setCambiarRolForm((f) => ({ ...f, rol: e.target.value as RolUsuario }))
+                  }
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  className="w-full rounded-xl border border-[#d8c4ca] px-3 py-2 text-sm"
+                  placeholder="Motivo del cambio (opcional)"
+                  rows={2}
+                  value={cambiarRolForm.motivo}
+                  onChange={(e) => setCambiarRolForm((f) => ({ ...f, motivo: e.target.value }))}
+                />
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="flex-1 rounded-xl border border-[#d8c4ca] px-3 py-2"
+                  onClick={() => setShowCambiarRol(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="flex-1 rounded-xl bg-[#1a3a80] px-3 py-2 font-bold text-white disabled:opacity-50"
+                  onClick={() => cambiarRolMutation.mutate()}
+                  disabled={cambiarRolMutation.isPending || cambiarRolForm.rol === selected.rol}
+                >
+                  {cambiarRolMutation.isPending ? 'Cambiando...' : 'Confirmar cambio'}
+                </button>
+              </div>
+              {cambiarRolMutation.isError ? (
+                <p className="mt-2 text-sm text-[#b12121]">
+                  {normalizeError(cambiarRolMutation.error, 'No se pudo cambiar el rol')}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── Modal: Reset password ─────────────────────────────────────────── */}
         {showReset && selected ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-2xl border border-[#ead8dc] bg-white p-5">
-              <h3 className="text-lg font-black text-[#3d2a2d]">Resetear contrasena</h3>
+              <h3 className="text-lg font-black text-[#3d2a2d]">Resetear contraseña</h3>
               <p className="mt-1 text-sm text-[#6f5a60]">{selected.email}</p>
               <input
                 className="mt-3 w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
                 type="password"
-                placeholder="Nueva contrasena"
+                placeholder="Nueva contraseña"
                 value={resetForm.passwordNuevo}
                 onChange={(e) => setResetForm((f) => ({ ...f, passwordNuevo: e.target.value }))}
               />
+              <PasswordHints password={resetForm.passwordNuevo} show={resetForm.passwordNuevo.length > 0} />
               <textarea
                 className="mt-2 w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
                 placeholder="Motivo"
@@ -789,9 +985,9 @@ export default function UsuariosPage() {
                   Cancelar
                 </button>
                 <button
-                  className="flex-1 rounded-xl bg-[#2e1b0c] px-3 py-2 font-bold text-white"
+                  className="flex-1 rounded-xl bg-[#2e1b0c] px-3 py-2 font-bold text-white disabled:opacity-50"
                   onClick={() => resetMutation.mutate()}
-                  disabled={resetMutation.isPending}
+                  disabled={resetMutation.isPending || !resetPasswordStrength.isStrong}
                 >
                   {resetMutation.isPending ? 'Procesando...' : 'Resetear'}
                 </button>
@@ -805,11 +1001,12 @@ export default function UsuariosPage() {
           </div>
         ) : null}
 
+        {/* ── Modal: Permisos y auditoría ───────────────────────────────────── */}
         {showPermisos && selected ? (
           <div className="fixed inset-0 z-50 overflow-auto bg-black/50 p-6">
             <div className="mx-auto max-w-5xl rounded-2xl border border-[#ead8dc] bg-white p-5">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-lg font-black text-[#3d2a2d]">Permisos y auditoria</h3>
+                <h3 className="text-lg font-black text-[#3d2a2d]">Permisos y auditoría</h3>
                 <button
                   className="rounded-lg border border-[#d8c4ca] px-3 py-1.5 text-sm"
                   onClick={() => setShowPermisos(false)}
@@ -840,11 +1037,11 @@ export default function UsuariosPage() {
               </div>
 
               <div className="mt-4 rounded-xl border border-[#ead8dc] p-3">
-                <p className="mb-2 text-sm font-semibold text-[#5c4950]">Auditoria reciente</p>
+                <p className="mb-2 text-sm font-semibold text-[#5c4950]">Auditoría reciente</p>
                 {auditoriaQuery.isLoading ? (
-                  <p className="text-sm">Cargando auditoria...</p>
+                  <p className="text-sm">Cargando auditoría...</p>
                 ) : (auditoriaQuery.data?.data ?? []).length === 0 ? (
-                  <p className="text-sm">No hay eventos de auditoria.</p>
+                  <p className="text-sm">No hay eventos de auditoría.</p>
                 ) : (
                   <div className="space-y-2">
                     {(auditoriaQuery.data?.data ?? []).map((ev) => (
@@ -861,24 +1058,31 @@ export default function UsuariosPage() {
           </div>
         ) : null}
 
+        {/* ── Modal: Mi perfil / Cambiar contraseña ────────────────────────── */}
         {showPerfil ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-2xl border border-[#ead8dc] bg-white p-5">
-              <h3 className="text-lg font-black text-[#3d2a2d]">Mi perfil - Cambiar contrasena</h3>
+              <h3 className="text-lg font-black text-[#3d2a2d]">Mi perfil — Cambiar contraseña</h3>
               <input
                 className="mt-3 w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
                 type="password"
-                placeholder="Contrasena actual"
+                placeholder="Contraseña actual"
                 value={perfilForm.passwordActual}
                 onChange={(e) => setPerfilForm((f) => ({ ...f, passwordActual: e.target.value }))}
               />
-              <input
-                className="mt-2 w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
-                type="password"
-                placeholder="Contrasena nueva"
-                value={perfilForm.passwordNuevo}
-                onChange={(e) => setPerfilForm((f) => ({ ...f, passwordNuevo: e.target.value }))}
-              />
+              <div className="mt-2">
+                <input
+                  className="w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
+                  type="password"
+                  placeholder="Contraseña nueva"
+                  value={perfilForm.passwordNuevo}
+                  onChange={(e) => setPerfilForm((f) => ({ ...f, passwordNuevo: e.target.value }))}
+                />
+                <PasswordHints
+                  password={perfilForm.passwordNuevo}
+                  show={perfilForm.passwordNuevo.length > 0}
+                />
+              </div>
               <div className="mt-4 flex gap-2">
                 <button
                   className="flex-1 rounded-xl border border-[#d8c4ca] px-3 py-2"
@@ -887,18 +1091,58 @@ export default function UsuariosPage() {
                   Cancelar
                 </button>
                 <button
-                  className="flex-1 rounded-xl bg-[#2e1b0c] px-3 py-2 font-bold text-white"
+                  className="flex-1 rounded-xl bg-[#2e1b0c] px-3 py-2 font-bold text-white disabled:opacity-50"
                   onClick={() => cambiarPasswordMutation.mutate()}
-                  disabled={cambiarPasswordMutation.isPending}
+                  disabled={cambiarPasswordMutation.isPending || !perfilPasswordStrength.isStrong}
                 >
                   {cambiarPasswordMutation.isPending ? 'Actualizando...' : 'Actualizar'}
                 </button>
               </div>
               {cambiarPasswordMutation.isError ? (
                 <p className="mt-2 text-sm text-[#b12121]">
-                  {normalizeError(cambiarPasswordMutation.error, 'No se pudo cambiar contrasena')}
+                  {normalizeError(cambiarPasswordMutation.error, 'No se pudo cambiar contraseña')}
                 </p>
               ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── Modal: Mis sesiones ───────────────────────────────────────────── */}
+        {showSesiones ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
+            <div className="w-full max-w-lg rounded-2xl border border-[#ead8dc] bg-white p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-lg font-black text-[#3d2a2d]">Mis últimas sesiones</h3>
+                <button
+                  className="rounded-lg border border-[#d8c4ca] px-3 py-1.5 text-sm"
+                  onClick={() => setShowSesiones(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+              {sesionesQuery.isLoading ? (
+                <p className="text-sm">Cargando sesiones...</p>
+              ) : sesionesQuery.isError ? (
+                <p className="text-sm text-[#b12121]">
+                  No se pudieron cargar las sesiones. El endpoint puede no estar disponible aún.
+                </p>
+              ) : (sesionesQuery.data ?? []).length === 0 ? (
+                <p className="text-sm text-[#6f5a60]">No hay sesiones registradas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(sesionesQuery.data ?? []).map((s) => (
+                    <div key={s.id} className="rounded-xl border border-[#f0e4e8] p-3">
+                      <p className="text-sm font-semibold">{formatDate(s.createdAt)}</p>
+                      {s.ip ? (
+                        <p className="text-xs text-[#7b676f]">IP: {s.ip}</p>
+                      ) : null}
+                      {s.userAgent ? (
+                        <p className="truncate text-xs text-[#7b676f]">{s.userAgent}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : null}

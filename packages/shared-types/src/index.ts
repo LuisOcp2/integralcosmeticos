@@ -11,4 +11,5 @@ export * from './entities/cliente.types';
 export * from './entities/configuracion.types';
 export * from './entities/reporte.types';
 export * from './enums';
+export { Permiso, PERMISOS_POR_ROL } from './enums';
 export * from './api/response.types';

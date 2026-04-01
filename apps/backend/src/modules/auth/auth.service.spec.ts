@@ -10,7 +10,8 @@ describe('AuthService', () => {
   const usuariosService = {
     findByEmail: jest.fn(),
     registrarLoginExitoso: jest.fn(),
-    registrarLoginFallido: jest.fn(),
+    registrarIntentoFallido: jest.fn(),
+    esBloqueado: jest.fn(),
   };
 
   const jwtService = {
@@ -43,6 +44,7 @@ describe('AuthService', () => {
         rol: Rol.ADMIN,
         activo: true,
       });
+      usuariosService.esBloqueado.mockReturnValue(false);
 
       const result = await service.validateUser('admin@cosmeticos.com', 'Admin2026!');
 
@@ -85,11 +87,15 @@ describe('AuthService', () => {
         password: hashed,
         activo: true,
       });
+      usuariosService.esBloqueado.mockReturnValue(false);
 
       await expect(
         service.validateUser('admin@cosmeticos.com', 'incorrecta'),
       ).rejects.toBeInstanceOf(UnauthorizedException);
-      expect(usuariosService.registrarLoginFallido).toHaveBeenCalledWith('u3');
+      expect(usuariosService.registrarIntentoFallido).toHaveBeenCalledWith(
+        'admin@cosmeticos.com',
+        undefined,
+      );
     });
   });
 
@@ -101,6 +107,8 @@ describe('AuthService', () => {
         email: 'admin@cosmeticos.com',
         rol: Rol.ADMIN,
         sedeId: 's1',
+        permisosExtra: [],
+        permisosRevocados: [],
       };
 
       const result = await service.login(usuario);

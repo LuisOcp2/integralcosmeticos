@@ -1,132 +1,208 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  Param,
-  Patch,
   Post,
-  Query,
+  Body,
+  Param,
+  Delete,
+  Patch,
+  Put,
   UseGuards,
+  Query,
+  HttpCode,
+  HttpStatus,
+  ParseUUIDPipe,
+  Req,
+  ForbiddenException,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { Rol } from '@cosmeticos/shared-types';
-import { Roles } from '../auth/decorators/roles.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { Permissions } from '../auth/decorators/permissions.decorator';
-import { PERMISSIONS } from '../auth/permissions/permissions.constants';
-import { CurrentUser, AuthUser } from '../auth/decorators/current-user.decorator';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiCreatedResponse } from '@nestjs/swagger';
+import { Request } from 'express';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
-import { UsuariosQueryDto } from './dto/usuarios-query.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { ToggleUsuarioEstadoDto } from './dto/toggle-usuario-estado.dto';
-import { CreateUsuarioAdminDto } from './dto/create-usuario-admin.dto';
+import { CambiarPasswordDto } from './dto/cambiar-password.dto';
+import { ResetPasswordAdminDto } from './dto/reset-password-admin.dto';
+import { GestionarPermisosDto } from './dto/gestionar-permisos.dto';
+import { FiltrosUsuarioDto } from './dto/filtros-usuario.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PermisosGuard } from '../auth/guards/permisos.guard';
+import { Permisos } from '../auth/decorators/permisos.decorator';
+import { CurrentUser, AuthUser } from '../auth/decorators/current-user.decorator';
+import { Rol, Permiso } from '@cosmeticos/shared-types';
 
 @ApiTags('usuarios')
+@ApiBearerAuth()
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post('seed')
-  @ApiOperation({ summary: 'Crear usuario admin inicial (solo si no existe ningun admin)' })
-  async seed() {
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Crear admin inicial (solo si no existe ningun ADMIN)' })
+  seed() {
     return this.usuariosService.seedAdmin();
   }
 
-  @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN)
-  @Permissions(PERMISSIONS.USUARIOS_CREAR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Crear usuario (solo Admin)' })
-  create(@Body() createUsuarioDto: CreateUsuarioDto) {
-    return this.usuariosService.create(createUsuarioDto);
-  }
-
-  @Post('admin-create')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN)
-  @Permissions(PERMISSIONS.USUARIOS_CREAR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Crear usuario con password temporal (solo Admin)' })
-  createByAdmin(@Body() dto: CreateUsuarioAdminDto) {
-    return this.usuariosService.createByAdmin(dto);
+  @Get('estadisticas')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_VER)
+  @ApiOperation({ summary: 'Estadisticas generales del modulo de usuarios' })
+  getEstadisticas() {
+    return this.usuariosService.getEstadisticas();
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
-  @Permissions(PERMISSIONS.USUARIOS_VER)
-  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_VER)
   @ApiOperation({ summary: 'Listar usuarios con filtros y paginacion' })
-  @ApiQuery({ name: 'q', required: false, type: String })
-  @ApiQuery({ name: 'rol', required: false, enum: Rol })
-  @ApiQuery({ name: 'sedeId', required: false, type: String })
-  @ApiQuery({ name: 'activo', required: false, type: Boolean })
-  @ApiQuery({ name: 'email', required: false, type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  findAll(@Query() query: UsuariosQueryDto) {
-    return this.usuariosService.findAll(query);
+  findAll(@Query() filtros: FiltrosUsuarioDto) {
+    return this.usuariosService.findAll(filtros);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_CREAR)
+  @ApiOperation({ summary: 'Crear nuevo usuario' })
+  @ApiCreatedResponse({ description: 'Usuario creado exitosamente' })
+  create(@Body() dto: CreateUsuarioDto, @Req() req: Request & { user: any }) {
+    return this.usuariosService.create(dto, req.user?.id);
   }
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Perfil del usuario autenticado' })
   getMe(@CurrentUser() user: AuthUser) {
-    return this.usuariosService.getMe(user.id);
+    return this.usuariosService.findOne(user.id);
   }
 
   @Patch('me/password')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cambiar contrasena del usuario autenticado' })
-  changeOwnPassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
-    return this.usuariosService.changeOwnPassword(user.id, dto);
+  cambiarPasswordPropia(@CurrentUser() user: AuthUser, @Body() dto: CambiarPasswordDto) {
+    return this.usuariosService.cambiarPassword(user.id, dto);
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
-  @Permissions(PERMISSIONS.USUARIOS_VER)
-  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_VER)
   @ApiOperation({ summary: 'Obtener usuario por ID' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.usuariosService.findOne(id);
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN)
-  @Permissions(PERMISSIONS.USUARIOS_EDITAR)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizar usuario (solo Admin)' })
-  update(@Param('id') id: string, @Body() updateUsuarioDto: UpdateUsuarioDto) {
-    return this.usuariosService.update(id, updateUsuarioDto);
-  }
-
-  @Patch(':id/estado')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN)
-  @Permissions(PERMISSIONS.USUARIOS_CAMBIAR_ESTADO)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Activar o desactivar usuario (solo Admin)' })
-  toggleEstado(@Param('id') id: string, @Body() dto: ToggleUsuarioEstadoDto) {
-    return this.usuariosService.updateEstado(id, dto.activo);
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_EDITAR)
+  @ApiOperation({ summary: 'Actualizar datos del usuario' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUsuarioDto,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.usuariosService.update(id, dto, req.user?.id);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles(Rol.ADMIN)
-  @Permissions(PERMISSIONS.USUARIOS_CAMBIAR_ESTADO)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Desactivar usuario (solo Admin)' })
-  remove(@Param('id') id: string) {
-    return this.usuariosService.remove(id);
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_ELIMINAR)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Desactivar usuario (soft delete)' })
+  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request & { user: any }) {
+    return this.usuariosService.remove(id, req.user?.id);
+  }
+
+  @Patch(':id/activar')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_EDITAR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reactivar usuario desactivado' })
+  activar(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request & { user: any }) {
+    return this.usuariosService.activar(id, req.user?.id);
+  }
+
+  @Patch(':id/cambiar-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cambiar contrasena propia (requiere contrasena actual)' })
+  cambiarPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CambiarPasswordDto,
+    @Req() req: Request & { user: any },
+  ) {
+    if (req.user.id !== id && req.user.rol !== Rol.ADMIN) {
+      throw new ForbiddenException('Solo puedes cambiar tu propia contrasena');
+    }
+    return this.usuariosService.cambiarPassword(id, dto);
+  }
+
+  @Post(':id/reset-password')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_RESET_PASSWORD)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resetear contrasena de cualquier usuario (solo admin/supervisor)' })
+  resetPasswordAdmin(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ResetPasswordAdminDto,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.usuariosService.resetPasswordAdmin(id, dto, req.user?.id);
+  }
+
+  @Post(':id/bloquear')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_EDITAR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bloquear usuario temporalmente' })
+  bloquear(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('minutos') minutos: number = 30,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.usuariosService.bloquear(id, minutos, req.user?.id);
+  }
+
+  @Post(':id/desbloquear')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_EDITAR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Desbloquear usuario bloqueado' })
+  desbloquear(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request & { user: any }) {
+    return this.usuariosService.desbloquear(id, req.user?.id);
+  }
+
+  @Put(':id/permisos')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_CAMBIAR_ROL)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gestionar permisos extra y revocados del usuario' })
+  gestionarPermisos(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: GestionarPermisosDto,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.usuariosService.gestionarPermisos(id, dto, req.user?.id);
+  }
+
+  @Get(':id/permisos')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_VER)
+  @ApiOperation({ summary: 'Ver permisos efectivos de un usuario (rol + extra - revocados)' })
+  getPermisosEfectivos(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usuariosService.getPermisosEfectivos(id);
+  }
+
+  @Get(':id/auditoria')
+  @UseGuards(JwtAuthGuard, PermisosGuard)
+  @Permisos(Permiso.USUARIOS_VER_AUDITORIA)
+  @ApiOperation({ summary: 'Ver log de auditoria de un usuario' })
+  getAuditoria(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(30), ParseIntPipe) limit: number,
+  ) {
+    return this.usuariosService.getAuditoria(id, page, limit);
   }
 }

@@ -1,14 +1,16 @@
 import {
-  Index,
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
-import { Rol } from '@cosmeticos/shared-types';
+import { Rol, Permiso } from '@cosmeticos/shared-types';
 
 @Entity('usuarios')
+@Index(['email'], { unique: true })
+@Index(['sedeId'])
 export class Usuario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -19,11 +21,10 @@ export class Usuario {
   @Column({ length: 100 })
   apellido: string;
 
-  @Index({ unique: true })
-  @Column({ length: 150 })
+  @Column({ unique: true, length: 200 })
   email: string;
 
-  @Column()
+  @Column({ select: false })
   password: string;
 
   @Column({
@@ -33,27 +34,60 @@ export class Usuario {
   })
   rol: Rol;
 
-  @Column({ name: 'sedeId', type: 'uuid', nullable: true })
-  sedeId?: string | null;
+  @Column({ type: 'text', array: true, default: [] })
+  permisosExtra: Permiso[];
+
+  @Column({ type: 'text', array: true, default: [] })
+  permisosRevocados: Permiso[];
+
+  @Column({ name: 'sedeId', nullable: true, type: 'uuid' })
+  sedeId: string | null;
 
   @Column({ default: true })
   activo: boolean;
 
-  @Column({ name: 'ultimo_login', type: 'timestamptz', nullable: true })
-  ultimoLogin?: Date | null;
+  @Column({ type: 'varchar', nullable: true, length: 20 })
+  telefono: string | null;
 
-  @Column({ name: 'intentos_login', type: 'int', default: 0 })
-  intentosLogin: number;
+  @Column({ type: 'varchar', nullable: true, length: 500 })
+  avatarUrl: string | null;
 
-  @Column({ name: 'bloqueado_hasta', type: 'timestamptz', nullable: true })
-  bloqueadoHasta?: Date | null;
+  @Column({ default: 0 })
+  intentosFallidos: number;
 
-  @Column({ name: 'telefono', type: 'varchar', length: 20, nullable: true })
-  telefono?: string | null;
+  @Column({ nullable: true, type: 'timestamp' })
+  bloqueadoHasta: Date | null;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  ultimoLogin: Date | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 45 })
+  ultimaIp: string | null;
+
+  @Column({ type: 'varchar', nullable: true, select: false })
+  resetPasswordToken: string | null;
+
+  @Column({ nullable: true, type: 'timestamp', select: false })
+  resetPasswordExpires: Date | null;
+
+  @Column({ default: false })
+  forzarCambioPassword: boolean;
+
+  @Column({ nullable: true, type: 'text' })
+  notas: string | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  creadoPorId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  desactivadoEn: Date | null;
+
+  @Column({ nullable: true, type: 'uuid' })
+  desactivadoPorId: string | null;
 }

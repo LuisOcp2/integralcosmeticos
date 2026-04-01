@@ -13,8 +13,9 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({ summary: 'Iniciar sesión' })
-  async login(@Body() loginDto: LoginDto, @Request() req: any) {
-    return this.authService.login(req.user);
+  async login(@Body() _loginDto: LoginDto, @Request() req: any) {
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ?? req.ip;
+    return this.authService.login(req.user, ip);
   }
 
   @UseGuards(JwtAuthGuard)

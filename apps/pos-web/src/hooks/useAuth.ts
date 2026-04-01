@@ -8,6 +8,9 @@ export interface AuthUser {
   email: string;
   rol: string;
   sedeId?: string;
+  permisosExtra?: string[];
+  permisosRevocados?: string[];
+  forzarCambioPassword?: boolean;
 }
 
 function loadUser(): AuthUser | null {

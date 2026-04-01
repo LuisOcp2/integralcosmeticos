@@ -21,6 +21,8 @@ import { ClientesModule } from './modules/clientes/clientes.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { SyncModule } from './modules/sync/sync.module';
 import { ConfiguracionesModule } from './modules/configuraciones/configuraciones.module';
+import { ProveedoresModule } from './modules/proveedores/proveedores.module';
+import { OrdenComprasModule } from './modules/orden-compras/orden-compras.module';
 import databaseConfig from './config/database.config';
 import appConfig from './config/app.config';
 
@@ -86,6 +88,8 @@ import appConfig from './config/app.config';
     ReportesModule,
     SyncModule,
     ConfiguracionesModule,
+    ProveedoresModule,
+    OrdenComprasModule,
   ],
   controllers: [AppController],
   providers: [AppService, ThrottlerGuard],

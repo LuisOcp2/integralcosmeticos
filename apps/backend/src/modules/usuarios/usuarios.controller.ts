@@ -17,7 +17,7 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiCreatedResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiNoContentResponse } from '@nestjs/swagger';
 import { Request } from 'express';
 import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
@@ -26,9 +26,12 @@ import { CambiarPasswordDto } from './dto/cambiar-password.dto';
 import { ResetPasswordAdminDto } from './dto/reset-password-admin.dto';
 import { GestionarPermisosDto } from './dto/gestionar-permisos.dto';
 import { FiltrosUsuarioDto } from './dto/filtros-usuario.dto';
+import { CambiarRolDto } from './dto/cambiar-rol.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermisosGuard } from '../auth/guards/permisos.guard';
 import { Permisos } from '../auth/decorators/permisos.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../auth/decorators/current-user.decorator';
 import { Rol, Permiso } from '@cosmeticos/shared-types';
 
@@ -204,5 +207,24 @@ export class UsuariosController {
     @Query('limit', new DefaultValuePipe(30), ParseIntPipe) limit: number,
   ) {
     return this.usuariosService.getAuditoria(id, page, limit);
+  }
+
+  @Patch(':id/rol')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosGuard)
+  @Roles(Rol.ADMIN)
+  @Permisos(Permiso.USUARIOS_CAMBIAR_ROL)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cambiar rol de usuario',
+    description:
+      'Solo ADMIN puede cambiar roles. Incrementa tokenVersion invalidando todos los JWT existentes del usuario afectado.',
+  })
+  @ApiOkResponse({ description: 'Rol cambiado correctamente' })
+  cambiarRol(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CambiarRolDto,
+    @Req() req: Request & { user: any },
+  ) {
+    return this.usuariosService.cambiarRol(id, dto, req.user.id);
   }
 }

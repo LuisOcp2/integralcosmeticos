@@ -90,4 +90,11 @@ export class Usuario {
 
   @Column({ nullable: true, type: 'uuid' })
   desactivadoPorId: string | null;
+
+  /**
+   * Versión del token. Se incrementa al cambiar el rol del usuario para invalidar
+   * todos los JWT existentes de esa cuenta.
+   */
+  @Column({ default: 0 })
+  tokenVersion: number;
 }

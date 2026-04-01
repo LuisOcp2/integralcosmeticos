@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -22,7 +23,7 @@ export class CreateProductoDto {
   @ApiPropertyOptional({ example: 'Base de alta cobertura' })
   @IsString()
   @IsOptional()
-  @MaxLength(2500)
+  @MaxLength(5000)
   descripcion?: string;
 
   @ApiPropertyOptional({ example: 'https://cdn.ejemplo.com/productos/base-hd.png' })
@@ -48,18 +49,59 @@ export class CreateProductoDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  precioBase: number;
+  precio: number;
 
-  @ApiProperty({ example: 28000 })
+  @ApiPropertyOptional({ example: 45000, deprecated: true })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
-  precioCosto: number;
+  precioBase?: number;
 
-  @ApiProperty({ example: 19 })
+  @ApiPropertyOptional({ example: 28000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  precioCompra?: number;
+
+  @ApiPropertyOptional({ example: 28000, deprecated: true })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  precioCosto?: number;
+
+  @ApiPropertyOptional({ example: 19 })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(100)
-  iva: number;
+  impuesto?: number;
+
+  @ApiPropertyOptional({ example: 19, deprecated: true })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  iva?: number;
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  activo?: boolean;
+
+  @ApiPropertyOptional({ example: 0, default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  stockMinimo?: number;
+
+  @ApiPropertyOptional({ example: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  permitirVentaSinStock?: boolean;
 }

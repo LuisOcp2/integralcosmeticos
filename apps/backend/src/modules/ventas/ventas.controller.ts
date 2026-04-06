@@ -20,14 +20,14 @@ export class VentasController {
   @Roles(Rol.CAJERO)
   @ApiOperation({ summary: 'Crear venta y afectar inventario' })
   create(@Body() dto: CreateVentaDto, @Request() req: any) {
-    return this.ventasService.crearVenta(dto, req.user.id);
+    return this.ventasService.crearVenta(dto, req.user.id, req.user.sedeId);
   }
 
   @Post(':id/anular')
-  @Roles(Rol.ADMIN)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
   @ApiOperation({ summary: 'Anular venta y devolver stock' })
   anular(@Param('id') id: string, @Body() dto: AnularVentaDto, @Request() req: any) {
-    return this.ventasService.anularVenta(id, dto, req.user.id);
+    return this.ventasService.anularVenta(id, dto, req.user.id, req.user.rol);
   }
 
   @Get()
@@ -48,11 +48,11 @@ export class VentasController {
 
   @Get(':id/ticket')
   @Roles(Rol.ADMIN, Rol.CAJERO, Rol.SUPERVISOR, Rol.BODEGUERO)
-  @ApiOperation({ summary: 'Generar ticket PDF de venta' })
+  @ApiOperation({ summary: 'Generar ticket texto plano para impresora termica' })
   async getTicket(@Param('id') id: string, @Res() res: Response) {
-    const pdf = await this.ventasService.generarTicketPDF(id);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=ticket-${id}.pdf`);
-    res.send(pdf);
+    const ticket = await this.ventasService.generarTicketTexto(id);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename=ticket-${id}.txt`);
+    res.send(ticket);
   }
 }

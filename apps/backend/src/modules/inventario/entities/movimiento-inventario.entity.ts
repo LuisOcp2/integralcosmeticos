@@ -12,35 +12,32 @@ export class MovimientoInventario {
   })
   tipo: TipoMovimiento;
 
-  @Column({ name: 'numero_doc', type: 'varchar', length: 40, unique: true })
-  numeroDoc: string;
-
-  @Column({ name: 'varianteId', type: 'uuid' })
+  @Column({ type: 'uuid' })
   varianteId: string;
 
-  @Column({ name: 'productoId', type: 'uuid' })
-  productoId: string;
+  @Column({ type: 'uuid', nullable: true })
+  sedeOrigenId?: string | null;
 
-  @Column({ name: 'sedeOrigenId', type: 'uuid', nullable: true })
-  sedeId?: string | null;
+  @Column({ type: 'uuid', nullable: true })
+  sedeDestinoId?: string | null;
 
   @Column({ type: 'int' })
   cantidad: number;
 
-  @Column({ name: 'sedeDestinoId', type: 'uuid', nullable: true })
-  sedeDestinoId?: string | null;
+  @Column({ name: 'stock_anterior', type: 'int' })
+  cantidadAnterior: number;
 
-  @Column({ name: 'usuarioId', type: 'uuid' })
-  usuarioId: string;
+  @Column({ name: 'stock_nuevo', type: 'int' })
+  cantidadNueva: number;
 
   @Column({ type: 'text', nullable: true })
-  motivo?: string;
+  motivo?: string | null;
 
-  @Column({ name: 'stock_anterior', type: 'int', default: 0 })
-  stockAnterior: number;
+  @Column({ name: 'numero_doc', type: 'varchar', length: 100, nullable: true })
+  referencia?: string | null;
 
-  @Column({ name: 'stock_nuevo', type: 'int', default: 0 })
-  stockNuevo: number;
+  @Column({ name: 'usuarioId', type: 'uuid' })
+  realizadoPorId: string;
 
   @CreateDateColumn()
   createdAt: Date;

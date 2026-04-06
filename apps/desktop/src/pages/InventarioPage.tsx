@@ -31,10 +31,19 @@ type MovimientoInventarioUi = IMovimientoInventario & {
   numeroDoc?: string;
   stockAnterior?: number;
   stockNuevo?: number;
+  sedeOrigenId?: string | null;
   nombreVariante?: string;
   nombreProducto?: string;
   skuVariante?: string;
   codigoBarrasVariante?: string;
+};
+
+type PaginatedMovimientos = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  items: MovimientoInventarioUi[];
 };
 
 type EstadoFiltro = 'TODOS' | 'ALERTA' | 'OK';
@@ -68,7 +77,11 @@ async function getStockPorSede(sedeId: string): Promise<StockConAlerta[]> {
 
 async function getMovimientos(): Promise<MovimientoInventarioUi[]> {
   const { data } = await api.get('/inventario/movimientos');
-  return data;
+  if (Array.isArray(data)) {
+    return data;
+  }
+  const paginated = data as PaginatedMovimientos;
+  return paginated.items ?? [];
 }
 
 function Skeleton({ className }: { className?: string }) {
@@ -591,7 +604,7 @@ export default function InventarioPage() {
   const movimientosFiltrados = useMemo(() => {
     const movimientos = movimientosQuery.data ?? [];
     return movimientos
-      .filter((m) => (sedeId ? m.sedeId === sedeId || m.sedeDestinoId === sedeId : true))
+      .filter((m) => (sedeId ? m.sedeOrigenId === sedeId || m.sedeDestinoId === sedeId : true))
       .filter((m) => (filtroMovimiento === 'TODOS' ? true : m.tipo === filtroMovimiento))
       .slice(0, 8);
   }, [movimientosQuery.data, sedeId, filtroMovimiento]);

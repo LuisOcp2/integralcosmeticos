@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import { TrasladarStockDto } from './dto/trasladar-stock.dto';
 import { AjustarStockDto } from './dto/ajustar-stock.dto';
 import { OperarStockDto } from './dto/operar-stock.dto';
 import { TipoMovimiento } from '@cosmeticos/shared-types';
+import { FiltrosMovimientoDto } from './dto/filtros-movimiento.dto';
 
 @ApiTags('inventario')
 @ApiBearerAuth()
@@ -50,9 +52,9 @@ export class InventarioController {
 
   @Get('movimientos')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
-  @ApiOperation({ summary: 'Listar movimientos de inventario' })
-  getMovimientos() {
-    return this.inventarioService.getMovimientos();
+  @ApiOperation({ summary: 'Listar movimientos de inventario con filtros y paginacion' })
+  getMovimientos(@Query() filtros: FiltrosMovimientoDto) {
+    return this.inventarioService.generarReporteMovimientos(filtros);
   }
 
   @Get()
@@ -68,13 +70,19 @@ export class InventarioController {
 
   @Get('alertas')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO, Rol.CAJERO)
-  @ApiOperation({ summary: 'Productos bajo stock minimo (query: sedeId)' })
+  @ApiOperation({ summary: 'Alertas activas de inventario (query opcional: sedeId)' })
   getAlertas(@Request() req: any) {
     const sedeId = req.query?.sedeId as string | undefined;
-    if (!sedeId) {
-      throw new BadRequestException('Debe enviar sedeId en query');
-    }
-    return this.inventarioService.getAlertasStockBajo(sedeId);
+    return this.inventarioService.getAlertasActivas(sedeId);
+  }
+
+  @Get('valorizado')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  @ApiOperation({
+    summary: 'Inventario valorizado agrupado por categoria (query opcional: sedeId)',
+  })
+  getInventarioValorizado(@Query('sedeId') sedeId?: string) {
+    return this.inventarioService.getInventarioValorizado(sedeId);
   }
 
   @Post('entrada')
@@ -85,7 +93,7 @@ export class InventarioController {
       {
         tipo: TipoMovimiento.ENTRADA,
         varianteId: dto.varianteId,
-        sedeId: dto.sedeId,
+        sedeDestinoId: dto.sedeId,
         cantidad: dto.cantidad,
         motivo: dto.motivo,
       },
@@ -101,7 +109,7 @@ export class InventarioController {
       {
         tipo: TipoMovimiento.SALIDA,
         varianteId: dto.varianteId,
-        sedeId: dto.sedeId,
+        sedeOrigenId: dto.sedeId,
         cantidad: dto.cantidad,
         motivo: dto.motivo,
       },

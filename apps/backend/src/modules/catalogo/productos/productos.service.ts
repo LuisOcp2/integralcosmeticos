@@ -13,6 +13,26 @@ import { UpdateProductoDto } from './dto/update-producto.dto';
 import { Producto } from './entities/producto.entity';
 import { ProductosQueryDto } from './dto/productos-query.dto';
 
+type VariantePosResultado = {
+  id: string;
+  nombre: string;
+  sku: string;
+  codigoBarra: string | null;
+  precio: number;
+  stockDisponible: number;
+};
+
+type ProductoPosResultado = {
+  id: string;
+  nombre: string;
+  precio: number;
+  sku: string | null;
+  codigoBarra: string | null;
+  stockDisponible: number;
+  imagenUrl: string | null;
+  variantes: VariantePosResultado[];
+};
+
 @Injectable()
 export class ProductosService {
   constructor(
@@ -101,7 +121,10 @@ export class ProductosService {
 
     await this.validarRelaciones(createProductoDto.categoriaId, createProductoDto.marcaId);
 
-    if (Number(createProductoDto.precioCosto) > Number(createProductoDto.precioBase)) {
+    const precioEntrada = createProductoDto.precio ?? createProductoDto.precioBase ?? 0;
+    const costoEntrada = createProductoDto.precioCompra ?? createProductoDto.precioCosto;
+
+    if (costoEntrada !== undefined && Number(costoEntrada) > Number(precioEntrada)) {
       throw new BadRequestException('El precio de costo no puede ser mayor al precio base');
     }
 
@@ -129,6 +152,9 @@ export class ProductosService {
       descripcion,
       imagenUrl,
       codigoInterno,
+      precio: precioEntrada,
+      precioCompra: costoEntrada,
+      impuesto: createProductoDto.impuesto ?? createProductoDto.iva,
     });
     return this.productosRepository.save(producto);
   }
@@ -259,9 +285,15 @@ export class ProductosService {
       updateProductoDto.codigoInterno !== undefined
         ? (this.limpiarTexto(updateProductoDto.codigoInterno) ?? producto.codigoInterno)
         : producto.codigoInterno;
-    const precioBase = updateProductoDto.precioBase ?? Number(producto.precioBase);
-    const precioCosto = updateProductoDto.precioCosto ?? Number(producto.precioCosto);
-    const iva = updateProductoDto.iva ?? Number(producto.iva);
+    const precio =
+      updateProductoDto.precio ?? updateProductoDto.precioBase ?? Number(producto.precio);
+    const precioCompra =
+      updateProductoDto.precioCompra ??
+      updateProductoDto.precioCosto ??
+      producto.precioCompra ??
+      undefined;
+    const impuesto =
+      updateProductoDto.impuesto ?? updateProductoDto.iva ?? producto.impuesto ?? undefined;
 
     const categoriaId = updateProductoDto.categoriaId ?? producto.categoriaId;
     const marcaId = updateProductoDto.marcaId ?? producto.marcaId;
@@ -269,12 +301,12 @@ export class ProductosService {
       await this.validarRelaciones(categoriaId, marcaId);
     }
 
-    if (Number(precioCosto) > Number(precioBase)) {
+    if (precioCompra !== undefined && Number(precioCompra) > Number(precio)) {
       throw new BadRequestException('El precio de costo no puede ser mayor al precio base');
     }
 
     if (codigoInterno !== producto.codigoInterno) {
-      await this.validarCodigoInternoDisponible(codigoInterno, producto.id);
+      await this.validarCodigoInternoDisponible(codigoInterno ?? undefined, producto.id);
     }
 
     if (
@@ -306,9 +338,9 @@ export class ProductosService {
       codigoInterno,
       categoriaId,
       marcaId,
-      precioBase,
-      precioCosto,
-      iva,
+      precio,
+      precioCompra,
+      impuesto,
     });
 
     return this.findOne(id);
@@ -318,5 +350,108 @@ export class ProductosService {
     const producto = await this.findOne(id);
     producto.activo = false;
     await this.productosRepository.save(producto);
+  }
+
+  async buscarPos(q: string): Promise<ProductoPosResultado[]> {
+    const termino = q.trim();
+    if (!termino) {
+      return [];
+    }
+
+    const query = this.productosRepository
+      .createQueryBuilder('producto')
+      .leftJoin('producto.variantes', 'variante', 'variante.activa = true')
+      .where('producto.activo = true')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('lower(producto.nombre) LIKE :qNombre', {
+            qNombre: `%${termino.toLowerCase()}%`,
+          })
+            .orWhere('lower(variante.sku) LIKE :qSku', { qSku: `%${termino.toLowerCase()}%` })
+            .orWhere('variante.codigo_barras LIKE :qBarra', { qBarra: `%${termino}%` });
+        }),
+      )
+      .select('producto.id', 'producto_id')
+      .addSelect('producto.nombre', 'producto_nombre')
+      .addSelect('producto.precio_venta', 'producto_precio')
+      .addSelect('producto.imagen_url', 'producto_imagen_url')
+      .addSelect('variante.id', 'variante_id')
+      .addSelect('variante.nombre', 'variante_nombre')
+      .addSelect('variante.sku', 'variante_sku')
+      .addSelect('variante.codigo_barras', 'variante_codigo_barras')
+      .addSelect('COALESCE(variante.precio_venta, producto.precio_venta)', 'variante_precio')
+      .addSelect(
+        '(SELECT COALESCE(SUM(ss.cantidad), 0) FROM stock_sedes ss WHERE ss.varianteId = variante.id)',
+        'variante_stock',
+      )
+      .orderBy(
+        `CASE
+          WHEN variante.codigo_barras = :exactoCodigo THEN 0
+          WHEN lower(variante.sku) = :exactoSku THEN 1
+          WHEN lower(producto.nombre) LIKE :prefijoNombre THEN 2
+          ELSE 3
+        END`,
+        'ASC',
+      )
+      .addOrderBy('producto.nombre', 'ASC')
+      .setParameters({
+        exactoCodigo: termino,
+        exactoSku: termino.toLowerCase(),
+        prefijoNombre: `${termino.toLowerCase()}%`,
+      })
+      .limit(50);
+
+    const raws = await query.getRawMany<{
+      producto_id: string;
+      producto_nombre: string;
+      producto_precio: string;
+      producto_imagen_url: string | null;
+      variante_id: string | null;
+      variante_nombre: string | null;
+      variante_sku: string | null;
+      variante_codigo_barras: string | null;
+      variante_precio: string | null;
+      variante_stock: string | null;
+    }>();
+
+    const productosMap = new Map<string, ProductoPosResultado>();
+    for (const row of raws) {
+      let producto = productosMap.get(row.producto_id);
+      if (!producto) {
+        producto = {
+          id: row.producto_id,
+          nombre: row.producto_nombre,
+          precio: Number(row.producto_precio),
+          sku: null,
+          codigoBarra: null,
+          stockDisponible: 0,
+          imagenUrl: row.producto_imagen_url,
+          variantes: [],
+        };
+        productosMap.set(row.producto_id, producto);
+      }
+
+      if (row.variante_id && row.variante_nombre && row.variante_sku) {
+        const stockDisponible = Number(row.variante_stock ?? '0');
+        const variante: VariantePosResultado = {
+          id: row.variante_id,
+          nombre: row.variante_nombre,
+          sku: row.variante_sku,
+          codigoBarra: row.variante_codigo_barras,
+          precio: Number(row.variante_precio ?? row.producto_precio),
+          stockDisponible,
+        };
+        producto.variantes.push(variante);
+        producto.stockDisponible += stockDisponible;
+        if (!producto.sku) {
+          producto.sku = variante.sku;
+        }
+        if (!producto.codigoBarra && variante.codigoBarra) {
+          producto.codigoBarra = variante.codigoBarra;
+        }
+      }
+    }
+
+    return Array.from(productosMap.values()).slice(0, 20);
   }
 }

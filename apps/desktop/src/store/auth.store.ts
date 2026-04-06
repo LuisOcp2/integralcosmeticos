@@ -4,7 +4,7 @@ import { IUsuario, Rol } from '@cosmeticos/shared-types';
 
 const baseRolePaths: Record<Rol, string[]> = {
   [Rol.CAJERO]: ['/pos', '/caja', '/clientes'],
-  [Rol.BODEGUERO]: ['/inventario', '/productos'],
+  [Rol.BODEGUERO]: ['/inventario', '/productos', '/proveedores', '/ordenes-compra'],
   [Rol.SUPERVISOR]: [
     '/dashboard',
     '/reportes',
@@ -16,6 +16,8 @@ const baseRolePaths: Record<Rol, string[]> = {
     '/inventario',
     '/productos',
     '/sedes',
+    '/proveedores',
+    '/ordenes-compra',
   ],
   [Rol.ADMIN]: [
     '/dashboard',
@@ -31,6 +33,8 @@ const baseRolePaths: Record<Rol, string[]> = {
     '/clientes',
     '/caja',
     '/pos',
+    '/proveedores',
+    '/ordenes-compra',
   ],
 };
 

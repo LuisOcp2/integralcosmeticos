@@ -1,19 +1,26 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { EstadoVenta, MetodoPago, TipoMovimiento } from '@cosmeticos/shared-types';
+import { EstadoCaja, EstadoVenta, MetodoPago, Rol, TipoMovimiento } from '@cosmeticos/shared-types';
 import { DataSource, Repository } from 'typeorm';
-import PDFDocument from 'pdfkit';
 import { CreateVentaDto } from './dto/create-venta.dto';
 import { AnularVentaDto } from './dto/anular-venta.dto';
 import { Venta } from './entities/venta.entity';
 import { DetalleVenta } from './entities/detalle-venta.entity';
 import { SesionCaja } from '../caja/entities/sesion-caja.entity';
+import { Caja } from '../caja/entities/caja.entity';
 import { InventarioService } from '../inventario/inventario.service';
 import { StockSede } from '../inventario/entities/stock-sede.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
-import { Cliente } from '../clientes/entities/cliente.entity';
 import { Sede } from '../sedes/entities/sede.entity';
+import { Usuario } from '../usuarios/entities/usuario.entity';
+import { ClientesService } from '../clientes/clientes.service';
+import { ContabilidadService } from '../contabilidad/contabilidad.service';
 
 @Injectable()
 export class VentasService {
@@ -24,142 +31,89 @@ export class VentasService {
     private readonly detalleVentasRepository: Repository<DetalleVenta>,
     @InjectRepository(SesionCaja)
     private readonly cajaRepository: Repository<SesionCaja>,
+    @InjectRepository(Caja)
+    private readonly cajasRepository: Repository<Caja>,
     @InjectRepository(Variante)
     private readonly variantesRepository: Repository<Variante>,
     @InjectRepository(Producto)
     private readonly productosRepository: Repository<Producto>,
-    @InjectRepository(Cliente)
-    private readonly clientesRepository: Repository<Cliente>,
     @InjectRepository(Sede)
     private readonly sedesRepository: Repository<Sede>,
+    @InjectRepository(Usuario)
+    private readonly usuariosRepository: Repository<Usuario>,
     private readonly inventarioService: InventarioService,
+    private readonly clientesService: ClientesService,
+    private readonly contabilidadService: ContabilidadService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
 
-  private aplicarMontosSegunMetodo(
-    metodoPago: MetodoPago,
-    total: number,
-    splitPago?: CreateVentaDto['splitPago'],
-  ): Pick<Venta, 'montoEfectivo' | 'montoTarjeta' | 'montoTransferencia' | 'montoOtro'> {
-    const montos = {
-      montoEfectivo: 0,
-      montoTarjeta: 0,
-      montoTransferencia: 0,
-      montoOtro: 0,
-    };
-
-    if (metodoPago === MetodoPago.COMBINADO) {
-      if (!splitPago) {
-        throw new BadRequestException('Debe enviar splitPago para metodo COMBINADO');
-      }
-
-      const totalSplit =
-        Number(splitPago.efectivo ?? 0) +
-        Number(splitPago.tarjeta ?? 0) +
-        Number(splitPago.transferencia ?? 0);
-
-      if (Math.abs(totalSplit - total) > 0.01) {
-        throw new BadRequestException(
-          'La suma del split de pago debe coincidir con el total de la venta',
-        );
-      }
-
-      return {
-        montoEfectivo: Number(splitPago.efectivo ?? 0),
-        montoTarjeta: Number(splitPago.tarjeta ?? 0),
-        montoTransferencia: Number(splitPago.transferencia ?? 0),
-        montoOtro: 0,
-      };
-    }
-
-    if (splitPago) {
-      throw new BadRequestException('splitPago solo aplica cuando el metodo es COMBINADO');
-    }
-
-    if (metodoPago === MetodoPago.EFECTIVO) {
-      montos.montoEfectivo = total;
-      return montos;
-    }
-
-    if ([MetodoPago.TARJETA_CREDITO, MetodoPago.TARJETA_DEBITO].includes(metodoPago)) {
-      montos.montoTarjeta = total;
-      return montos;
-    }
-
-    if (metodoPago === MetodoPago.TRANSFERENCIA) {
-      montos.montoTransferencia = total;
-      return montos;
-    }
-
-    throw new BadRequestException('Metodo de pago no soportado');
-  }
-
   private async generarNumeroVenta(manager: DataSource['manager']): Promise<string> {
     const year = new Date().getFullYear();
-    const prefijo = `VTA-${year}-`;
-
-    const ultimaVenta = await manager
-      .getRepository(Venta)
-      .createQueryBuilder('venta')
-      .where('venta.numero LIKE :prefijo', { prefijo: `${prefijo}%` })
-      .orderBy('venta.numero', 'DESC')
-      .getOne();
-
-    const ultimoCorrelativo = ultimaVenta ? Number(ultimaVenta.numero.split('-').at(-1) ?? 0) : 0;
-    const siguiente = String(ultimoCorrelativo + 1).padStart(5, '0');
-
-    return `${prefijo}${siguiente}`;
+    await manager.query('CREATE SEQUENCE IF NOT EXISTS ventas_numero_seq START 1');
+    const [{ seq }] = await manager.query(
+      "SELECT LPAD(nextval('ventas_numero_seq')::text, 6, '0') AS seq",
+    );
+    return `VEN-${year}-${seq}`;
   }
 
-  private async obtenerCajaAbierta(sedeId: string): Promise<SesionCaja> {
-    const cajaAbierta = await this.cajaRepository
-      .createQueryBuilder('sesion')
-      .innerJoin('cajas', 'caja', 'caja.id = sesion."cajaId"')
-      .where('caja."sedeId" = :sedeId', { sedeId })
-      .andWhere('caja.activa = true')
-      .andWhere('sesion.activa = true')
-      .orderBy('sesion.fecha_apertura', 'DESC')
-      .getOne();
+  private async obtenerCajaAbierta(cajeroId: string, sedeId: string): Promise<SesionCaja> {
+    const cajaActiva = await this.cajasRepository.findOne({ where: { sedeId, activo: true } });
+    if (!cajaActiva) {
+      throw new BadRequestException('No hay una caja configurada para la sede del usuario');
+    }
+
+    const cajaAbierta = await this.cajaRepository.findOne({
+      where: {
+        cajaId: cajaActiva.id,
+        cajeroId,
+        estado: EstadoCaja.ABIERTA,
+      },
+      order: { fechaApertura: 'DESC' },
+    });
 
     if (!cajaAbierta) {
-      throw new BadRequestException('No hay una caja abierta para la sede de la venta');
+      throw new BadRequestException('No hay una sesion de caja abierta para el cajero');
     }
 
     return cajaAbierta;
   }
 
-  async crearVenta(dto: CreateVentaDto, usuarioId: string): Promise<Venta> {
-    const cajaAbierta = await this.obtenerCajaAbierta(dto.sedeId);
+  async crearVenta(dto: CreateVentaDto, cajeroId: string, sedeId?: string | null): Promise<Venta> {
+    if (!sedeId) {
+      throw new BadRequestException('El usuario no tiene sede asignada para registrar la venta');
+    }
+
+    const cajaAbierta = await this.obtenerCajaAbierta(cajeroId, sedeId);
+    await this.contabilidadService.validarPeriodoAbiertoPorFecha(new Date());
 
     const venta = await this.dataSource.transaction(async (manager) => {
       const numero = await this.generarNumeroVenta(manager);
 
       let subtotal = 0;
-      let impuesto = 0;
-      const descuentoGeneral = Number(dto.descuento ?? 0);
+      let impuestos = 0;
+
+      const montoPagado = Number(dto.montoPagado ?? dto.montoRecibido ?? 0);
+      const notas = dto.notas ?? dto.observaciones ?? null;
 
       const ventaEntity = manager.getRepository(Venta).create({
         numero,
-        sedeId: dto.sedeId,
-        usuarioId,
+        sedeId,
+        cajeroId,
         clienteId: dto.clienteId ?? null,
         cajaId: cajaAbierta.id,
+        estado: EstadoVenta.PENDIENTE,
         subtotal: 0,
-        descuento: descuentoGeneral,
-        impuesto: 0,
+        descuento: 0,
+        impuestos: 0,
         total: 0,
         metodoPago: dto.metodoPago,
-        montoEfectivo: 0,
-        montoTarjeta: 0,
-        montoTransferencia: 0,
-        montoOtro: 0,
-        estado: EstadoVenta.PENDIENTE,
-        observaciones: dto.observaciones ?? null,
+        montoPagado,
+        cambio: 0,
+        notas,
       });
 
       const ventaGuardada = await manager.getRepository(Venta).save(ventaEntity);
-
       const stockDisponiblePorVariante = new Map<string, number>();
 
       for (const item of dto.items) {
@@ -177,16 +131,43 @@ export class VentasService {
           throw new NotFoundException(`Producto no encontrado para variante ${item.varianteId}`);
         }
 
-        const precioUnitario = Number(producto.precioBase) + Number(variante.precioExtra);
-        const descuentoItem = Number(item.descuentoItem ?? 0);
-        const subtotalItem = precioUnitario * item.cantidad - descuentoItem;
+        if (!stockDisponiblePorVariante.has(item.varianteId)) {
+          const stock = await manager
+            .getRepository(StockSede)
+            .createQueryBuilder('stock')
+            .setLock('pessimistic_write')
+            .where('stock.varianteId = :varianteId', { varianteId: item.varianteId })
+            .andWhere('stock.sedeId = :sedeId', { sedeId })
+            .getOne();
+
+          const cantidadStock = stock?.cantidad ?? 0;
+          if (!producto.permitirVentaSinStock && cantidadStock <= 0) {
+            throw new BadRequestException(`Sin stock disponible para ${producto.nombre}`);
+          }
+          stockDisponiblePorVariante.set(item.varianteId, cantidadStock);
+        }
+
+        const stockRestante = Number(stockDisponiblePorVariante.get(item.varianteId) ?? 0);
+        if (!producto.permitirVentaSinStock && stockRestante < item.cantidad) {
+          throw new BadRequestException(`Stock insuficiente para ${producto.nombre}`);
+        }
+
+        stockDisponiblePorVariante.set(item.varianteId, stockRestante - item.cantidad);
+
+        const precioUnitario = Number(variante.precioVenta ?? variante.precio ?? producto.precio);
+        const descuentoItem = Number(item.descuento ?? item.descuentoItem ?? 0);
+        const subtotalItemBruto = precioUnitario * item.cantidad;
+        const subtotalItem = subtotalItemBruto - descuentoItem;
 
         if (subtotalItem < 0) {
           throw new BadRequestException('El subtotal de un item no puede ser negativo');
         }
 
+        const aplicaIva = Number(producto.impuesto ?? 0) > 0;
+        const impuestoItem = aplicaIva ? subtotalItem * 0.19 : 0;
+
         subtotal += subtotalItem;
-        impuesto += subtotalItem * (Number(producto.iva) / 100);
+        impuestos += impuestoItem;
 
         const detalle = manager.getRepository(DetalleVenta).create({
           ventaId: ventaGuardada.id,
@@ -194,108 +175,56 @@ export class VentasService {
           productoId: producto.id,
           cantidad: item.cantidad,
           precioUnitario,
-          precioCostoSnap: Number(producto.precioCosto),
-          descuentoItem,
-          impuestoItem: subtotalItem * (Number(producto.iva) / 100),
+          descuento: descuentoItem,
+          impuestoItem,
           subtotal: subtotalItem,
         });
-
-        if (!stockDisponiblePorVariante.has(item.varianteId)) {
-          const stock = await manager
-            .getRepository(StockSede)
-            .createQueryBuilder('stock')
-            .setLock('pessimistic_write')
-            .where('stock.varianteId = :varianteId', { varianteId: item.varianteId })
-            .andWhere('stock.sedeId = :sedeId', { sedeId: dto.sedeId })
-            .getOne();
-
-          stockDisponiblePorVariante.set(item.varianteId, stock?.cantidad ?? 0);
-        }
-
-        const stockRestante = Number(stockDisponiblePorVariante.get(item.varianteId) ?? 0);
-        if (stockRestante < item.cantidad) {
-          throw new BadRequestException('Stock insuficiente para uno de los items de la venta');
-        }
-
-        stockDisponiblePorVariante.set(item.varianteId, stockRestante - item.cantidad);
 
         await manager.getRepository(DetalleVenta).save(detalle);
       }
 
+      const total = subtotal + impuestos;
+      if (montoPagado < total) {
+        throw new BadRequestException('El monto pagado no cubre el total de la venta');
+      }
+
       ventaGuardada.subtotal = subtotal;
-      ventaGuardada.impuesto = impuesto;
-      ventaGuardada.total = subtotal + impuesto - descuentoGeneral;
-
-      if (ventaGuardada.total < 0) {
-        throw new BadRequestException('El total de la venta no puede ser negativo');
-      }
-
-      if (descuentoGeneral > subtotal + impuesto) {
-        throw new BadRequestException(
-          'El descuento general no puede superar el subtotal + impuesto',
-        );
-      }
-
-      const montos = this.aplicarMontosSegunMetodo(
-        dto.metodoPago,
-        Number(ventaGuardada.total),
-        dto.splitPago,
-      );
-      ventaGuardada.montoEfectivo = montos.montoEfectivo;
-      ventaGuardada.montoTarjeta = montos.montoTarjeta;
-      ventaGuardada.montoTransferencia = montos.montoTransferencia;
-      ventaGuardada.montoOtro = montos.montoOtro;
-
+      ventaGuardada.impuestos = impuestos;
+      ventaGuardada.total = total;
+      ventaGuardada.cambio =
+        dto.metodoPago === MetodoPago.EFECTIVO || dto.metodoPago === MetodoPago.COMBINADO
+          ? montoPagado - total
+          : 0;
       ventaGuardada.estado = EstadoVenta.COMPLETADA;
+
       const ventaCompleta = await manager.getRepository(Venta).save(ventaGuardada);
 
-      const cantidadPorVariante = dto.items.reduce((acc, item) => {
-        acc.set(item.varianteId, (acc.get(item.varianteId) ?? 0) + item.cantidad);
-        return acc;
-      }, new Map<string, number>());
-
-      for (const [varianteId, cantidad] of cantidadPorVariante) {
+      for (const item of dto.items) {
         await this.inventarioService.registrarMovimientoConManager(
           {
             tipo: TipoMovimiento.SALIDA,
-            varianteId,
-            sedeId: dto.sedeId,
-            cantidad,
+            varianteId: item.varianteId,
+            sedeOrigenId: sedeId,
+            cantidad: item.cantidad,
             motivo: `Venta ${ventaCompleta.numero}`,
+            referencia: ventaCompleta.numero,
           },
-          usuarioId,
+          cajeroId,
           manager,
         );
       }
 
       if (dto.clienteId) {
-        const cliente = await manager.getRepository(Cliente).findOne({
-          where: { id: dto.clienteId, activo: true },
-        });
-        if (!cliente) {
-          throw new NotFoundException('Cliente no encontrado para sumar puntos');
-        }
-
         const puntos = Math.floor(Number(ventaCompleta.total) / 1000);
-        cliente.puntosFidelidad += puntos;
-        await manager.getRepository(Cliente).save(cliente);
+        await this.clientesService.sumarPuntosConManager(
+          dto.clienteId,
+          puntos,
+          manager,
+          Number(ventaCompleta.total),
+        );
       }
 
-      const ventasCompletadas = await manager.getRepository(Venta).find({
-        where: {
-          cajaId: cajaAbierta.id,
-          estado: EstadoVenta.COMPLETADA,
-        },
-      });
-
-      const caja = await manager.getRepository(SesionCaja).findOne({
-        where: { id: cajaAbierta.id, activo: true },
-      });
-
-      if (caja) {
-        caja.totalVentas = ventasCompletadas.reduce((acc, item) => acc + Number(item.total), 0);
-        await manager.getRepository(SesionCaja).save(caja);
-      }
+      await this.contabilidadService.generarAsientoVenta(ventaCompleta, manager);
 
       return ventaCompleta;
     });
@@ -303,7 +232,16 @@ export class VentasService {
     return this.getVentaById(venta.id);
   }
 
-  async anularVenta(ventaId: string, dto: AnularVentaDto, usuarioId: string): Promise<Venta> {
+  async anularVenta(
+    ventaId: string,
+    dto: AnularVentaDto,
+    usuarioId: string,
+    rol: Rol,
+  ): Promise<Venta> {
+    if (![Rol.ADMIN, Rol.SUPERVISOR].includes(rol)) {
+      throw new ForbiddenException('Solo ADMIN o SUPERVISOR pueden anular ventas');
+    }
+
     return this.dataSource.transaction(async (manager) => {
       const venta = await manager.getRepository(Venta).findOne({
         where: { id: ventaId },
@@ -322,14 +260,17 @@ export class VentasService {
         throw new BadRequestException('Solo se pueden anular ventas completadas');
       }
 
+      await this.contabilidadService.validarPeriodoAbiertoPorFecha(venta.createdAt);
+
       for (const detalle of venta.detalles) {
         await this.inventarioService.registrarMovimientoConManager(
           {
             tipo: TipoMovimiento.DEVOLUCION,
             varianteId: detalle.varianteId,
-            sedeId: venta.sedeId,
+            sedeOrigenId: venta.sedeId,
             cantidad: detalle.cantidad,
             motivo: `Anulacion venta ${venta.numero}. ${dto.motivo}`,
+            referencia: venta.numero,
           },
           usuarioId,
           manager,
@@ -337,42 +278,18 @@ export class VentasService {
       }
 
       venta.estado = EstadoVenta.ANULADA;
-      venta.observaciones = venta.observaciones
-        ? `${venta.observaciones}\nANULADA: ${dto.motivo}`
-        : `ANULADA: ${dto.motivo}`;
+      venta.motivoAnulacion = dto.motivo;
+      venta.anuladaPorId = usuarioId;
+      venta.anuladaEn = new Date();
 
-      const ventaAnulada = await manager.getRepository(Venta).save(venta);
+      await this.contabilidadService.generarAsientoReversionVenta(
+        venta,
+        usuarioId,
+        dto.motivo,
+        manager,
+      );
 
-      if (venta.clienteId) {
-        const cliente = await manager
-          .getRepository(Cliente)
-          .findOne({ where: { id: venta.clienteId } });
-        if (cliente) {
-          const puntosOtorgados = Math.floor(Number(venta.total) / 1000);
-          cliente.puntosFidelidad = Math.max(0, cliente.puntosFidelidad - puntosOtorgados);
-          await manager.getRepository(Cliente).save(cliente);
-        }
-      }
-
-      const ventasCompletadas = venta.cajaId
-        ? await manager.getRepository(Venta).find({
-            where: {
-              cajaId: venta.cajaId,
-              estado: EstadoVenta.COMPLETADA,
-            },
-          })
-        : [];
-      const caja = venta.cajaId
-        ? await manager.getRepository(SesionCaja).findOne({
-            where: { id: venta.cajaId },
-          })
-        : null;
-      if (caja && caja.activo) {
-        caja.totalVentas = ventasCompletadas.reduce((acc, item) => acc + Number(item.total), 0);
-        await manager.getRepository(SesionCaja).save(caja);
-      }
-
-      return ventaAnulada;
+      return manager.getRepository(Venta).save(venta);
     });
   }
 
@@ -405,55 +322,50 @@ export class VentasService {
     return venta;
   }
 
-  async generarTicketPDF(ventaId: string): Promise<Buffer> {
+  async generarTicketTexto(ventaId: string): Promise<string> {
     const venta = await this.getVentaById(ventaId);
-    const sede = await this.sedesRepository.findOne({ where: { id: venta.sedeId, activo: true } });
+    const [sede, cajero] = await Promise.all([
+      this.sedesRepository.findOne({ where: { id: venta.sedeId } }),
+      this.usuariosRepository.findOne({ where: { id: venta.cajeroId } }),
+    ]);
 
-    const detallesActivos = venta.detalles;
-    const variantes = await this.variantesRepository.find({
-      where: detallesActivos.map((item) => ({ id: item.varianteId, activo: true })),
+    const fecha = venta.createdAt.toLocaleString('es-CO', {
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
     });
-    const variantesMap = new Map(variantes.map((v) => [v.id, v]));
 
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
-    const chunks: Buffer[] = [];
-
-    return new Promise((resolve, reject) => {
-      doc.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', (err: Error) => reject(err));
-
-      doc.fontSize(16).text(sede?.nombre ?? 'Integral Cosmeticos', { align: 'center' });
-      doc.moveDown(0.3);
-      doc.fontSize(10).text(`Direccion: ${sede?.direccion ?? 'N/A'}`, { align: 'center' });
-      doc.text(`Fecha/Hora: ${venta.createdAt.toLocaleString()}`, { align: 'center' });
-      doc.text(`Numero de venta: ${venta.numero}`, { align: 'center' });
-      doc.moveDown();
-
-      doc.fontSize(11).text('Detalle de items', { underline: true });
-      doc.moveDown(0.5);
-
-      for (const item of detallesActivos) {
-        const variante = variantesMap.get(item.varianteId);
-        doc
-          .fontSize(10)
-          .text(`${variante?.nombre ?? item.varianteId}`)
-          .text(
-            `Cant: ${item.cantidad}  PU: ${Number(item.precioUnitario).toFixed(2)}  Sub: ${Number(item.subtotal).toFixed(2)}`,
-          )
-          .moveDown(0.3);
-      }
-
-      doc.moveDown();
-      doc.text(`Subtotal: ${Number(venta.subtotal).toFixed(2)} COP`);
-      doc.text(`Descuento: ${Number(venta.descuento).toFixed(2)} COP`);
-      doc.text(`IVA: ${Number(venta.impuesto).toFixed(2)} COP`);
-      doc.fontSize(12).text(`TOTAL: ${Number(venta.total).toFixed(2)} COP`);
-      doc.moveDown(0.5);
-      doc.fontSize(10).text(`Metodo de pago: ${venta.metodoPago}`);
-      doc.text('Gracias por su compra', { align: 'center' });
-
-      doc.end();
+    const dinero = new Intl.NumberFormat('es-CO');
+    const padTotal = 14;
+    const lineasItems = venta.detalles.map((d) => {
+      const totalLinea = dinero.format(Math.round(Number(d.subtotal)));
+      const nombre = `${d.varianteId} x${d.cantidad}`;
+      const relleno = Math.max(1, 32 - nombre.length - totalLinea.length);
+      return `${nombre}${' '.repeat(relleno)}$${totalLinea}`;
     });
+
+    const etiquetaPago =
+      venta.metodoPago === MetodoPago.EFECTIVO ? 'Pago efectivo:' : `Pago ${venta.metodoPago}:`;
+
+    return [
+      '===== INTEGRAL COSMETICOS =====',
+      `Sede: ${sede?.nombre ?? 'N/A'}`,
+      `Fecha: ${fecha}`,
+      `Ticket: ${venta.numero}`,
+      `Cajero: ${cajero ? `${cajero.nombre} ${cajero.apellido}` : 'N/A'}`,
+      '================================',
+      ...lineasItems,
+      '--------------------------------',
+      `Subtotal:${' '.repeat(padTotal)}$${dinero.format(Math.round(Number(venta.subtotal)))}`,
+      `IVA (19%):${' '.repeat(padTotal)}$${dinero.format(Math.round(Number(venta.impuestos)))}`,
+      `TOTAL:${' '.repeat(padTotal + 3)}$${dinero.format(Math.round(Number(venta.total)))}`,
+      `${etiquetaPago}${' '.repeat(8)}$${dinero.format(Math.round(Number(venta.montoPagado)))}`,
+      `Cambio:${' '.repeat(padTotal + 2)}$${dinero.format(Math.round(Number(venta.cambio)))}`,
+      '================================',
+      'Gracias por su compra!',
+    ].join('\n');
   }
 }

@@ -1,97 +1,80 @@
-import { IsString, IsOptional, IsBoolean, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class CreateProveedorDto {
-  @ApiProperty({ example: 'PROV001' })
+  @ApiProperty({ example: 'Distribuciones Cosmocol S.A.S' })
   @IsString()
-  codigo: string;
+  @MaxLength(200)
+  nombre: string;
 
-  @ApiProperty({ example: 'Proveedor Test S.A.S' })
+  @ApiProperty({ example: '900123456-7' })
   @IsString()
-  razonSocial: string;
+  @Length(1, 20)
+  nit: string;
 
-  @ApiPropertyOptional({ example: 'Nombre Comercial del Proveedor' })
+  @ApiPropertyOptional({ example: 'compras@cosmocol.com' })
   @IsOptional()
-  @IsString()
-  nombreComercial?: string;
-
-  @ApiPropertyOptional({ example: '900123456-7' })
-  @IsOptional()
-  @IsString()
-  numeroDocumentoLegal?: string;
-
-  @ApiPropertyOptional({ example: 'NIT' })
-  @IsOptional()
-  @IsString()
-  tipoDocumento?: string;
-
-  @ApiPropertyOptional({ example: 'contacto@proveedortest.com' })
-  @IsOptional()
-  @IsString()
+  @IsEmail()
+  @MaxLength(200)
   email?: string;
 
-  @ApiPropertyOptional({ example: '3001234567' })
+  @ApiPropertyOptional({ example: '6014567890' })
   @IsOptional()
   @IsString()
+  @Length(1, 30)
   telefono?: string;
 
-  @ApiPropertyOptional({ example: '3101234567' })
+  @ApiPropertyOptional({ example: 'Laura Alvarez' })
   @IsOptional()
   @IsString()
-  celular?: string;
+  @MaxLength(150)
+  contactoNombre?: string;
 
-  @ApiPropertyOptional({ example: 'Carrera 15 # 123-45, Bogotá' })
+  @ApiPropertyOptional({ example: 'Cra 12 #45-67' })
   @IsOptional()
   @IsString()
   direccion?: string;
 
-  @ApiPropertyOptional({ example: 'Bogotá' })
+  @ApiPropertyOptional({ example: 'Bogota' })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   ciudad?: string;
 
-  @ApiPropertyOptional({ example: 'Cundinamarca' })
+  @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()
-  @IsString()
-  departamento?: string;
-
-  @ApiPropertyOptional({ example: 'Colombia' })
-  @IsOptional()
-  @IsString()
-  pais?: string;
-
-  @ApiPropertyOptional({ example: 'Juan Pérez' })
-  @IsOptional()
-  @IsString()
-  contactoNombre?: string;
-
-  @ApiPropertyOptional({ example: 'Gerente de Ventas' })
-  @IsOptional()
-  @IsString()
-  contactoCargo?: string;
-
-  @ApiPropertyOptional({ example: '3001234568' })
-  @IsOptional()
-  @IsString()
-  contactoTelefono?: string;
-
-  @ApiPropertyOptional({ example: 'www.proveedortest.com' })
-  @IsOptional()
-  @IsString()
-  sitioWeb?: string;
-
-  @ApiPropertyOptional({ example: '30 días' })
-  @IsOptional()
-  @IsString()
-  condicionesPago?: string;
-
-  @ApiPropertyOptional({ example: 5 })
-  @IsOptional()
-  @IsNumber()
-  descuentoProveedor?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
+  @Type(() => Boolean)
   @IsBoolean()
   activo?: boolean;
+
+  @ApiPropertyOptional({ example: 'Entrega martes y viernes' })
+  @IsOptional()
+  @IsString()
+  notas?: string;
+
+  @ApiPropertyOptional({ example: 15, default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  diasCredito?: number;
+
+  @ApiPropertyOptional({ example: 5000000, default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  limiteCredito?: number;
 }

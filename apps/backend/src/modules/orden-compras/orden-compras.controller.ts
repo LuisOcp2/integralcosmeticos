@@ -1,55 +1,80 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpStatus,
+  Param,
   Post,
   Put,
-  Delete,
-  Body,
-  Param,
-  ParseIntPipe,
+  Query,
+  Request,
   Res,
-  HttpStatus,
-  HttpCode,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Rol } from '@cosmeticos/shared-types';
 import { OrdenComprasService } from './orden-compras.service';
 import { CreateOrdenCompraDto } from './dto/create-orden-compra.dto';
+import { UpdateOrdenCompraDto } from './dto/update-orden-compra.dto';
+import { RecibirOrdenCompraDto } from './dto/recibir-orden-compra.dto';
 import { OrdenCompra } from './entities/orden-compra.entity';
+import { OrdenesCompraQueryDto } from './dto/ordenes-compra-query.dto';
 import { Response } from 'express';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
-@Controller('orden-compras')
+@ApiTags('ordenes-compra')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('ordenes-compra')
 export class OrdenComprasController {
   constructor(private readonly ordenComprasService: OrdenComprasService) {}
 
   @Post()
-  async create(@Body() createOrdenCompraDto: CreateOrdenCompraDto): Promise<OrdenCompra> {
-    return this.ordenComprasService.create(createOrdenCompraDto);
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  async create(@Body() dto: CreateOrdenCompraDto, @Request() req: any): Promise<OrdenCompra> {
+    return this.ordenComprasService.create(dto, req.user.id);
   }
 
   @Get()
-  async findAll(): Promise<OrdenCompra[]> {
-    return this.ordenComprasService.findAll();
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  async findAll(@Query() query: OrdenesCompraQueryDto) {
+    return this.ordenComprasService.findAll(query);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number): Promise<OrdenCompra> {
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  async findOne(@Param('id') id: string): Promise<OrdenCompra> {
     return this.ordenComprasService.findOne(id);
   }
 
   @Put(':id')
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateData: Partial<OrdenCompra>,
-  ): Promise<OrdenCompra> {
-    return this.ordenComprasService.update(id, updateData);
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  async update(@Param('id') id: string, @Body() dto: UpdateOrdenCompraDto): Promise<OrdenCompra> {
+    return this.ordenComprasService.update(id, dto);
   }
 
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  async remove(@Param('id') id: string): Promise<OrdenCompra> {
     return this.ordenComprasService.remove(id);
   }
 
+  @Post(':id/recibir')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  async recibir(
+    @Param('id') id: string,
+    @Body() dto: RecibirOrdenCompraDto,
+    @Request() req: any,
+  ): Promise<OrdenCompra> {
+    return this.ordenComprasService.recibir(id, dto, req.user.id);
+  }
+
   @Get(':id/pdf')
-  async generarPdf(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO)
+  async generarPdf(@Param('id') id: string, @Res() res: Response) {
     const pdfBuffer = await this.ordenComprasService.generarPdfOrdenCompra(id);
 
     res.set({

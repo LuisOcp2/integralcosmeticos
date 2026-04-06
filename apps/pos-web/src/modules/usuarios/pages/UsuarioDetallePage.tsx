@@ -4,6 +4,7 @@ import { TarjetaUsuario } from '../components/TarjetaUsuario';
 import { ListaAuditoria } from '../components/ListaAuditoria';
 import { Permiso, PERMISOS_POR_ROL } from '@cosmeticos/shared-types';
 import { Check, Minus } from 'lucide-react';
+import { useSedes } from '@/hooks/useSedes';
 
 interface Props {
   id: string;
@@ -18,6 +19,10 @@ export const UsuarioDetallePage = ({ id }: Props) => {
   const [auditPage, setAuditPage] = useState(1);
   const { data: auditoria, isLoading: loadingAuditoria } = useAuditoriaUsuario(id, auditPage);
   const { data: permisos } = usePermisosUsuario(id);
+  const { data: sedes = [] } = useSedes();
+  const sedeNombre = usuario?.sedeId
+    ? (sedes.find((s) => s.id === usuario.sedeId)?.nombre ?? 'Sede no disponible')
+    : 'Sin asignar';
 
   if (isLoading || !usuario) {
     return (
@@ -31,7 +36,7 @@ export const UsuarioDetallePage = ({ id }: Props) => {
 
   return (
     <div className="space-y-4 p-6">
-      <TarjetaUsuario usuario={usuario} />
+      <TarjetaUsuario usuario={usuario} sedeNombre={sedeNombre} />
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-2xl border border-outline-variant bg-surface p-1">
@@ -58,7 +63,7 @@ export const UsuarioDetallePage = ({ id }: Props) => {
               ['ID', usuario.id],
               ['Email', usuario.email],
               ['Rol', usuario.rol],
-              ['Sede', usuario.sedeId ?? 'Sin asignar'],
+              ['Sede', sedeNombre],
               ['Teléfono', usuario.telefono ?? '—'],
               ['Creado', new Date(usuario.createdAt).toLocaleString('es-CO')],
               ['Actualizado', new Date(usuario.updatedAt).toLocaleString('es-CO')],
@@ -94,7 +99,9 @@ export const UsuarioDetallePage = ({ id }: Props) => {
           </div>
           <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
             {Object.values(Permiso).map((p) => {
-              const esBase = (PERMISOS_POR_ROL[usuario.rol as keyof typeof PERMISOS_POR_ROL] ?? []).includes(p);
+              const esBase = (
+                PERMISOS_POR_ROL[usuario.rol as keyof typeof PERMISOS_POR_ROL] ?? []
+              ).includes(p);
               const esExtra = permisos?.permisosExtra?.includes(p);
               const esRevocado = permisos?.permisosRevocados?.includes(p);
               const esEfectivo = [...(permisos?.permisosEfectivos ?? [])].includes(p);

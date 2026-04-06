@@ -5,35 +5,44 @@ import SearchBar from '@/components/SearchBar';
 import ProveedorFormModal from '@/components/proveedores/ProveedorFormModal';
 
 interface Proveedor {
-  id: number;
-  razonSocial: string;
-  numeroDocumentoLegal: string | null;
+  id: string;
+  nombre: string;
+  nit: string;
   telefono: string | null;
   email: string | null;
   direccion: string | null;
   activo: boolean;
-  creadoEn: string;
-  actualizadoEn: string;
+  createdAt: string;
+  updatedAt: string;
 }
+
+type ProveedoresResponse = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  items: Proveedor[];
+};
 
 export default function ProveedoresPage() {
   const queryClient = useQueryClient();
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [editingProveedor, setEditingProveedor] = useState<Proveedor | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['proveedores', searchTerm],
     queryFn: async () => {
-      const params = searchTerm ? { search: searchTerm } : {};
-      const response = await apiClient.get('/proveedores', { params });
+      const params = searchTerm ? { q: searchTerm } : {};
+      const response = await apiClient.get<ProveedoresResponse>('/proveedores', { params });
       return response.data;
     },
   });
 
   useEffect(() => {
     if (data) {
-      setProveedores(data);
+      setProveedores(data.items ?? []);
     }
   }, [data]);
 
@@ -41,7 +50,7 @@ export default function ProveedoresPage() {
     setSearchTerm(term);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     try {
       await apiClient.delete(`/proveedores/${id}`);
       queryClient.invalidateQueries({ queryKey: ['proveedores'] });
@@ -52,10 +61,12 @@ export default function ProveedoresPage() {
 
   const handleEdit = (proveedor: Proveedor) => {
     setEditingProveedor(proveedor);
+    setIsModalOpen(true);
   };
 
   const handleCreate = () => {
     setEditingProveedor(null);
+    setIsModalOpen(true);
   };
 
   if (isLoading) return <div className="flex h-full items-center justify-center">Cargando...</div>;
@@ -75,12 +86,16 @@ export default function ProveedoresPage() {
 
       <SearchBar value={searchTerm} onChange={handleSearch} placeholder="Buscar proveedores..." />
 
-      {editingProveedor && (
+      {isModalOpen && (
         <ProveedorFormModal
           proveedor={editingProveedor}
-          onClose={() => setEditingProveedor(null)}
+          onClose={() => {
+            setEditingProveedor(null);
+            setIsModalOpen(false);
+          }}
           onSave={() => {
             setEditingProveedor(null);
+            setIsModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ['proveedores'] });
           }}
         />
@@ -114,10 +129,10 @@ export default function ProveedoresPage() {
             {proveedores.map((proveedor) => (
               <tr key={proveedor.id} className="hover:bg-surface-2 transition-colors">
                 <td className="px-6 py-4 text-sm font-medium text-on-background">
-                  {proveedor.razonSocial}
+                  {proveedor.nombre}
                 </td>
                 <td className="px-6 py-4 text-sm text-on-surface-variant">
-                  {proveedor.numeroDocumentoLegal || '-'}
+                  {proveedor.nit || '-'}
                 </td>
                 <td className="px-6 py-4 text-sm text-on-surface-variant">
                   {proveedor.telefono || '-'}

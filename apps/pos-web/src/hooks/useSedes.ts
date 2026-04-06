@@ -9,6 +9,7 @@ export function useSedes() {
       const res = await apiClient.get<Sede[]>('/sedes');
       return res.data;
     },
+    retry: false,
     staleTime: 1000 * 60 * 30,
   });
 }

@@ -18,6 +18,8 @@ import {
   RefreshCw,
   Settings,
   ShoppingCart,
+  Truck,
+  ClipboardList,
   Users,
   UserCog,
   Wallet,
@@ -33,7 +35,7 @@ const fullSections: NavSection[] = [
     items: [
       { label: 'Panel', icon: LayoutDashboard, href: '/dashboard' },
       { label: 'Reportes', icon: FileText, href: '/reportes' },
-      { label: 'Analítica', icon: BarChart2, href: '/dashboard' },
+      { label: 'Analítica', icon: BarChart2, href: '/reportes' },
     ],
   },
   {
@@ -44,6 +46,8 @@ const fullSections: NavSection[] = [
       { label: 'Clientes', icon: Users, href: '/clientes' },
       { label: 'Ventas POS', icon: ShoppingCart, href: '/pos' },
       { label: 'Caja', icon: Wallet, href: '/caja' },
+      { label: 'Proveedores', icon: Truck, href: '/proveedores' },
+      { label: 'Ordenes compra', icon: ClipboardList, href: '/ordenes-compra' },
     ],
   },
   {

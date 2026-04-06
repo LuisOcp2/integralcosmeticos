@@ -5,9 +5,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdenCompra } from './entities/orden-compra.entity';
 import { Proveedor } from '../proveedores/entities/proveedor.entity';
 import { PdfGeneratorUtil } from './utils/pdf-generator.util';
+import { DetalleOrdenCompra } from './entities/detalle-orden-compra.entity';
+import { InventarioModule } from '../inventario/inventario.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([OrdenCompra, Proveedor])],
+  imports: [
+    TypeOrmModule.forFeature([OrdenCompra, DetalleOrdenCompra, Proveedor]),
+    InventarioModule,
+  ],
   providers: [OrdenComprasService, PdfGeneratorUtil],
   controllers: [OrdenComprasController],
   exports: [OrdenComprasService],

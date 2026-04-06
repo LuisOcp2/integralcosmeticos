@@ -8,11 +8,11 @@ export class TrasladarStockDto {
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
-  sedeOrigen: string;
+  sedeOrigenId: string;
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
-  sedeDestino: string;
+  sedeDestinoId: string;
 
   @ApiProperty({ example: 5 })
   @IsInt()
@@ -23,4 +23,9 @@ export class TrasladarStockDto {
   @IsString()
   @IsOptional()
   motivo?: string;
+
+  @ApiPropertyOptional({ example: 'TR-2026-00021' })
+  @IsString()
+  @IsOptional()
+  referencia?: string;
 }

@@ -5,39 +5,48 @@ import SearchBar from '@/components/SearchBar';
 import OrdenCompraFormModal from '@/components/ordenes-compra/OrdenCompraFormModal';
 
 interface OrdenCompra {
-  id: number;
-  numeroOrden: string;
+  id: string;
+  numero: string;
   proveedorId: string;
   proveedor: {
     id: string;
-    razonSocial: string;
-    numeroDocumentoLegal: string | null;
+    nombre: string;
+    nit: string;
   };
   total: number;
   estado: string;
-  fechaEntregaEsperada: string | null;
-  creadoEn: string;
-  actualizadoEn: string;
+  fechaEsperada: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
+
+type OrdenesCompraResponse = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  items: OrdenCompra[];
+};
 
 export default function OrdenesCompraPage() {
   const queryClient = useQueryClient();
   const [ordenes, setOrdenes] = useState<OrdenCompra[]>([]);
   const [editingOrden, setEditingOrden] = useState<OrdenCompra | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['ordenes-compra', searchTerm],
     queryFn: async () => {
-      const params = searchTerm ? { search: searchTerm } : {};
-      const response = await apiClient.get('/orden-compras', { params });
+      const params = searchTerm ? { q: searchTerm } : {};
+      const response = await apiClient.get<OrdenesCompraResponse>('/ordenes-compra', { params });
       return response.data;
     },
   });
 
   useEffect(() => {
     if (data) {
-      setOrdenes(data);
+      setOrdenes(data.items ?? []);
     }
   }, [data]);
 
@@ -45,9 +54,9 @@ export default function OrdenesCompraPage() {
     setSearchTerm(term);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     try {
-      await apiClient.delete(`/orden-compras/${id}`);
+      await apiClient.delete(`/ordenes-compra/${id}`);
       queryClient.invalidateQueries({ queryKey: ['ordenes-compra'] });
     } catch (err) {
       console.error('Error deleting purchase order:', err);
@@ -59,10 +68,12 @@ export default function OrdenesCompraPage() {
       ...orden,
       proveedorId: orden.proveedor.id,
     });
+    setIsModalOpen(true);
   };
 
   const handleCreate = () => {
     setEditingOrden(null);
+    setIsModalOpen(true);
   };
 
   if (isLoading) return <div className="flex h-full items-center justify-center">Cargando...</div>;
@@ -86,12 +97,16 @@ export default function OrdenesCompraPage() {
         placeholder="Buscar órdenes de compra..."
       />
 
-      {editingOrden && (
+      {isModalOpen && (
         <OrdenCompraFormModal
           orden={editingOrden}
-          onClose={() => setEditingOrden(null)}
+          onClose={() => {
+            setEditingOrden(null);
+            setIsModalOpen(false);
+          }}
           onSave={() => {
             setEditingOrden(null);
+            setIsModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ['ordenes-compra'] });
           }}
         />
@@ -124,14 +139,12 @@ export default function OrdenesCompraPage() {
           <tbody className="divide-y divide-surface-variant">
             {ordenes.map((orden) => (
               <tr key={orden.id} className="hover:bg-surface-2 transition-colors">
-                <td className="px-6 py-4 text-sm font-medium text-on-background">
-                  {orden.numeroOrden}
-                </td>
+                <td className="px-6 py-4 text-sm font-medium text-on-background">{orden.numero}</td>
                 <td className="px-6 py-4 text-sm text-on-surface-variant">
-                  {orden.proveedor.razonSocial}
-                  {orden.proveedor.numeroDocumentoLegal && (
+                  {orden.proveedor.nombre}
+                  {orden.proveedor.nit && (
                     <span className="ml-2 text-xs text-on-surface-variant/70 bg-surface-2 px-2 py-0.5 rounded">
-                      ({orden.proveedor.numeroDocumentoLegal})
+                      ({orden.proveedor.nit})
                     </span>
                   )}
                 </td>
@@ -154,9 +167,7 @@ export default function OrdenesCompraPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-on-surface-variant">
-                  {orden.fechaEntregaEsperada
-                    ? new Date(orden.fechaEntregaEsperada).toLocaleDateString()
-                    : '-'}
+                  {orden.fechaEsperada ? new Date(orden.fechaEsperada).toLocaleDateString() : '-'}
                 </td>
                 <td className="px-6 py-4 text-sm font-medium text-on-surface-variant space-x-2">
                   <button
@@ -194,7 +205,7 @@ export default function OrdenesCompraPage() {
                     </svg>
                   </button>
                   <a
-                    href={`/orden-compras/${orden.id}/pdf`}
+                    href={`/ordenes-compra/${orden.id}/pdf`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-success/20 text-success hover:bg-success/30 rounded-lg p-2 transition-colors"

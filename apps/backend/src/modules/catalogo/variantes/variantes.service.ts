@@ -315,7 +315,9 @@ export class VariantesService {
         : (variante.precioCosto ?? undefined);
 
     this.validarCoherenciaPrecios(precioVenta, precioCosto);
-    this.validarFormatoCodigoBarras(codigoBarras);
+    if (codigoBarras) {
+      this.validarFormatoCodigoBarras(codigoBarras);
+    }
 
     if (updateVarianteDto.productoId) {
       await this.validarProductoActivo(updateVarianteDto.productoId);

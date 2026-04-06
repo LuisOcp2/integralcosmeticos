@@ -20,15 +20,15 @@ interface Props {
   data?: PaginatedUsuarios;
   isLoading: boolean;
   filtros: FiltrosUsuario;
-  onFiltrosChange: (f: FiltrosUsuario) => void;
-  onEditar?: (u: Usuario) => void;
-  onDesactivar?: (id: string) => void;
-  onActivar?: (id: string) => void;
-  onBloquear?: (id: string) => void;
-  onDesbloquear?: (id: string) => void;
-  onGestionarPermisos?: (u: Usuario) => void;
-  onResetPassword?: (u: Usuario) => void;
-  onVerDetalle?: (u: Usuario) => void;
+  onFiltrosChange: (_filtros: FiltrosUsuario) => void;
+  onEditar?: (_usuario: Usuario) => void;
+  onDesactivar?: (_id: string) => void;
+  onActivar?: (_id: string) => void;
+  onBloquear?: (_id: string) => void;
+  onDesbloquear?: (_id: string) => void;
+  onGestionarPermisos?: (_usuario: Usuario) => void;
+  onResetPassword?: (_usuario: Usuario) => void;
+  onVerDetalle?: (_usuario: Usuario) => void;
 }
 
 type SortField = 'nombre' | 'email' | 'rol' | 'ultimoLogin' | 'intentosFallidos';
@@ -47,7 +47,7 @@ const Th = ({
   field: SortField;
   current?: string;
   dir?: string;
-  onSort: (f: SortField) => void;
+  onSort: (_field: SortField) => void;
 }) => {
   const active = current === field;
   return (
@@ -89,13 +89,11 @@ export const TablaUsuarios = ({
   const [confirmDesactivar, setConfirmDesactivar] = useState<string | null>(null);
 
   const handleSort = (field: SortField) => {
-    const newDir =
-      filtros.orderBy === field && filtros.order === 'ASC' ? 'DESC' : 'ASC';
+    const newDir = filtros.orderBy === field && filtros.order === 'ASC' ? 'DESC' : 'ASC';
     onFiltrosChange({ ...filtros, orderBy: field, order: newDir, page: 1 });
   };
 
-  const initials = (u: Usuario) =>
-    `${u.nombre[0] ?? ''}${u.apellido[0] ?? ''}`.toUpperCase();
+  const initials = (u: Usuario) => `${u.nombre[0] ?? ''}${u.apellido[0] ?? ''}`.toUpperCase();
 
   const skeletonRows = Array.from({ length: 5 });
 
@@ -142,9 +140,7 @@ export const TablaUsuarios = ({
         </select>
         <select
           value={filtros.limit ?? 20}
-          onChange={(e) =>
-            onFiltrosChange({ ...filtros, limit: Number(e.target.value), page: 1 })
-          }
+          onChange={(e) => onFiltrosChange({ ...filtros, limit: Number(e.target.value), page: 1 })}
           className="rounded-xl border border-outline-variant bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value={10}>10 por página</option>

@@ -52,7 +52,7 @@ export function useAbrirCaja(sedeId: string) {
 
   return useMutation({
     mutationFn: async (montoInicial: number) => {
-      const res = await apiClient.post<CajaSesion>('/caja/abrir', { sedeId, montoInicial });
+      const res = await apiClient.post<CajaSesion>('/caja/abrir', { montoApertura: montoInicial });
       return res.data;
     },
     onSuccess: () => {
@@ -70,7 +70,7 @@ export function useAbrirCaja(sedeId: string) {
 }
 
 type CerrarCajaPayload = {
-  montoFinal: number;
+  montoCierre: number;
   cajaId?: string;
 };
 
@@ -78,18 +78,18 @@ export function useCerrarCaja(sedeId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ montoFinal, cajaId }: CerrarCajaPayload) => {
+    mutationFn: async ({ montoCierre, cajaId }: CerrarCajaPayload) => {
       if (cajaId) {
         try {
-          const byId = await apiClient.post<CajaSesion>(`/caja/${cajaId}/cerrar`, { montoFinal });
+          const byId = await apiClient.post<CajaSesion>(`/caja/${cajaId}/cerrar`, { montoCierre });
           return byId.data;
         } catch {
-          const bySede = await apiClient.post<CajaSesion>('/caja/cierre', { sedeId, montoFinal });
+          const bySede = await apiClient.post<CajaSesion>('/caja/cierre', { sedeId, montoCierre });
           return bySede.data;
         }
       }
 
-      const bySede = await apiClient.post<CajaSesion>('/caja/cierre', { sedeId, montoFinal });
+      const bySede = await apiClient.post<CajaSesion>('/caja/cierre', { sedeId, montoCierre });
       return bySede.data;
     },
     onSuccess: () => {

@@ -1,8 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { FiltrosProductoDto } from './filtros-producto.dto';
 
-export class ProductosQueryDto {
+export class ProductosQueryDto extends FiltrosProductoDto {
   @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
   @IsUUID()
@@ -12,20 +13,6 @@ export class ProductosQueryDto {
   @IsOptional()
   @IsUUID()
   marcaId?: string;
-
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @ApiPropertyOptional({ example: 20 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  limit?: number;
 
   @ApiPropertyOptional({ example: 'base' })
   @IsOptional()

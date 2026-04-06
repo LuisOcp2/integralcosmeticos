@@ -1,13 +1,19 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsUUID, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsNumber, IsOptional, Min } from 'class-validator';
 
 export class AbrirCajaDto {
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  sedeId: string;
-
   @ApiProperty({ example: 100000 })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
-  montoInicial: number;
+  @IsOptional()
+  montoApertura?: number;
+
+  @ApiPropertyOptional({ example: 100000, deprecated: true })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  montoInicial?: number;
 }

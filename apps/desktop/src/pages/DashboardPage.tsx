@@ -1,12 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  IProductoMasVendido,
-  IResumenVentasDia,
-  IStockReporte,
-  ISede,
-  Rol,
-} from '@cosmeticos/shared-types';
+import { ISede, Rol } from '@cosmeticos/shared-types';
 import {
   Bar,
   BarChart,
@@ -68,30 +62,99 @@ const formatChartDate = (isoDate: string) => {
   return days[new Date(y, m - 1, d).getDay()];
 };
 
+const isUuidV4 = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 async function getSedes(): Promise<ISede[]> {
   const { data } = await api.get('/sedes');
   return data;
 }
-async function getResumenVentasDia(sedeId: string, fecha: string): Promise<IResumenVentasDia> {
-  const { data } = await api.get('/reportes/ventas-dia', { params: { sedeId, fecha } });
-  return data;
-}
-async function getProductosMasVendidosSemana(
-  sedeId: string,
-  fechaInicio: string,
-  fechaFin: string,
-): Promise<IProductoMasVendido[]> {
-  const { data } = await api.get('/reportes/productos-mas-vendidos', {
-    params: { sedeId, fechaInicio, fechaFin, limit: 5 },
+
+type VentasResumen = {
+  totalVentas: number;
+  montoTotal: number;
+  ticketPromedio: number;
+  porMetodoPago: Array<{ metodoPago: string; cantidad: number; montoTotal: number }>;
+};
+
+type VentasPorDia = {
+  serie: Array<{ fecha: string; totalVentas: number; montoTotal: number }>;
+};
+
+type ProductosMasVendidos = {
+  porCantidad: Array<{
+    productoId: string;
+    nombre: string;
+    cantidadVendida: number;
+    montoTotal: number;
+  }>;
+};
+
+type InventarioAlertas = {
+  alertas: Array<{
+    stockId: string;
+    producto: string;
+    variante: string;
+    stockActual: number;
+    stockMinimo: number;
+    deficit: number;
+  }>;
+};
+
+async function getResumenVentasDia(
+  sedeId: string | undefined,
+  fecha: string,
+): Promise<VentasResumen> {
+  const { data } = await api.get('/reportes/ventas/resumen', {
+    params: {
+      ...(sedeId ? { sedeId } : {}),
+      fechaDesde: fecha,
+      fechaHasta: fecha,
+    },
   });
   return data;
 }
-async function getStockBajo(sedeId: string): Promise<IStockReporte[]> {
-  const { data } = await api.get('/reportes/stock-bajo', { params: { sedeId } });
+
+async function getVentasPorDia(
+  sedeId: string | undefined,
+  fechaDesde: string,
+  fechaHasta: string,
+): Promise<VentasPorDia> {
+  const { data } = await api.get('/reportes/ventas/por-dia', {
+    params: {
+      ...(sedeId ? { sedeId } : {}),
+      fechaDesde,
+      fechaHasta,
+    },
+  });
   return data;
 }
-async function getVentasDiaRaw(sedeId: string, fecha: string) {
-  const { data } = await api.get('/ventas', { params: { sedeId, fecha } });
+
+async function getProductosMasVendidosSemana(
+  sedeId: string | undefined,
+  fechaInicio: string,
+  fechaFin: string,
+): Promise<ProductosMasVendidos> {
+  const { data } = await api.get('/reportes/ventas/productos-mas-vendidos', {
+    params: {
+      ...(sedeId ? { sedeId } : {}),
+      fechaDesde: fechaInicio,
+      fechaHasta: fechaFin,
+      top: 5,
+    },
+  });
+  return data;
+}
+async function getStockBajo(sedeId: string | undefined): Promise<InventarioAlertas> {
+  const { data } = await api.get('/reportes/inventario/alertas', {
+    params: {
+      ...(sedeId ? { sedeId } : {}),
+    },
+  });
+  return data;
+}
+async function getVentasDiaRaw(sedeId: string | undefined, fecha: string) {
+  const { data } = await api.get('/ventas', { params: { ...(sedeId ? { sedeId } : {}), fecha } });
   return data as Array<{ clienteId?: string | null }>;
 }
 
@@ -177,52 +240,42 @@ export default function DashboardPage() {
 
   const [selectedSedeId, setSelectedSedeId] = useState<string>(usuario?.sedeId ?? '');
   const effectiveSedeId = selectedSedeId || sedesDisponibles[0]?.id || '';
+  const apiSedeId = isUuidV4(effectiveSedeId) ? effectiveSedeId : undefined;
 
   const resumenHoy = useQuery({
-    queryKey: ['dashboard', 'resumen-hoy', effectiveSedeId, todayISO],
-    queryFn: () => getResumenVentasDia(effectiveSedeId, todayISO),
-    enabled: Boolean(effectiveSedeId),
+    queryKey: ['dashboard', 'resumen-hoy', apiSedeId ?? 'all', todayISO],
+    queryFn: () => getResumenVentasDia(apiSedeId, todayISO),
     refetchInterval: 60000,
   });
 
   const ventas7Dias = useQuery({
-    queryKey: ['dashboard', 'ventas-7-dias', effectiveSedeId],
-    enabled: Boolean(effectiveSedeId),
+    queryKey: ['dashboard', 'ventas-7-dias', apiSedeId ?? 'all'],
     refetchInterval: 60000,
     queryFn: async () => {
-      const dates = Array.from({ length: 7 }).map((_, i) => {
-        const d = new Date(today);
-        d.setDate(today.getDate() - (6 - i));
-        return toISODate(d);
-      });
-      return Promise.all(
-        dates.map(async (fecha) => ({
-          fecha,
-          label: formatChartDate(fecha),
-          total: (await getResumenVentasDia(effectiveSedeId, fecha)).totalVentas,
-        })),
-      );
+      const data = await getVentasPorDia(apiSedeId, weekStart, todayISO);
+      return data.serie.map((item) => ({
+        fecha: item.fecha,
+        label: formatChartDate(item.fecha),
+        total: item.montoTotal,
+      }));
     },
   });
 
   const topProductos = useQuery({
-    queryKey: ['dashboard', 'top-productos', effectiveSedeId, weekStart],
-    queryFn: () => getProductosMasVendidosSemana(effectiveSedeId, weekStart, todayISO),
-    enabled: Boolean(effectiveSedeId),
+    queryKey: ['dashboard', 'top-productos', apiSedeId ?? 'all', weekStart],
+    queryFn: () => getProductosMasVendidosSemana(apiSedeId, weekStart, todayISO),
     refetchInterval: 60000,
   });
 
   const stockBajo = useQuery({
-    queryKey: ['dashboard', 'stock-bajo', effectiveSedeId],
-    queryFn: () => getStockBajo(effectiveSedeId),
-    enabled: Boolean(effectiveSedeId),
+    queryKey: ['dashboard', 'stock-bajo', apiSedeId ?? 'all'],
+    queryFn: () => getStockBajo(apiSedeId),
     refetchInterval: 60000,
   });
 
   const clientesHoy = useQuery({
-    queryKey: ['dashboard', 'clientes-hoy', effectiveSedeId],
-    queryFn: () => getVentasDiaRaw(effectiveSedeId, todayISO),
-    enabled: Boolean(effectiveSedeId),
+    queryKey: ['dashboard', 'clientes-hoy', apiSedeId ?? 'all'],
+    queryFn: () => getVentasDiaRaw(apiSedeId, todayISO),
     refetchInterval: 60000,
   });
 
@@ -233,9 +286,9 @@ export default function DashboardPage() {
 
   const pieData = useMemo(
     () =>
-      (resumenHoy.data?.desglosePorMetodoPago ?? []).map((item) => ({
+      (resumenHoy.data?.porMetodoPago ?? []).map((item) => ({
         name: item.metodoPago,
-        value: item.total,
+        value: item.montoTotal,
       })),
     [resumenHoy.data],
   );
@@ -343,22 +396,19 @@ export default function DashboardPage() {
             <>
               <KpiCard
                 label="Ventas Hoy"
-                value={copFormatter.format(resumenHoy.data?.totalVentas ?? 0)}
+                value={copFormatter.format(resumenHoy.data?.montoTotal ?? 0)}
                 sub="hoy"
               />
               <KpiCard
                 label="Transacciones"
-                value={String(resumenHoy.data?.cantidadTransacciones ?? 0)}
-                sub={`Ticket prom: ${copFormatter.format(
-                  (resumenHoy.data?.totalVentas ?? 0) /
-                    Math.max(resumenHoy.data?.cantidadTransacciones ?? 1, 1),
-                )}`}
+                value={String(resumenHoy.data?.totalVentas ?? 0)}
+                sub={`Ticket prom: ${copFormatter.format(resumenHoy.data?.ticketPromedio ?? 0)}`}
               />
               <KpiCard
                 label="Productos bajo mínimo"
-                value={String(stockBajo.data?.length ?? 0)}
-                sub={(stockBajo.data?.length ?? 0) > 0 ? 'REVISAR' : undefined}
-                alert={(stockBajo.data?.length ?? 0) > 0}
+                value={String(stockBajo.data?.alertas.length ?? 0)}
+                sub={(stockBajo.data?.alertas.length ?? 0) > 0 ? 'REVISAR' : undefined}
+                alert={(stockBajo.data?.alertas.length ?? 0) > 0}
               />
               <KpiCard
                 label="Clientes atendidos"
@@ -447,11 +497,11 @@ export default function DashboardPage() {
                 className="h-56 animate-pulse rounded-xl motion-reduce:animate-none"
                 style={{ backgroundColor: dashboardTheme.borderSoft }}
               />
-            ) : topProductos.data && topProductos.data.length > 0 ? (
+            ) : topProductos.data && topProductos.data.porCantidad.length > 0 ? (
               <div className="space-y-5">
-                {topProductos.data.slice(0, 5).map((p, i) => {
-                  const max = topProductos.data?.[0]?.totalUnidades ?? 1;
-                  const pct = Math.round((p.totalUnidades / max) * 100);
+                {topProductos.data.porCantidad.slice(0, 5).map((p, i) => {
+                  const max = topProductos.data?.porCantidad[0]?.cantidadVendida ?? 1;
+                  const pct = Math.round((p.cantidadVendida / max) * 100);
                   return (
                     <div key={i} className="space-y-1.5">
                       <div
@@ -459,7 +509,7 @@ export default function DashboardPage() {
                         style={{ color: dashboardTheme.textMuted }}
                       >
                         <span>{p.nombre}</span>
-                        <span>{p.totalUnidades} uds</span>
+                        <span>{p.cantidadVendida} uds</span>
                       </div>
                       <div
                         className="w-full rounded-full h-3"
@@ -562,18 +612,18 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody style={{ color: dashboardTheme.textStrong }}>
-                {(stockBajo.data ?? []).map((item, i) => (
+                {(stockBajo.data?.alertas ?? []).map((item, i) => (
                   <tr
                     key={i}
                     className="border-t transition-colors hover:bg-[#fcf8fa]"
                     style={{ borderColor: dashboardTheme.borderSoft }}
                   >
-                    <td className="px-6 md:px-8 py-5 font-semibold">{item.nombreProducto}</td>
+                    <td className="px-6 md:px-8 py-5 font-semibold">{item.producto}</td>
                     <td className="px-6 md:px-8 py-5" style={{ color: dashboardTheme.textSoft }}>
-                      {item.nombreVariante}
+                      {item.variante}
                     </td>
                     <td className="px-6 md:px-8 py-5 text-center font-black tabular-nums">
-                      {item.cantidad}
+                      {item.stockActual}
                     </td>
                     <td
                       className="px-6 md:px-8 py-5 text-center tabular-nums"
@@ -585,7 +635,7 @@ export default function DashboardPage() {
                       <span
                         className="px-3 py-1 rounded-full text-xs font-black uppercase"
                         style={
-                          item.cantidad === 0
+                          item.stockActual === 0
                             ? {
                                 backgroundColor: dashboardTheme.dangerBg,
                                 color: dashboardTheme.dangerText,
@@ -596,12 +646,12 @@ export default function DashboardPage() {
                               }
                         }
                       >
-                        {item.cantidad === 0 ? 'Agotado' : 'Bajo'}
+                        {item.stockActual === 0 ? 'Agotado' : 'Bajo'}
                       </span>
                     </td>
                   </tr>
                 ))}
-                {(stockBajo.data ?? []).length === 0 && (
+                {(stockBajo.data?.alertas ?? []).length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-8 py-8 text-center" style={{ color: '#877176' }}>
                       Todo el inventario esta en niveles optimos

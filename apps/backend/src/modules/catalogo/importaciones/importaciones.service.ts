@@ -499,16 +499,32 @@ export class ImportacionesService {
   }
 
   async getHealth() {
-    await this.ensureSchemaReady();
+    let schemaError: string | null = null;
+    try {
+      await this.ensureSchemaReady();
+    } catch (error) {
+      schemaError = error instanceof Error ? error.message : 'schema init failed';
+    }
 
-    const [jobsTable, rowsTable] = await Promise.all([
-      this.dataSource.query(
-        `SELECT to_regclass('public.importaciones_catalogo_jobs') AS regclass;`,
-      ),
-      this.dataSource.query(
-        `SELECT to_regclass('public.importaciones_catalogo_rows') AS regclass;`,
-      ),
-    ]);
+    let jobsReady = false;
+    let rowsReady = false;
+
+    try {
+      const [jobsTable, rowsTable] = await Promise.all([
+        this.dataSource.query(
+          `SELECT to_regclass('public.importaciones_catalogo_jobs') AS regclass;`,
+        ),
+        this.dataSource.query(
+          `SELECT to_regclass('public.importaciones_catalogo_rows') AS regclass;`,
+        ),
+      ]);
+
+      jobsReady = Boolean(jobsTable?.[0]?.regclass);
+      rowsReady = Boolean(rowsTable?.[0]?.regclass);
+    } catch (error) {
+      schemaError =
+        schemaError ?? (error instanceof Error ? error.message : 'database health check failed');
+    }
 
     let queueOk = false;
     let queueInfo = 'unknown';
@@ -521,11 +537,8 @@ export class ImportacionesService {
       queueInfo = error instanceof Error ? error.message : 'queue ping failed';
     }
 
-    const jobsReady = Boolean(jobsTable?.[0]?.regclass);
-    const rowsReady = Boolean(rowsTable?.[0]?.regclass);
-
     return {
-      ok: jobsReady && rowsReady && queueOk,
+      ok: jobsReady && rowsReady && queueOk && !schemaError,
       database: {
         importJobsTableReady: jobsReady,
         importRowsTableReady: rowsReady,
@@ -534,8 +547,217 @@ export class ImportacionesService {
         ready: queueOk,
         ping: queueInfo,
       },
+      schema: {
+        ready: !schemaError,
+        error: schemaError,
+      },
       timestamp: new Date().toISOString(),
     };
+  }
+
+  async importarCsvCatalogo(file: { originalname: string; buffer: Buffer }): Promise<{
+    importados: number;
+    errores: Array<{ fila: number; motivo: string }>;
+  }> {
+    if (!file) {
+      throw new BadRequestException('Debes adjuntar un archivo CSV');
+    }
+
+    const rows = this.parseCsv(file.buffer);
+    if (!rows.length) {
+      return { importados: 0, errores: [{ fila: 0, motivo: 'El archivo no contiene datos' }] };
+    }
+
+    const columnas = Object.keys(rows[0] ?? {}).filter((col) => col !== 'rowNumber');
+    const columnasNormalizadas = new Set(columnas.map((col) => col.trim().toLowerCase()));
+    const requeridas = ['nombre', 'precio', 'categoria', 'marca', 'sku'];
+    const faltantes = requeridas.filter((col) => !columnasNormalizadas.has(col));
+
+    if (faltantes.length) {
+      return {
+        importados: 0,
+        errores: [
+          {
+            fila: 1,
+            motivo: `Columnas requeridas faltantes: ${faltantes.join(', ')}`,
+          },
+        ],
+      };
+    }
+
+    const errores: Array<{ fila: number; motivo: string }> = [];
+    const skuVistos = new Set<string>();
+
+    type FilaImportacion = {
+      fila: number;
+      nombre: string;
+      precio: number;
+      categoria: string;
+      marca: string;
+      sku: string;
+      codigoBarra?: string;
+      imagenUrl?: string;
+      descripcion?: string;
+    };
+
+    const filasValidas: FilaImportacion[] = [];
+
+    for (const row of rows) {
+      const fila = Number(row.rowNumber);
+      const nombre = String(row.nombre ?? '').trim();
+      const categoria = String(row.categoria ?? '').trim();
+      const marca = String(row.marca ?? '').trim();
+      const sku = String(row.sku ?? '').trim();
+      const precioRaw = String(row.precio ?? '')
+        .trim()
+        .replace(',', '.');
+      const precio = Number(precioRaw);
+      const codigoBarra = String(row.codigoBarra ?? row.codigo_barras ?? '').trim() || undefined;
+      const imagenUrl = String(row.imagenUrl ?? row.imagen_url ?? '').trim() || undefined;
+      const descripcion = String(row.descripcion ?? '').trim() || undefined;
+
+      if (!nombre || !categoria || !marca || !sku || !Number.isFinite(precio) || precio < 0) {
+        errores.push({
+          fila,
+          motivo:
+            'Datos invalidos: nombre, precio, categoria, marca y sku son obligatorios y precio >= 0',
+        });
+        continue;
+      }
+
+      const skuKey = sku.toLowerCase();
+      if (skuVistos.has(skuKey)) {
+        errores.push({ fila, motivo: `SKU duplicado en archivo: ${sku}` });
+        continue;
+      }
+
+      skuVistos.add(skuKey);
+      filasValidas.push({
+        fila,
+        nombre,
+        precio,
+        categoria,
+        marca,
+        sku,
+        codigoBarra,
+        imagenUrl,
+        descripcion,
+      });
+    }
+
+    if (errores.length) {
+      return { importados: 0, errores };
+    }
+
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const categoriasRepo = manager.getRepository(Categoria);
+        const marcasRepo = manager.getRepository(Marca);
+        const productosRepo = manager.getRepository(Producto);
+        const variantesRepo = manager.getRepository(Variante);
+
+        const cacheCategorias = new Map<string, Categoria>();
+        const cacheMarcas = new Map<string, Marca>();
+
+        for (const fila of filasValidas) {
+          const categoriaKey = fila.categoria.toLowerCase();
+          const categoriaCache = cacheCategorias.get(categoriaKey);
+          let categoria: Categoria | null = categoriaCache ?? null;
+          if (!categoria) {
+            categoria = await categoriasRepo.findOne({ where: { nombre: fila.categoria } });
+            if (!categoria) {
+              categoria = await categoriasRepo.save(
+                categoriasRepo.create({
+                  nombre: fila.categoria,
+                  activo: true,
+                  orden: 0,
+                }),
+              );
+            }
+            cacheCategorias.set(categoriaKey, categoria);
+          }
+
+          const marcaKey = fila.marca.toLowerCase();
+          const marcaCache = cacheMarcas.get(marcaKey);
+          let marca: Marca | null = marcaCache ?? null;
+          if (!marca) {
+            marca = await marcasRepo.findOne({ where: { nombre: fila.marca } });
+            if (!marca) {
+              marca = await marcasRepo.save(
+                marcasRepo.create({
+                  nombre: fila.marca,
+                  activo: true,
+                }),
+              );
+            }
+            cacheMarcas.set(marcaKey, marca);
+          }
+
+          let producto = await productosRepo.findOne({
+            where: {
+              nombre: fila.nombre,
+              categoriaId: categoria.id,
+              marcaId: marca.id,
+            },
+          });
+
+          if (!producto) {
+            producto = await productosRepo.save(
+              productosRepo.create({
+                nombre: fila.nombre,
+                descripcion: fila.descripcion,
+                imagenUrl: fila.imagenUrl,
+                precio: fila.precio,
+                precioCompra: null,
+                impuesto: 19,
+                categoriaId: categoria.id,
+                marcaId: marca.id,
+                activo: true,
+                stockMinimo: 0,
+                permitirVentaSinStock: false,
+              }),
+            );
+          } else {
+            await productosRepo.update(producto.id, {
+              precio: fila.precio,
+              imagenUrl: fila.imagenUrl ?? producto.imagenUrl,
+              descripcion: fila.descripcion ?? producto.descripcion,
+              activo: true,
+            });
+          }
+
+          const varianteExistente = await variantesRepo.findOne({ where: { sku: fila.sku } });
+          if (varianteExistente) {
+            await variantesRepo.update(varianteExistente.id, {
+              productoId: producto.id,
+              nombre: fila.nombre,
+              precio: fila.precio,
+              precioVenta: fila.precio,
+              codigoBarras: fila.codigoBarra ?? varianteExistente.codigoBarras,
+              activo: true,
+            });
+            continue;
+          }
+
+          await variantesRepo.save(
+            variantesRepo.create({
+              productoId: producto.id,
+              nombre: fila.nombre,
+              sku: fila.sku,
+              codigoBarras: fila.codigoBarra,
+              precio: fila.precio,
+              precioVenta: fila.precio,
+              activo: true,
+            }),
+          );
+        }
+      });
+    } catch (error) {
+      const motivo = error instanceof Error ? error.message : 'Error desconocido al importar CSV';
+      return { importados: 0, errores: [{ fila: 0, motivo }] };
+    }
+
+    return { importados: filasValidas.length, errores: [] };
   }
 
   getTemplate(format: 'csv' | 'xlsx') {

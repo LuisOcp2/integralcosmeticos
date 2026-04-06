@@ -15,6 +15,7 @@ import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { CreateProductoDto } from './dto/create-producto.dto';
+import { BuscarProductoDto } from './dto/buscar-producto.dto';
 import { UpdateProductoDto } from './dto/update-producto.dto';
 import { ProductosQueryDto } from './dto/productos-query.dto';
 import { ProductosService } from './productos.service';
@@ -45,6 +46,21 @@ export class ProductosController {
     return this.productosService.findAll(query);
   }
 
+  @Get('buscar-pos')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Busqueda rapida POS por nombre, SKU o codigo de barra' })
+  @ApiQuery({ name: 'q', required: true, type: String })
+  buscarPos(@Query() query: BuscarProductoDto) {
+    return this.productosService.buscarPos(query.q);
+  }
+
+  @Get('barcode/:codigo')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Buscar producto por codigo de barras de variante' })
+  findByBarcode(@Param('codigo') codigo: string) {
+    return this.productosService.findByBarcode(codigo);
+  }
+
   @Get(':id')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
   @ApiOperation({ summary: 'Obtener producto por ID' })
@@ -64,12 +80,5 @@ export class ProductosController {
   @ApiOperation({ summary: 'Desactivar producto' })
   remove(@Param('id') id: string) {
     return this.productosService.remove(id);
-  }
-
-  @Get('barcode/:codigo')
-  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
-  @ApiOperation({ summary: 'Buscar producto por codigo de barras de variante' })
-  findByBarcode(@Param('codigo') codigo: string) {
-    return this.productosService.findByBarcode(codigo);
   }
 }

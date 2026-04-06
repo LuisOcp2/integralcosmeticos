@@ -4,9 +4,9 @@ import { apiClient } from '@/lib/api';
 
 interface ProveedorFormModalProps {
   proveedor: {
-    id: number;
-    razonSocial: string;
-    numeroDocumentoLegal: string | null;
+    id: string;
+    nombre: string;
+    nit: string;
     telefono: string | null;
     email: string | null;
     direccion: string | null;
@@ -23,8 +23,8 @@ export default function ProveedorFormModal({
 }: ProveedorFormModalProps) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    razonSocial: proveedor?.razonSocial || '',
-    numeroDocumentoLegal: proveedor?.numeroDocumentoLegal || '',
+    nombre: proveedor?.nombre || '',
+    nit: proveedor?.nit || '',
     telefono: proveedor?.telefono || '',
     email: proveedor?.email || '',
     direccion: proveedor?.direccion || '',
@@ -83,27 +83,24 @@ export default function ProveedorFormModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-1">
-              Razón Social
-            </label>
+            <label className="block text-sm font-medium text-on-surface-variant mb-1">Nombre</label>
             <input
               type="text"
-              value={formData.razonSocial}
-              onChange={(e) => setFormData({ ...formData, razonSocial: e.target.value })}
+              value={formData.nombre}
+              onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
               className="w-full px-4 py-2 bg-surface-2 border border-outline-variant rounded-lg text-on-background placeholder-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-on-surface-variant mb-1">
-              Número de Documento Legal
-            </label>
+            <label className="block text-sm font-medium text-on-surface-variant mb-1">NIT</label>
             <input
               type="text"
-              value={formData.numeroDocumentoLegal}
-              onChange={(e) => setFormData({ ...formData, numeroDocumentoLegal: e.target.value })}
+              value={formData.nit}
+              onChange={(e) => setFormData({ ...formData, nit: e.target.value })}
               className="w-full px-4 py-2 bg-surface-2 border border-outline-variant rounded-lg text-on-background placeholder-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              required
             />
           </div>
 

@@ -2,8 +2,23 @@ import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 
+type Proveedor = {
+  id: string;
+  nombre: string;
+  nit: string;
+  activo?: boolean;
+};
+
+type ProveedoresResponse = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  items: Proveedor[];
+};
+
 interface ProveedorSelectorProps {
-  onProveedorSelected: (proveedorId: string) => void;
+  onProveedorSelected: (_proveedorId: string) => void;
   selectedProveedorId?: string;
   disabled?: boolean;
 }
@@ -21,10 +36,12 @@ export default function ProveedorSelector({
   } = useQuery({
     queryKey: ['proveedores'],
     queryFn: async () => {
-      const response = await apiClient.get('/proveedores');
-      return response.data;
+      const response = await apiClient.get<ProveedoresResponse>('/proveedores');
+      return response.data.items;
     },
   });
+
+  const proveedoresActivos = proveedores.filter((proveedor) => proveedor.activo !== false);
 
   useEffect(() => {
     if (selectedProveedorId !== undefined) {
@@ -47,20 +64,15 @@ export default function ProveedorSelector({
             onProveedorSelected(id);
           }
         }}
-        disabled={disabled || proveedores.length === 0}
+        disabled={disabled || proveedoresActivos.length === 0}
         className={`w-full px-4 py-2 bg-surface-2 border border-outline-variant rounded-lg text-on-background placeholder-outline focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary ${
-          disabled || proveedores.length === 0 ? 'opacity-50' : ''
+          disabled || proveedoresActivos.length === 0 ? 'opacity-50' : ''
         }`}
       >
         <option value="">Seleccionar proveedor...</option>
-        {proveedores.map((proveedor: any) => (
+        {proveedoresActivos.map((proveedor) => (
           <option key={proveedor.id} value={proveedor.id}>
-            {proveedor.razonSocial}
-            {proveedor.numeroDocumentoLegal && (
-              <span className="text-xs text-on-surface-variant/70 ml-2">
-                ({proveedor.numeroDocumentoLegal})
-              </span>
-            )}
+            {proveedor.nombre} ({proveedor.nit})
           </option>
         ))}
       </select>

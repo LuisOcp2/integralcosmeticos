@@ -9,6 +9,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Rol, Permiso, PERMISOS_POR_ROL } from '@cosmeticos/shared-types';
+import { DataSource } from 'typeorm';
 import { UsuariosService } from './usuarios.service';
 import { Usuario } from './entities/usuario.entity';
 import { AuditoriaUsuario, AccionAuditoria } from './entities/auditoria-usuario.entity';
@@ -43,7 +44,7 @@ const makeUsuario = (override: Partial<Usuario> = {}): Usuario =>
     desactivadoPorId: null,
     tokenVersion: 0,
     ...override,
-  } as Usuario);
+  }) as Usuario;
 
 /*───────────────────────── suite ─────────────────────────*/
 describe('UsuariosService', () => {
@@ -97,7 +98,7 @@ describe('UsuariosService', () => {
         UsuariosService,
         { provide: getRepositoryToken(Usuario), useValue: usuariosRepo },
         { provide: getRepositoryToken(AuditoriaUsuario), useValue: auditoriaRepo },
-        { provide: 'DataSource', useValue: dataSource },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -257,9 +258,7 @@ describe('UsuariosService', () => {
 
       await service.remove('uuid-1', 'admin-id');
 
-      expect(usuariosRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ activo: false }),
-      );
+      expect(usuariosRepo.save).toHaveBeenCalledWith(expect.objectContaining({ activo: false }));
     });
 
     it('lanza ForbiddenException al eliminar último admin', async () => {
@@ -316,7 +315,10 @@ describe('UsuariosService', () => {
       qb.getOne.mockResolvedValue(u);
 
       await expect(
-        service.cambiarPassword('uuid-1', { passwordActual: 'incorrecta', passwordNuevo: 'NewPass2@' }),
+        service.cambiarPassword('uuid-1', {
+          passwordActual: 'incorrecta',
+          passwordNuevo: 'NewPass2@',
+        }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
@@ -326,7 +328,10 @@ describe('UsuariosService', () => {
       qb.getOne.mockResolvedValue(u);
 
       await expect(
-        service.cambiarPassword('uuid-1', { passwordActual: 'MismaPass1!', passwordNuevo: 'MismaPass1!' }),
+        service.cambiarPassword('uuid-1', {
+          passwordActual: 'MismaPass1!',
+          passwordNuevo: 'MismaPass1!',
+        }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });

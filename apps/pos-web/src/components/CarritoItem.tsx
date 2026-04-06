@@ -3,17 +3,26 @@ import type { ItemCarrito } from '@/types';
 
 interface CarritoItemProps {
   item: ItemCarrito;
-  onCambiarCantidad: (key: string, cantidad: number) => void;
-  onCambiarDescuento: (key: string, descuento: number) => void;
-  onQuitar: (key: string) => void;
+  onCambiarCantidad: (_key: string, _cantidad: number) => void;
+  onCambiarDescuento: (_key: string, _descuento: number) => void;
+  onQuitar: (_key: string) => void;
 }
 
 const PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='%23f3dde1'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='28' fill='%2385264b'%3E🧴%3C/text%3E%3C/svg%3E`;
 
 const formatCOP = (v: number) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(v);
 
-export default function CarritoItem({ item, onCambiarCantidad, onCambiarDescuento, onQuitar }: CarritoItemProps) {
+export default function CarritoItem({
+  item,
+  onCambiarCantidad,
+  onCambiarDescuento,
+  onQuitar,
+}: CarritoItemProps) {
   const precioOriginal = item.precioUnitario * item.cantidad;
   const hasDiscount = item.descuentoItem > 0;
 
@@ -24,14 +33,18 @@ export default function CarritoItem({ item, onCambiarCantidad, onCambiarDescuent
         src={item.imagenUrl ?? PLACEHOLDER}
         alt={item.nombre}
         className="w-16 h-16 rounded-xl object-cover shrink-0 bg-surface-2"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER; }}
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).src = PLACEHOLDER;
+        }}
       />
 
       {/* Info & Controls */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-1">
           <div className="min-w-0">
-            <p className="text-on-background text-sm font-semibold leading-tight truncate">{item.nombre}</p>
+            <p className="text-on-background text-sm font-semibold leading-tight truncate">
+              {item.nombre}
+            </p>
             <p className="text-outline text-[11px] mt-0.5">{item.variante}</p>
           </div>
           <button

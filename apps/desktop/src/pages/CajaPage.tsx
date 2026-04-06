@@ -180,8 +180,7 @@ export default function CajaPage() {
       }
 
       const { data } = await api.post('/caja/abrir', {
-        sedeId,
-        montoInicial: Number(montoInicial),
+        montoApertura: Number(montoInicial),
       });
       return data;
     },
@@ -212,7 +211,7 @@ export default function CajaPage() {
       }
 
       try {
-        const { data } = await api.post(`/caja/${cajaActiva.id}/cerrar`, { montoFinal: monto });
+        const { data } = await api.post(`/caja/${cajaActiva.id}/cerrar`, { montoCierre: monto });
         return data;
       } catch {
         if (!sedeIdValido) {
@@ -221,7 +220,7 @@ export default function CajaPage() {
 
         const { data } = await api.post('/caja/cierre', {
           sedeId,
-          montoFinal: monto,
+          montoCierre: monto,
         });
         return data;
       }
@@ -245,7 +244,7 @@ export default function CajaPage() {
 
   const esperado = useMemo(() => {
     if (!cajaActiva) return 0;
-    return Number(cajaActiva.montoInicial) + Number(cajaActiva.totalEfectivo);
+    return Number(cajaActiva.montoSistema ?? 0);
   }, [cajaActiva]);
 
   const diferencia = Number(montoFinal || 0) - esperado;
@@ -438,7 +437,7 @@ export default function CajaPage() {
                   Monto inicial
                 </p>
                 <p className="text-2xl font-black" style={{ color: S.textStrong }}>
-                  {cop.format(Number(cajaActiva.montoInicial))}
+                  {cop.format(Number(cajaActiva.montoApertura ?? cajaActiva.montoInicial))}
                 </p>
               </div>
               <div
@@ -452,7 +451,7 @@ export default function CajaPage() {
                   Total efectivo
                 </p>
                 <p className="text-2xl font-black" style={{ color: S.textStrong }}>
-                  {cop.format(Number(cajaActiva.totalEfectivo))}
+                  {cop.format(Number(cajaActiva.totalEfectivo ?? 0))}
                 </p>
               </div>
               <div

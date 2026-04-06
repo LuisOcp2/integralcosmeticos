@@ -5,7 +5,7 @@ import ProductoCard from './ProductoCard';
 interface ProductoGridProps {
   productos: Producto[];
   loading: boolean;
-  onAgregar: (producto: Producto) => void;
+  onAgregar: (_producto: Producto) => void;
   emptyMessage?: string;
 }
 
@@ -22,7 +22,12 @@ function SkeletonCard() {
   );
 }
 
-export default function ProductoGrid({ productos, loading, onAgregar, emptyMessage }: ProductoGridProps) {
+export default function ProductoGrid({
+  productos,
+  loading,
+  onAgregar,
+  emptyMessage,
+}: ProductoGridProps) {
   if (loading) {
     return (
       <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">

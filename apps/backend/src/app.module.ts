@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import KeyvRedis from '@keyv/redis';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -23,6 +25,7 @@ import { SyncModule } from './modules/sync/sync.module';
 import { ConfiguracionesModule } from './modules/configuraciones/configuraciones.module';
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { OrdenComprasModule } from './modules/orden-compras/orden-compras.module';
+import { ContabilidadModule } from './modules/contabilidad/contabilidad.module';
 import { Producto } from './modules/catalogo/productos/entities/producto.entity';
 import { Variante } from './modules/catalogo/variantes/entities/variante.entity';
 import { Categoria } from './modules/catalogo/categorias/entities/categoria.entity';
@@ -69,6 +72,19 @@ import appConfig from './config/app.config';
       }),
       inject: [ConfigService],
     }),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const host = configService.get<string>('REDIS_HOST') ?? '127.0.0.1';
+        const port = Number(configService.get<string>('REDIS_PORT') ?? 6379);
+
+        return {
+          stores: [new KeyvRedis(`redis://${host}:${port}`)],
+        };
+      },
+      inject: [ConfigService],
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -94,6 +110,7 @@ import appConfig from './config/app.config';
     ConfiguracionesModule,
     ProveedoresModule,
     OrdenComprasModule,
+    ContabilidadModule,
   ],
   controllers: [AppController],
   providers: [AppService, ThrottlerGuard],

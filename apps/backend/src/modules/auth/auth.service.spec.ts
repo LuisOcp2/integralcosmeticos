@@ -54,7 +54,7 @@ describe('AuthService', () => {
         rol: Rol.ADMIN,
         activo: true,
       });
-      expect(usuariosService.registrarLoginExitoso).toHaveBeenCalledWith('u1');
+      expect(usuariosService.registrarLoginExitoso).toHaveBeenCalledWith('u1', undefined);
       expect((result as any).password).toBeUndefined();
     });
 

@@ -1,83 +1,58 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Entity,
+  Index,
   UpdateDateColumn,
   OneToMany,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { OrdenCompra } from '../../orden-compras/entities/orden-compra.entity';
 
 @Entity('proveedores')
+@Index('idx_proveedores_nit', ['nit'], { unique: true })
+@Index('idx_proveedores_nombre', ['nombre'])
+@Index('idx_proveedores_email', ['email'])
+@Index('idx_proveedores_telefono', ['telefono'])
 export class Proveedor {
-  @PrimaryGeneratedColumn()
-  id: string; // UUID
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ name: 'codigo', unique: true })
+  @Column({ type: 'varchar', length: 30, unique: true })
   codigo: string;
 
-  @Column({ name: 'razon_social' })
-  razonSocial: string;
+  @Column({ name: 'razon_social', type: 'varchar', length: 200 })
+  nombre: string;
 
-  @Column({ name: 'nombre_comercial', nullable: true })
-  nombreComercial?: string;
+  @Column({ type: 'varchar', length: 20 })
+  nit: string;
 
-  @Column({ name: 'nit', unique: true, nullable: true })
-  numeroDocumentoLegal?: string;
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  email?: string | null;
 
-  @Column({ name: 'tipo_documento', nullable: true })
-  tipoDocumento?: string;
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  telefono?: string | null;
 
-  @Column({ name: 'email', nullable: true })
-  email?: string;
+  @Column({ name: 'contacto_nombre', type: 'varchar', length: 150, nullable: true })
+  contactoNombre?: string | null;
 
-  @Column({ name: 'telefono', nullable: true })
-  telefono?: string;
+  @Column({ type: 'text', nullable: true })
+  direccion?: string | null;
 
-  @Column({ name: 'celular', nullable: true })
-  celular?: string;
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  ciudad?: string | null;
 
-  @Column({ name: 'direccion', nullable: true })
-  direccion?: string;
-
-  @Column({ name: 'ciudad', nullable: true })
-  ciudad?: string;
-
-  @Column({ name: 'departamento', nullable: true })
-  departamento?: string;
-
-  @Column({ name: 'pais', default: 'Colombia' })
-  pais: string;
-
-  @Column({ name: 'contacto_nombre', nullable: true })
-  contactoNombre?: string;
-
-  @Column({ name: 'contacto_cargo', nullable: true })
-  contactoCargo?: string;
-
-  @Column({ name: 'contacto_telefono', nullable: true })
-  contactoTelefono?: string;
-
-  @Column({ name: 'sitio_web', nullable: true })
-  sitioWeb?: string;
-
-  @Column({ name: 'condiciones_pago', nullable: true })
-  condicionesPago?: string;
-
-  @Column({ name: 'descuento_proveedor', nullable: true, default: 0 })
-  descuentoProveedor?: number;
-
-  @Column({ name: 'activo', default: true })
+  @Column({ default: true })
   activo: boolean;
 
-  @Column({ name: 'observaciones', nullable: true })
-  observaciones?: string;
+  @Column({ name: 'observaciones', type: 'text', nullable: true })
+  notas?: string | null;
 
-  @CreateDateColumn({ name: 'createdAt' })
-  creadoEn: Date;
+  @CreateDateColumn()
+  createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updatedAt' })
-  actualizadoEn: Date;
+  @UpdateDateColumn()
+  updatedAt: Date;
 
   @OneToMany(() => OrdenCompra, (ordenCompra) => ordenCompra.proveedor)
   ordenesCompra: OrdenCompra[];

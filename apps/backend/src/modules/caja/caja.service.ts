@@ -2,28 +2,29 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { EstadoCaja, EstadoVenta } from '@cosmeticos/shared-types';
 import { Repository } from 'typeorm';
-import { Caja } from './entities/caja.entity';
 import { SesionCaja } from './entities/sesion-caja.entity';
+import { Caja } from './entities/caja.entity';
 import { Sede } from '../sedes/entities/sede.entity';
 import { Venta } from '../ventas/entities/venta.entity';
-
-type TotalesSesion = {
-  totalVentas: number;
-  totalEfectivo: number;
-};
 
 export type SesionCajaResumen = {
   id: string;
   sedeId: string;
+  cajeroId: string;
   usuarioId: string;
+  estado: EstadoCaja;
+  montoApertura: number;
+  montoInicial: number;
   fechaApertura: Date;
   fechaCierre?: Date | null;
-  montoInicial: number;
+  montoCierre?: number | null;
   montoFinal?: number | null;
-  totalVentas: number;
-  totalEfectivo: number;
+  montoSistema?: number | null;
+  totalVentas?: number | null;
+  totalEfectivo?: number | null;
   diferencia?: number | null;
-  estado: EstadoCaja;
+  notasCierre?: string | null;
+  cerradaPorId?: string | null;
   activo: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -32,15 +33,23 @@ export type SesionCajaResumen = {
 @Injectable()
 export class CajaService {
   constructor(
-    @InjectRepository(Caja)
-    private readonly cajasRepository: Repository<Caja>,
     @InjectRepository(SesionCaja)
     private readonly sesionesRepository: Repository<SesionCaja>,
     @InjectRepository(Sede)
     private readonly sedesRepository: Repository<Sede>,
+    @InjectRepository(Caja)
+    private readonly cajasRepository: Repository<Caja>,
     @InjectRepository(Venta)
     private readonly ventasRepository: Repository<Venta>,
   ) {}
+
+  private async getCajaPrincipalBySede(sedeId: string): Promise<Caja> {
+    const caja = await this.cajasRepository.findOne({ where: { sedeId, activo: true } });
+    if (!caja) {
+      throw new NotFoundException('No existe una caja activa para la sede enviada');
+    }
+    return caja;
+  }
 
   private async validarSedeActiva(sedeId: string): Promise<void> {
     const sede = await this.sedesRepository.findOne({ where: { id: sedeId, activo: true } });
@@ -49,46 +58,32 @@ export class CajaService {
     }
   }
 
-  private async obtenerTotalesSesion(sesionId: string, sedeId: string): Promise<TotalesSesion> {
-    const raw = await this.ventasRepository
-      .createQueryBuilder('venta')
-      .select('COALESCE(SUM(venta.total), 0)', 'totalVentas')
-      .addSelect('COALESCE(SUM(venta.monto_efectivo), 0)', 'totalEfectivo')
-      .where('venta."sesionCajaId" = :sesionId', { sesionId })
-      .andWhere('venta."sedeId" = :sedeId', { sedeId })
-      .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
-      .getRawOne<{ totalVentas: string; totalEfectivo: string }>();
-
-    return {
-      totalVentas: Number(raw?.totalVentas ?? 0),
-      totalEfectivo: Number(raw?.totalEfectivo ?? 0),
-    };
-  }
-
-  private async mapearSesionResumen(
-    sesion: SesionCaja,
-    sedeId: string,
-  ): Promise<SesionCajaResumen> {
-    const totales = await this.obtenerTotalesSesion(sesion.id, sedeId);
-
-    if (sesion.totalVentas !== totales.totalVentas) {
-      sesion.totalVentas = totales.totalVentas;
-      await this.sesionesRepository.save(sesion);
-    }
-
+  private mapearSesionResumen(sesion: SesionCaja): SesionCajaResumen {
     return {
       id: sesion.id,
-      sedeId,
-      usuarioId: sesion.usuarioAperturaId,
+      sedeId: sesion.caja?.sedeId ?? '',
+      cajeroId: sesion.cajeroId,
+      usuarioId: sesion.cajeroId,
+      estado: sesion.estado,
+      montoApertura: Number(sesion.montoApertura),
+      montoInicial: Number(sesion.montoApertura),
       fechaApertura: sesion.fechaApertura,
       fechaCierre: sesion.fechaCierre ?? null,
-      montoInicial: Number(sesion.montoInicial),
-      montoFinal: sesion.montoFinal == null ? null : Number(sesion.montoFinal),
-      totalVentas: totales.totalVentas,
-      totalEfectivo: totales.totalEfectivo,
+      montoCierre: sesion.montoCierre == null ? null : Number(sesion.montoCierre),
+      montoFinal: sesion.montoCierre == null ? null : Number(sesion.montoCierre),
+      montoSistema: sesion.montoSistema == null ? null : Number(sesion.montoSistema),
+      totalVentas:
+        sesion.montoSistema == null
+          ? null
+          : Number(sesion.montoSistema) - Number(sesion.montoApertura),
+      totalEfectivo:
+        sesion.montoSistema == null
+          ? null
+          : Number(sesion.montoSistema) - Number(sesion.montoApertura),
       diferencia: sesion.diferencia == null ? null : Number(sesion.diferencia),
-      estado: sesion.fechaCierre ? EstadoCaja.CERRADA : EstadoCaja.ABIERTA,
-      activo: sesion.activo,
+      notasCierre: sesion.notasCierre ?? null,
+      cerradaPorId: sesion.cerradaPorId ?? null,
+      activo: sesion.estado === EstadoCaja.ABIERTA,
       createdAt: sesion.createdAt,
       updatedAt: sesion.updatedAt,
     };
@@ -96,117 +91,93 @@ export class CajaService {
 
   private async getCajaAbiertaSesion(sedeId: string): Promise<SesionCaja | null> {
     await this.validarSedeActiva(sedeId);
-
-    return this.sesionesRepository
-      .createQueryBuilder('sesion')
-      .innerJoin(Caja, 'caja', 'caja.id = sesion."cajaId"')
-      .where('caja."sedeId" = :sedeId', { sedeId })
-      .andWhere('caja.activa = true')
-      .andWhere('sesion.activa = true')
-      .orderBy('sesion.fecha_apertura', 'DESC')
-      .getOne();
-  }
-
-  private async obtenerOCrearCajaPorSede(sedeId: string): Promise<Caja> {
-    const existente = await this.cajasRepository.findOne({ where: { sedeId, activo: true } });
-    if (existente) {
-      return existente;
-    }
-
-    const codigo = `CAJA-${sedeId.slice(0, 8).toUpperCase()}`;
-    const caja = this.cajasRepository.create({
-      sedeId,
-      codigo,
-      nombre: 'Caja principal',
-      activo: true,
+    const caja = await this.getCajaPrincipalBySede(sedeId);
+    return this.sesionesRepository.findOne({
+      where: { cajaId: caja.id, estado: EstadoCaja.ABIERTA },
+      relations: ['caja'],
+      order: { fechaApertura: 'DESC' },
     });
-    return this.cajasRepository.save(caja);
   }
 
   async abrirCaja(
     sedeId: string,
-    usuarioId: string,
-    montoInicial: number,
+    cajeroId: string,
+    montoApertura: number,
   ): Promise<SesionCajaResumen> {
     await this.validarSedeActiva(sedeId);
 
-    const cajaFisica = await this.obtenerOCrearCajaPorSede(sedeId);
     const abierta = await this.getCajaAbiertaSesion(sedeId);
     if (abierta) {
       throw new BadRequestException('Ya existe una caja abierta en esta sede');
     }
 
-    const caja = this.sesionesRepository.create({
-      cajaId: cajaFisica.id,
-      usuarioAperturaId: usuarioId,
+    const caja = await this.getCajaPrincipalBySede(sedeId);
+
+    const sesion = this.sesionesRepository.create({
+      cajaId: caja.id,
+      cajeroId,
+      estado: EstadoCaja.ABIERTA,
+      montoApertura,
       fechaApertura: new Date(),
-      montoInicial,
-      totalVentas: 0,
-      activo: true,
     });
 
-    const guardada = await this.sesionesRepository.save(caja);
-    return this.mapearSesionResumen(guardada, sedeId);
+    const guardada = await this.sesionesRepository.save(sesion);
+    return this.mapearSesionResumen(guardada);
   }
 
   async cerrarCaja(
     cajaId: string,
     usuarioId: string,
-    montoFinal: number,
+    montoCierre: number,
+    notas?: string,
   ): Promise<SesionCajaResumen> {
     const caja = await this.sesionesRepository.findOne({
-      where: { id: cajaId, activo: true },
+      where: { id: cajaId },
+      relations: ['caja'],
     });
 
     if (!caja) {
       throw new NotFoundException('Caja no encontrada');
     }
 
-    if (caja.fechaCierre) {
+    if (caja.estado === EstadoCaja.CERRADA) {
       throw new BadRequestException('La caja ya se encuentra cerrada');
     }
 
-    const cajaFisica = await this.cajasRepository.findOne({
-      where: { id: caja.cajaId, activo: true },
-    });
-    if (!cajaFisica) {
-      throw new NotFoundException('Caja fisica no encontrada para la sesion');
-    }
+    const totalVentasRaw = await this.ventasRepository
+      .createQueryBuilder('venta')
+      .select('COALESCE(SUM(venta.total), 0)', 'total')
+      .where('venta.cajaId = :cajaId', { cajaId: caja.id })
+      .andWhere('venta.estado = :estado', { estado: EstadoVenta.COMPLETADA })
+      .getRawOne<{ total: string }>();
 
-    const abiertasSede = await this.getCajaAbiertaSesion(cajaFisica.sedeId);
-    if (!abiertasSede || abiertasSede.id !== caja.id) {
-      throw new BadRequestException('La caja ya no esta activa para cierre');
-    }
+    const montoSistema = Number(caja.montoApertura) + Number(totalVentasRaw?.total ?? 0);
+    const diferencia = Number(montoCierre) - montoSistema;
 
-    const { totalVentas, totalEfectivo } = await this.obtenerTotalesSesion(
-      caja.id,
-      cajaFisica.sedeId,
-    );
-    const esperado = Number(caja.montoInicial) + totalEfectivo;
-    const diferencia = montoFinal - esperado;
-
-    caja.usuarioCierreId = usuarioId;
+    caja.estado = EstadoCaja.CERRADA;
     caja.fechaCierre = new Date();
-    caja.montoFinal = montoFinal;
-    caja.totalVentas = totalVentas;
+    caja.montoCierre = montoCierre;
+    caja.montoSistema = montoSistema;
     caja.diferencia = diferencia;
-    caja.activo = false;
+    caja.notasCierre = notas ?? null;
+    caja.cerradaPorId = usuarioId;
 
     const cerrada = await this.sesionesRepository.save(caja);
-    return this.mapearSesionResumen(cerrada, cajaFisica.sedeId);
+    return this.mapearSesionResumen(cerrada);
   }
 
   async cerrarCajaActivaPorSede(
     sedeId: string,
     usuarioId: string,
-    montoFinal: number,
+    montoCierre: number,
+    notas?: string,
   ): Promise<SesionCajaResumen> {
     const cajaActiva = await this.getCajaAbiertaSesion(sedeId);
     if (!cajaActiva) {
       throw new NotFoundException('No hay caja abierta para la sede enviada');
     }
 
-    return this.cerrarCaja(cajaActiva.id, usuarioId, montoFinal);
+    return this.cerrarCaja(cajaActiva.id, usuarioId, montoCierre, notas);
   }
 
   async getCajaAbierta(sedeId: string): Promise<SesionCajaResumen | null> {
@@ -215,41 +186,18 @@ export class CajaService {
       return null;
     }
 
-    return this.mapearSesionResumen(sesion, sedeId);
+    return this.mapearSesionResumen(sesion);
   }
 
   async getHistorial(sedeId: string): Promise<SesionCajaResumen[]> {
     await this.validarSedeActiva(sedeId);
 
-    const sesiones = await this.sesionesRepository
-      .createQueryBuilder('sesion')
-      .innerJoin(Caja, 'caja', 'caja.id = sesion."cajaId"')
-      .where('caja."sedeId" = :sedeId', { sedeId })
-      .orderBy('sesion."createdAt"', 'DESC')
-      .getMany();
-
-    const historial = await Promise.all(
-      sesiones.map((sesion) => this.mapearSesionResumen(sesion, sedeId)),
-    );
-
-    return historial;
-  }
-
-  async actualizarTotalesCaja(cajaId: string): Promise<SesionCaja | null> {
-    const caja = await this.sesionesRepository.findOne({ where: { id: cajaId, activo: true } });
-    if (!caja || caja.fechaCierre) {
-      return null;
-    }
-
-    const ventasCompletadas = await this.ventasRepository.find({
-      where: {
-        cajaId,
-        estado: EstadoVenta.COMPLETADA,
-      },
+    const sesiones = await this.sesionesRepository.find({
+      where: { caja: { sedeId } },
+      relations: ['caja'],
+      order: { createdAt: 'DESC' },
     });
 
-    caja.totalVentas = ventasCompletadas.reduce((acc, venta) => acc + Number(venta.total), 0);
-
-    return this.sesionesRepository.save(caja);
+    return sesiones.map((sesion) => this.mapearSesionResumen(sesion));
   }
 }

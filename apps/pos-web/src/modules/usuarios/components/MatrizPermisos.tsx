@@ -1,13 +1,15 @@
 import { Check, Minus } from 'lucide-react';
 import { Permiso, PERMISOS_POR_ROL, Rol } from '@cosmeticos/shared-types';
 
-const GRUPOS: Record<string, string[]> = {
-  'Usuarios': Object.values(Permiso).filter((p) => p.startsWith('usuarios:')),
-  'Ventas': Object.values(Permiso).filter((p) => p.startsWith('ventas:')),
-  'Inventario': Object.values(Permiso).filter((p) => p.startsWith('inventario:')),
-  'Caja': Object.values(Permiso).filter((p) => p.startsWith('caja:')),
-  'Reportes': Object.values(Permiso).filter((p) => p.startsWith('reportes:')),
-  'Otros': Object.values(Permiso).filter(
+const TODOS_LOS_PERMISOS = Object.values(Permiso) as Permiso[];
+
+const GRUPOS: Record<string, Permiso[]> = {
+  Usuarios: TODOS_LOS_PERMISOS.filter((p) => p.startsWith('usuarios:')),
+  Ventas: TODOS_LOS_PERMISOS.filter((p) => p.startsWith('ventas:')),
+  Inventario: TODOS_LOS_PERMISOS.filter((p) => p.startsWith('inventario:')),
+  Caja: TODOS_LOS_PERMISOS.filter((p) => p.startsWith('caja:')),
+  Reportes: TODOS_LOS_PERMISOS.filter((p) => p.startsWith('reportes:')),
+  Otros: TODOS_LOS_PERMISOS.filter(
     (p) =>
       !p.startsWith('usuarios:') &&
       !p.startsWith('ventas:') &&
@@ -17,7 +19,7 @@ const GRUPOS: Record<string, string[]> = {
   ),
 };
 
-const ROL_COLORS: Record<string, string> = {
+const ROL_COLORS: Record<Rol, string> = {
   ADMIN: 'text-error font-bold',
   SUPERVISOR: 'text-primary font-semibold',
   CAJERO: 'text-success font-semibold',
@@ -25,7 +27,7 @@ const ROL_COLORS: Record<string, string> = {
 };
 
 export const MatrizPermisos = () => {
-  const roles = Object.values(Rol);
+  const roles = Object.values(Rol) as Rol[];
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-outline-variant bg-surface">

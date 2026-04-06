@@ -1,12 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
-
-export enum TipoAjusteInventario {
-  INGRESO = 'INGRESO',
-  MERMA = 'MERMA',
-  DEVOLUCION = 'DEVOLUCION',
-  CONTEO = 'CONTEO',
-}
+import { IsInt, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class AjustarStockDto {
   @ApiProperty({ format: 'uuid' })
@@ -17,17 +10,16 @@ export class AjustarStockDto {
   @IsUUID()
   sedeId: string;
 
-  @ApiProperty({ example: 3 })
+  @ApiProperty({ example: 25 })
   @IsInt()
-  @Min(1)
-  cantidad: number;
+  cantidadNueva: number;
 
-  @ApiProperty({ enum: TipoAjusteInventario, example: TipoAjusteInventario.INGRESO })
-  @IsEnum(TipoAjusteInventario)
-  motivo: TipoAjusteInventario;
+  @ApiProperty({ example: 'Ajuste por conteo fisico de inventario' })
+  @IsString()
+  motivo: string;
 
-  @ApiPropertyOptional({ example: 'Ajuste manual por conteo' })
+  @ApiPropertyOptional({ example: 'Incluye merma de exhibicion' })
   @IsOptional()
   @IsString()
-  nota?: string;
+  referencia?: string;
 }

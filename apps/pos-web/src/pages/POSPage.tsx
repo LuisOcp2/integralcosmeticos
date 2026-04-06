@@ -5,8 +5,6 @@ import { useCarrito } from '@/hooks/useCarrito';
 import { useProductos } from '@/hooks/useProductos';
 import { useCategorias } from '@/hooks/useCategorias';
 import { useVenta } from '@/hooks/useVenta';
-import { useAuth } from '@/hooks/useAuth';
-import type { AuthUser } from '@/hooks/useAuth';
 import SearchBar from '@/components/SearchBar';
 import FiltrosCategorias from '@/components/FiltrosCategorias';
 import ProductoGrid from '@/components/ProductoGrid';
@@ -14,7 +12,6 @@ import CarritoItem from '@/components/CarritoItem';
 import ClienteSelector from '@/components/ClienteSelector';
 import MetodoPagoSelector from '@/components/MetodoPagoSelector';
 import ModalCobro from '@/components/ModalCobro';
-import SideNav from '@/components/SideNav';
 
 const IVA_RATE = 0.19;
 const formatCOP = (v: number) =>
@@ -25,14 +22,11 @@ const formatCOP = (v: number) =>
   }).format(v);
 
 interface POSPageProps {
-  user: AuthUser;
   sedeId: string;
-  onOpenCaja: () => void;
-  onOpenUsuarios: () => void;
 }
 
-export default function POSPage({ user, sedeId, onOpenCaja, onOpenUsuarios }: POSPageProps) {
-  const { logout } = useAuth();
+export default function POSPage({ sedeId }: POSPageProps) {
+  void sedeId;
   const [busqueda, setBusqueda] = useState('');
   const [categoriaId, setCategoriaId] = useState<string | null>(null);
   const [metodoPago, setMetodoPago] = useState<MetodoPago>('EFECTIVO');
@@ -65,17 +59,18 @@ export default function POSPage({ user, sedeId, onOpenCaja, onOpenUsuarios }: PO
   const iva = baseImponible * IVA_RATE;
   const total = baseImponible + iva;
 
-  const handleCobrar = async (_montoRecibido: number | null) => {
+  const handleCobrar = async (montoRecibido: number | null) => {
+    const montoPagado = metodoPago === 'EFECTIVO' ? Number(montoRecibido ?? 0) : total;
     setShowModal(false);
     await cobrar({
-      sedeId,
       clienteId: cliente?.id,
       metodoPago,
-      descuento: descuentoGlobal,
+      montoPagado,
+      notas: descuentoGlobal > 0 ? `Descuento global aplicado: ${descuentoGlobal}%` : undefined,
       items: items.map((i) => ({
         varianteId: i.varianteId,
         cantidad: i.cantidad,
-        descuentoItem: i.descuentoItem,
+        descuento: (i.precioUnitario * i.cantidad * i.descuentoItem) / 100,
       })),
     });
     limpiarCarrito();
@@ -84,19 +79,7 @@ export default function POSPage({ user, sedeId, onOpenCaja, onOpenUsuarios }: PO
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background font-sans">
-      {/* Side Navigation */}
-      <SideNav
-        user={user}
-        onLogout={logout}
-        currentView="pos"
-        onNavigate={(view) => {
-          if (view === 'caja') onOpenCaja();
-          if (view === 'usuarios') onOpenUsuarios();
-        }}
-      />
-
-      {/* ── Product catalog ─────────────────────────── */}
+    <div className="flex h-full w-full overflow-hidden bg-background font-sans">
       <main className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
         {/* Top bar */}
         <div className="flex items-center gap-4 px-5 py-4 bg-surface border-b border-outline-variant shrink-0">
@@ -137,7 +120,6 @@ export default function POSPage({ user, sedeId, onOpenCaja, onOpenUsuarios }: PO
         </div>
       </main>
 
-      {/* ── Cart / Checkout Panel ──────────────────── */}
       <aside className="w-80 xl:w-96 flex flex-col bg-surface border-l border-outline-variant h-full shrink-0">
         {/* Cart header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant shrink-0">
@@ -248,7 +230,6 @@ export default function POSPage({ user, sedeId, onOpenCaja, onOpenUsuarios }: PO
         )}
       </aside>
 
-      {/* Confirmation modal */}
       {showModal && (
         <ModalCobro
           subtotal={subtotal}

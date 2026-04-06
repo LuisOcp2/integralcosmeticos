@@ -380,6 +380,14 @@ export default function UsuariosPage() {
 
   const usuarios = usuariosQuery.data?.data ?? [];
   const stats = statsQuery.data;
+  const sedesById = useMemo(
+    () => new Map((sedesQuery.data ?? []).map((s) => [s.id, s.nombre])),
+    [sedesQuery.data],
+  );
+  const getSedeLabel = (sedeId: string | null) => {
+    if (!sedeId) return 'Sin sede';
+    return sedesById.get(sedeId) ?? 'Sede no disponible';
+  };
 
   // Password strength for forms
   const crearPasswordStrength = usePasswordStrength(crearForm.password);
@@ -543,7 +551,7 @@ export default function UsuariosPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">{formatDate(u.ultimoLogin)}</td>
-                      <td className="px-4 py-3">{u.sedeId ? u.sedeId.slice(0, 8) : 'Sin sede'}</td>
+                      <td className="px-4 py-3">{getSedeLabel(u.sedeId)}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap justify-end gap-1">
                           {can(Permiso.USUARIOS_EDITAR) ? (
@@ -699,7 +707,9 @@ export default function UsuariosPage() {
                   type="email"
                   value={crearForm.email}
                   onChange={(e) => setCrearForm((f) => ({ ...f, email: e.target.value }))}
-                  onBlur={(e) => setCrearForm((f) => ({ ...f, email: sanitizeEmail(e.target.value) }))}
+                  onBlur={(e) =>
+                    setCrearForm((f) => ({ ...f, email: sanitizeEmail(e.target.value) }))
+                  }
                 />
                 <div className="md:col-span-2">
                   <input
@@ -709,7 +719,10 @@ export default function UsuariosPage() {
                     value={crearForm.password}
                     onChange={(e) => setCrearForm((f) => ({ ...f, password: e.target.value }))}
                   />
-                  <PasswordHints password={crearForm.password} show={crearForm.password.length > 0} />
+                  <PasswordHints
+                    password={crearForm.password}
+                    show={crearForm.password.length > 0}
+                  />
                 </div>
                 <select
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
@@ -809,7 +822,9 @@ export default function UsuariosPage() {
                   type="email"
                   value={editarForm.email}
                   onChange={(e) => setEditarForm((f) => ({ ...f, email: e.target.value }))}
-                  onBlur={(e) => setEditarForm((f) => ({ ...f, email: sanitizeEmail(e.target.value) }))}
+                  onBlur={(e) =>
+                    setEditarForm((f) => ({ ...f, email: sanitizeEmail(e.target.value) }))
+                  }
                 />
                 <select
                   className="rounded-xl border border-[#d8c4ca] px-3 py-2"
@@ -962,7 +977,10 @@ export default function UsuariosPage() {
                 value={resetForm.passwordNuevo}
                 onChange={(e) => setResetForm((f) => ({ ...f, passwordNuevo: e.target.value }))}
               />
-              <PasswordHints password={resetForm.passwordNuevo} show={resetForm.passwordNuevo.length > 0} />
+              <PasswordHints
+                password={resetForm.passwordNuevo}
+                show={resetForm.passwordNuevo.length > 0}
+              />
               <textarea
                 className="mt-2 w-full rounded-xl border border-[#d8c4ca] px-3 py-2"
                 placeholder="Motivo"
@@ -1133,9 +1151,7 @@ export default function UsuariosPage() {
                   {(sesionesQuery.data ?? []).map((s) => (
                     <div key={s.id} className="rounded-xl border border-[#f0e4e8] p-3">
                       <p className="text-sm font-semibold">{formatDate(s.createdAt)}</p>
-                      {s.ip ? (
-                        <p className="text-xs text-[#7b676f]">IP: {s.ip}</p>
-                      ) : null}
+                      {s.ip ? <p className="text-xs text-[#7b676f]">IP: {s.ip}</p> : null}
                       {s.userAgent ? (
                         <p className="truncate text-xs text-[#7b676f]">{s.userAgent}</p>
                       ) : null}

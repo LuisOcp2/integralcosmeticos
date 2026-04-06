@@ -1,6 +1,4 @@
 import {
-  BeforeInsert,
-  BeforeUpdate,
   Column,
   CreateDateColumn,
   Entity,
@@ -15,7 +13,6 @@ import { Producto } from '../../productos/entities/producto.entity';
 
 @Entity('categorias')
 @Index('idx_categorias_nombre', ['nombre'], { unique: true })
-@Index('idx_categorias_slug', ['slug'], { unique: true })
 export class Categoria {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -26,23 +23,20 @@ export class Categoria {
   @Column({ type: 'text', nullable: true })
   descripcion?: string | null;
 
-  @Column({ type: 'varchar', length: 120, unique: true })
-  slug: string;
-
-  @Column({ name: 'icon_url', type: 'varchar', length: 500, nullable: true })
+  @Column({ name: 'imagen_url', type: 'varchar', length: 500, nullable: true })
   iconUrl?: string | null;
 
-  @Column({ type: 'uuid', nullable: true })
+  @Column({ name: 'categoriaPadreId', type: 'uuid', nullable: true })
   padreId?: string | null;
 
   @ManyToOne(() => Categoria, (categoria) => categoria.hijos, { nullable: true })
-  @JoinColumn({ name: 'padreId' })
+  @JoinColumn({ name: 'categoriaPadreId' })
   padre?: Categoria | null;
 
   @OneToMany(() => Categoria, (categoria) => categoria.padre)
   hijos: Categoria[];
 
-  @Column({ default: true })
+  @Column({ name: 'activa', default: true })
   activo: boolean;
 
   @Column({ type: 'int', default: 0 })
@@ -56,24 +50,4 @@ export class Categoria {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  @BeforeInsert()
-  @BeforeUpdate()
-  generarSlug(): void {
-    if (this.slug?.trim()) {
-      return;
-    }
-
-    if (!this.nombre?.trim()) {
-      return;
-    }
-
-    this.slug = this.nombre
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 120);
-  }
 }

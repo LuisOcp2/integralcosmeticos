@@ -80,7 +80,7 @@ const DEFAULT_SECTIONS: NavSection[] = [
     title: 'Principal',
     items: [
       { label: 'Panel', icon: LayoutDashboard, href: '/dashboard' },
-      { label: 'Analítica', icon: BarChart2, href: '/dashboard', badge: 2 },
+      { label: 'Analítica', icon: BarChart2, href: '/reportes', badge: 2 },
       { label: 'Reportes', icon: FileText, href: '/reportes' },
     ],
   },
@@ -381,7 +381,7 @@ function CollapsibleSection({
                 const isChildActive = activeHref === child.href;
                 return (
                   <button
-                    key={child.href}
+                    key={`${item.href}:${child.label}:${child.href}`}
                     type="button"
                     onClick={() => onNavigate(child.href)}
                     className={cn(
@@ -602,7 +602,7 @@ export function Sidebar(props: Partial<SidebarProps> = {}) {
 
               {section.items.map((item) => (
                 <NavItemComponent
-                  key={item.href}
+                  key={`${section.title}:${item.label}:${item.href}`}
                   item={item}
                   collapsed={collapsed}
                   activeHref={activeHref}

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? '/api';
+const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
@@ -26,7 +26,7 @@ apiClient.interceptors.response.use(
       window.location.href = '/login';
     }
     return Promise.reject(err);
-  }
+  },
 );
 
 /** Parse a JWT payload without verifying signature (front-end only) */

@@ -37,11 +37,15 @@ export interface IDetalleVenta {
 export interface ICierreCaja {
   id: string;
   sedeId: string;
+  cajeroId?: string;
   usuarioId: string;
   fechaApertura: Date;
   fechaCierre?: Date;
+  montoApertura?: number;
   montoInicial: number;
+  montoCierre?: number;
   montoFinal?: number;
+  montoSistema?: number;
   totalVentas: number;
   totalEfectivo: number;
   diferencia?: number;

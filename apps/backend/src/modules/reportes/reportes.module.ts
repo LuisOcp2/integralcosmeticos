@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PermisosGuard } from '../auth/guards/permisos.guard';
 import { CajaModule } from '../caja/caja.module';
 import { SesionCaja } from '../caja/entities/sesion-caja.entity';
 import { Cliente } from '../clientes/entities/cliente.entity';
@@ -35,7 +36,7 @@ import { ReportesService } from './reportes.service';
     CajaModule,
   ],
   controllers: [ReportesController],
-  providers: [ReportesService],
+  providers: [ReportesService, PermisosGuard],
   exports: [ReportesService],
 })
 export class ReportesModule {}

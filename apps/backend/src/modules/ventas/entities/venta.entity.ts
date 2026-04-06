@@ -3,11 +3,16 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { EstadoVenta, MetodoPago } from '@cosmeticos/shared-types';
+import { Usuario } from '../../usuarios/entities/usuario.entity';
+import { Cliente } from '../../clientes/entities/cliente.entity';
+import { SesionCaja } from '../../caja/entities/sesion-caja.entity';
 import { DetalleVenta } from './detalle-venta.entity';
 
 @Entity('ventas')
@@ -16,29 +21,49 @@ export class Venta {
   id: string;
 
   @Index({ unique: true })
-  @Column({ length: 30 })
+  @Column({ type: 'varchar', length: 20 })
   numero: string;
 
   @Column('uuid')
   sedeId: string;
 
-  @Column('uuid')
-  usuarioId: string;
+  @Column('uuid', { name: 'usuarioId' })
+  cajeroId: string;
+
+  @ManyToOne(() => Usuario, { nullable: false })
+  @JoinColumn({ name: 'usuarioId' })
+  cajero: Usuario;
 
   @Column('uuid', { nullable: true })
   clienteId?: string | null;
 
-  @Column({ name: 'sesionCajaId', type: 'uuid', nullable: true })
-  cajaId?: string | null;
+  @ManyToOne(() => Cliente, { nullable: true })
+  @JoinColumn({ name: 'clienteId' })
+  cliente?: Cliente | null;
+
+  @Column('uuid', { name: 'sesionCajaId', nullable: true })
+  cajaId: string;
+
+  @ManyToOne(() => SesionCaja, (sesion) => sesion.ventas, { nullable: false })
+  @JoinColumn({ name: 'sesionCajaId' })
+  caja: SesionCaja;
+
+  @Column({
+    type: 'enum',
+    enum: EstadoVenta,
+    default: EstadoVenta.PENDIENTE,
+  })
+  estado: EstadoVenta;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   subtotal: number;
 
+  @Index()
   @Column({ name: 'descuento_total', type: 'decimal', precision: 12, scale: 2, default: 0 })
   descuento: number;
 
-  @Column({ name: 'impuesto_total', type: 'decimal', precision: 12, scale: 2 })
-  impuesto: number;
+  @Column({ name: 'impuesto_total', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  impuestos: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   total: number;
@@ -47,39 +72,26 @@ export class Venta {
     name: 'metodo_pago',
     type: 'enum',
     enum: MetodoPago,
-    transformer: {
-      to: (value?: MetodoPago) => (value === MetodoPago.COMBINADO ? 'MIXTO' : value),
-      from: (value?: string) => (value === 'MIXTO' ? MetodoPago.COMBINADO : (value as MetodoPago)),
-    },
   })
   metodoPago: MetodoPago;
 
-  @Column({
-    type: 'enum',
-    enum: EstadoVenta,
-    default: EstadoVenta.COMPLETADA,
-    transformer: {
-      to: (value?: EstadoVenta) => (value === EstadoVenta.PENDIENTE ? 'SUSPENDIDA' : value),
-      from: (value?: string) =>
-        value === 'DEVUELTA_PARCIAL' ? EstadoVenta.DEVOLUCION : (value as EstadoVenta),
-    },
-  })
-  estado: EstadoVenta;
-
-  @Column({ type: 'text', nullable: true })
-  observaciones?: string | null;
-
-  @Column({ name: 'monto_efectivo', type: 'decimal', precision: 12, scale: 2, default: 0 })
-  montoEfectivo: number;
-
-  @Column({ name: 'monto_tarjeta', type: 'decimal', precision: 12, scale: 2, default: 0 })
-  montoTarjeta: number;
-
-  @Column({ name: 'monto_transferencia', type: 'decimal', precision: 12, scale: 2, default: 0 })
-  montoTransferencia: number;
+  @Column({ name: 'monto_efectivo', type: 'decimal', precision: 12, scale: 2 })
+  montoPagado: number;
 
   @Column({ name: 'monto_otro', type: 'decimal', precision: 12, scale: 2, default: 0 })
-  montoOtro: number;
+  cambio: number;
+
+  @Column({ name: 'observaciones', type: 'text', nullable: true })
+  notas?: string | null;
+
+  @Column({ name: 'motivo_anulacion', type: 'text', nullable: true })
+  motivoAnulacion?: string | null;
+
+  @Column('uuid', { nullable: true })
+  anuladaPorId?: string | null;
+
+  @Column({ name: 'fecha_anulacion', type: 'timestamp', nullable: true })
+  anuladaEn?: Date | null;
 
   @OneToMany(() => DetalleVenta, (detalle) => detalle.venta)
   detalles: DetalleVenta[];

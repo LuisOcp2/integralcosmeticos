@@ -13,6 +13,7 @@ describe('ConfiguracionesService', () => {
   const parametrosRepository = {
     findOne: jest.fn(),
     find: jest.fn(),
+    count: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
   };
@@ -25,6 +26,7 @@ describe('ConfiguracionesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    parametrosRepository.count.mockResolvedValue(1);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,6 +94,7 @@ describe('ConfiguracionesService', () => {
     });
 
     it('lanza NotFound si parametro no existe al consultar por clave', async () => {
+      parametrosRepository.count.mockResolvedValue(1);
       parametrosRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findParametroByClave('no.existe')).rejects.toBeInstanceOf(

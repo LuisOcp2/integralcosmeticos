@@ -17,6 +17,8 @@ const ImportacionesPage = lazy(() => import('./pages/ImportacionesPage'));
 const DiagnosticoPage = lazy(() => import('./pages/DiagnosticoPage'));
 const ConfiguracionesPage = lazy(() => import('./pages/ConfiguracionesPage'));
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage'));
+const ProveedoresPage = lazy(() => import('./pages/ProveedoresPage'));
+const OrdenesCompraPage = lazy(() => import('./pages/OrdenesCompraPage'));
 const isDev = import.meta.env.DEV;
 
 function RouteLoader() {
@@ -75,7 +77,12 @@ function DefaultRedirect() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -173,6 +180,28 @@ export default function App() {
             element={
               <ProtectedRoute path="/usuarios" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
                 <UsuariosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/proveedores"
+            element={
+              <ProtectedRoute
+                path="/proveedores"
+                allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO]}
+              >
+                <ProveedoresPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ordenes-compra"
+            element={
+              <ProtectedRoute
+                path="/ordenes-compra"
+                allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR, Rol.BODEGUERO]}
+              >
+                <OrdenesCompraPage />
               </ProtectedRoute>
             }
           />

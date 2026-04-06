@@ -79,16 +79,14 @@ export interface SplitPago {
 export interface CreateDetalleVenta {
   varianteId: string;
   cantidad: number;
-  descuentoItem?: number;
+  descuento?: number;
 }
 
 export interface CreateVentaPayload {
-  sedeId: string;
   clienteId?: string;
   metodoPago: MetodoPago;
-  observaciones?: string;
-  descuento?: number;
-  splitPago?: SplitPago;
+  montoPagado: number;
+  notas?: string;
   items: CreateDetalleVenta[];
 }
 
@@ -110,11 +108,15 @@ export interface VentaCaja {
 export interface CajaSesion {
   id: string;
   sedeId: string;
+  cajeroId: string;
   usuarioId: string;
   fechaApertura: string;
   fechaCierre?: string | null;
+  montoApertura: number;
   montoInicial: number;
+  montoCierre?: number | null;
   montoFinal?: number | null;
+  montoSistema?: number | null;
   totalVentas: number;
   totalEfectivo: number;
   diferencia?: number | null;

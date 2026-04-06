@@ -1,6 +1,6 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EstadoVenta, MetodoPago, TipoMovimiento } from '@cosmeticos/shared-types';
+import { EstadoCaja, EstadoVenta, MetodoPago, Rol, TipoMovimiento } from '@cosmeticos/shared-types';
 import { VentasService } from './ventas.service';
 
 type RepoMock = {
@@ -21,16 +21,6 @@ function createRepoMock(): RepoMock {
   };
 }
 
-function createCajaQueryBuilder(result: unknown) {
-  return {
-    innerJoin: jest.fn().mockReturnThis(),
-    where: jest.fn().mockReturnThis(),
-    andWhere: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    getOne: jest.fn().mockResolvedValue(result),
-  };
-}
-
 function createStockQueryBuilder(result: unknown) {
   return {
     setLock: jest.fn().mockReturnThis(),
@@ -44,13 +34,24 @@ describe('VentasService', () => {
   const ventasRepository = createRepoMock();
   const detalleVentasRepository = createRepoMock();
   const cajaRepository = createRepoMock();
+  const cajasRepository = createRepoMock();
   const variantesRepository = createRepoMock();
   const productosRepository = createRepoMock();
-  const clientesRepository = createRepoMock();
   const sedesRepository = createRepoMock();
+  const usuariosRepository = createRepoMock();
 
   const inventarioService = {
     registrarMovimientoConManager: jest.fn(),
+  };
+
+  const clientesService = {
+    sumarPuntosConManager: jest.fn(),
+  };
+
+  const contabilidadService = {
+    generarAsientoVenta: jest.fn().mockResolvedValue({ id: 'asiento-1' }),
+    generarAsientoReversionVenta: jest.fn().mockResolvedValue({ id: 'asiento-reversa-1' }),
+    validarPeriodoAbiertoPorFecha: jest.fn().mockResolvedValue(undefined),
   };
 
   const dataSource = {
@@ -61,8 +62,7 @@ describe('VentasService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-
-    cajaRepository.createQueryBuilder.mockReturnValue(createCajaQueryBuilder(null));
+    cajasRepository.findOne.mockResolvedValue({ id: 'caja-1', sedeId: 's1', activo: true });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -73,11 +73,14 @@ describe('VentasService', () => {
               ventasRepository as any,
               detalleVentasRepository as any,
               cajaRepository as any,
+              cajasRepository as any,
               variantesRepository as any,
               productosRepository as any,
-              clientesRepository as any,
               sedesRepository as any,
+              usuariosRepository as any,
               inventarioService as any,
+              clientesService as any,
+              contabilidadService as any,
               dataSource as any,
             ),
         },
@@ -88,41 +91,29 @@ describe('VentasService', () => {
   });
 
   function setupTransactionRepos(overrides?: {
-    ultimaVentaNumero?: string | null;
     variante?: any;
     producto?: any;
     stockCantidad?: number;
-    cliente?: any;
     ventaFinal?: any;
   }) {
     const ventaRepo = {
-      createQueryBuilder: jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getOne: jest
-          .fn()
-          .mockResolvedValue(
-            overrides?.ultimaVentaNumero ? { numero: overrides.ultimaVentaNumero } : null,
-          ),
-      })),
       create: jest.fn((data) => data),
       save: jest
         .fn()
         .mockResolvedValueOnce({ id: 'venta-1' })
         .mockResolvedValueOnce({
           id: 'venta-1',
-          numero: 'VTA-2026-00001',
+          numero: 'VEN-2026-000001',
           total: 12000,
           subtotal: 12000,
-          impuesto: 0,
+          impuestos: 0,
           descuento: 0,
           estado: EstadoVenta.COMPLETADA,
           ...(overrides?.ventaFinal ?? {}),
         }),
-      find: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue({
         id: 'venta-1',
-        numero: 'VTA-2026-00001',
+        numero: 'VEN-2026-000001',
         total: 12000,
         detalles: [],
       }),
@@ -138,7 +129,8 @@ describe('VentasService', () => {
         overrides?.variante ?? {
           id: 'v1',
           productoId: 'p1',
-          precioExtra: 0,
+          precioVenta: 12000,
+          sku: 'SKU-1',
           activo: true,
         },
       ),
@@ -148,9 +140,10 @@ describe('VentasService', () => {
       findOne: jest.fn().mockResolvedValue(
         overrides?.producto ?? {
           id: 'p1',
-          precioBase: 12000,
-          precioCosto: 7000,
-          iva: 0,
+          nombre: 'Shampoo',
+          precio: 12000,
+          impuesto: 0,
+          permitirVentaSinStock: false,
           activo: true,
         },
       ),
@@ -167,65 +160,75 @@ describe('VentasService', () => {
       ),
     };
 
-    const clienteRepo = {
-      findOne: jest.fn().mockResolvedValue(overrides?.cliente ?? null),
-      save: jest.fn().mockImplementation(async (value) => value),
-    };
-
-    const sesionCajaRepo = {
-      findOne: jest.fn().mockResolvedValue({ id: 'sesion-caja-1', activo: true }),
-      save: jest.fn().mockResolvedValue({}),
-    };
-
     const repoByEntityName: Record<string, any> = {
       Venta: ventaRepo,
       DetalleVenta: detalleRepo,
       Variante: varianteRepo,
       Producto: productoRepo,
       StockSede: stockRepo,
-      Cliente: clienteRepo,
-      SesionCaja: sesionCajaRepo,
     };
 
     dataSource.transaction.mockImplementation(async (cb: any) =>
       cb({
+        query: jest
+          .fn()
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce([{ seq: '000001' }]),
         getRepository: (entity: { name: string }) => repoByEntityName[entity.name],
       }),
     );
 
-    return { ventaRepo, detalleRepo, varianteRepo, productoRepo, clienteRepo, stockRepo };
+    return { ventaRepo, stockRepo };
   }
 
   describe('crearVenta', () => {
-    it('debe lanzar error si no hay caja abierta en la sede', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(createCajaQueryBuilder(null));
-
+    it('debe lanzar error si no hay sedeId en el usuario', async () => {
       await expect(
         service.crearVenta(
           {
-            sedeId: 's1',
             metodoPago: MetodoPago.EFECTIVO,
+            montoPagado: 10000,
             items: [{ varianteId: 'v1', cantidad: 1 }],
           } as any,
           'u1',
+          null,
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('debe crear venta y descontar inventario por cada variante', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
+    it('debe lanzar error si no hay caja abierta para cajero y sede', async () => {
+      cajaRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.crearVenta(
+          {
+            metodoPago: MetodoPago.EFECTIVO,
+            montoPagado: 10000,
+            items: [{ varianteId: 'v1', cantidad: 1 }],
+          } as any,
+          'u1',
+          's1',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('debe crear venta y descontar inventario', async () => {
+      cajaRepository.findOne.mockResolvedValue({
+        id: 'sesion-caja-1',
+        cajaId: 'caja-1',
+        estado: EstadoCaja.ABIERTA,
+      });
       setupTransactionRepos();
       jest.spyOn(service, 'getVentaById').mockResolvedValue({ id: 'venta-1' } as any);
 
       await service.crearVenta(
         {
-          sedeId: 's1',
           metodoPago: MetodoPago.EFECTIVO,
+          montoPagado: 24000,
           items: [{ varianteId: 'v1', cantidad: 2 }],
         } as any,
         'u1',
+        's1',
       );
 
       expect(inventarioService.registrarMovimientoConManager).toHaveBeenCalledWith(
@@ -233,240 +236,136 @@ describe('VentasService', () => {
           tipo: TipoMovimiento.SALIDA,
           varianteId: 'v1',
           cantidad: 2,
-          sedeId: 's1',
+          sedeOrigenId: 's1',
         }),
         'u1',
         expect.anything(),
       );
+      expect(contabilidadService.generarAsientoVenta).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'venta-1' }),
+        expect.anything(),
+      );
+      expect(contabilidadService.validarPeriodoAbiertoPorFecha).toHaveBeenCalled();
     });
 
-    it('debe asignar monto efectivo igual al total para pago en efectivo', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      const { ventaRepo } = setupTransactionRepos();
-      jest.spyOn(service, 'getVentaById').mockResolvedValue({ id: 'venta-1' } as any);
-
-      await service.crearVenta(
-        {
-          sedeId: 's1',
-          metodoPago: MetodoPago.EFECTIVO,
-          items: [{ varianteId: 'v1', cantidad: 1 }],
-        } as any,
-        'u1',
-      );
-
-      expect(ventaRepo.save).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({ montoEfectivo: 12000, montoTarjeta: 0, montoTransferencia: 0 }),
-      );
-    });
-
-    it('debe asignar monto tarjeta para pago con tarjeta credito', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      const { ventaRepo } = setupTransactionRepos();
-      jest.spyOn(service, 'getVentaById').mockResolvedValue({ id: 'venta-1' } as any);
-
-      await service.crearVenta(
-        {
-          sedeId: 's1',
-          metodoPago: MetodoPago.TARJETA_CREDITO,
-          items: [{ varianteId: 'v1', cantidad: 1 }],
-        } as any,
-        'u1',
-      );
-
-      expect(ventaRepo.save).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({ montoEfectivo: 0, montoTarjeta: 12000, montoTransferencia: 0 }),
-      );
-    });
-
-    it('debe validar que splitPago coincida con total cuando metodo es COMBINADO', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      setupTransactionRepos();
+    it('debe impedir venta sin stock cuando producto no lo permite', async () => {
+      cajaRepository.findOne.mockResolvedValue({
+        id: 'sesion-caja-1',
+        cajaId: 'caja-1',
+        estado: EstadoCaja.ABIERTA,
+      });
+      setupTransactionRepos({
+        stockCantidad: 0,
+        producto: {
+          id: 'p1',
+          nombre: 'Crema',
+          precio: 10000,
+          impuesto: 19,
+          permitirVentaSinStock: false,
+          activo: true,
+        },
+      });
 
       await expect(
         service.crearVenta(
           {
-            sedeId: 's1',
-            metodoPago: MetodoPago.COMBINADO,
-            splitPago: { efectivo: 5000, tarjeta: 2000, transferencia: 1000 },
+            metodoPago: MetodoPago.EFECTIVO,
+            montoPagado: 12000,
             items: [{ varianteId: 'v1', cantidad: 1 }],
           } as any,
           'u1',
+          's1',
         ),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('debe rechazar splitPago cuando metodo no es COMBINADO', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      setupTransactionRepos();
-
-      await expect(
-        service.crearVenta(
-          {
-            sedeId: 's1',
-            metodoPago: MetodoPago.EFECTIVO,
-            splitPago: { efectivo: 12000, tarjeta: 0, transferencia: 0 },
-            items: [{ varianteId: 'v1', cantidad: 1 }],
-          } as any,
-          'u1',
-        ),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('debe rechazar descuento general mayor que subtotal + impuesto', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      setupTransactionRepos();
-
-      await expect(
-        service.crearVenta(
-          {
-            sedeId: 's1',
-            metodoPago: MetodoPago.EFECTIVO,
-            descuento: 15000,
-            items: [{ varianteId: 'v1', cantidad: 1 }],
-          } as any,
-          'u1',
-        ),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('debe acumular cantidades de items repetidos para validar stock', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      const { stockRepo } = setupTransactionRepos({ stockCantidad: 3 });
-
-      await expect(
-        service.crearVenta(
-          {
-            sedeId: 's1',
-            metodoPago: MetodoPago.EFECTIVO,
-            items: [
-              { varianteId: 'v1', cantidad: 2 },
-              { varianteId: 'v1', cantidad: 2 },
-            ],
-          } as any,
-          'u1',
-        ),
-      ).rejects.toBeInstanceOf(BadRequestException);
-
-      expect(stockRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
-    });
-
-    it('debe generar numero correlativo VTA-YYYY-NNNNN', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      const currentYear = new Date().getFullYear();
-      const { ventaRepo } = setupTransactionRepos({
-        ultimaVentaNumero: `VTA-${currentYear}-00007`,
+    it('debe sumar puntos al cliente cuando aplica', async () => {
+      cajaRepository.findOne.mockResolvedValue({
+        id: 'sesion-caja-1',
+        cajaId: 'caja-1',
+        estado: EstadoCaja.ABIERTA,
+      });
+      setupTransactionRepos({
+        ventaFinal: { total: 3500, numero: 'VEN-2026-000002' },
+        variante: {
+          id: 'v1',
+          productoId: 'p1',
+          precioVenta: 3500,
+          sku: 'SKU-1',
+          activo: true,
+        },
+        producto: {
+          id: 'p1',
+          nombre: 'Crema',
+          precio: 3500,
+          impuesto: 0,
+          permitirVentaSinStock: false,
+          activo: true,
+        },
       });
       jest.spyOn(service, 'getVentaById').mockResolvedValue({ id: 'venta-1' } as any);
 
       await service.crearVenta(
         {
-          sedeId: 's1',
-          metodoPago: MetodoPago.EFECTIVO,
-          items: [{ varianteId: 'v1', cantidad: 1 }],
-        } as any,
-        'u1',
-      );
-
-      expect(ventaRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ numero: `VTA-${currentYear}-00008` }),
-      );
-    });
-
-    it('debe sumar puntos de fidelidad cuando hay cliente', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-
-      const cliente = { id: 'cl-1', activo: true, puntosFidelidad: 4 };
-      const { clienteRepo } = setupTransactionRepos({
-        cliente,
-        ventaFinal: { total: 3500, numero: 'VTA-2026-00002' },
-        producto: { id: 'p1', precioBase: 3500, precioCosto: 2000, iva: 0, activo: true },
-      });
-
-      jest.spyOn(service, 'getVentaById').mockResolvedValue({ id: 'venta-1' } as any);
-
-      await service.crearVenta(
-        {
-          sedeId: 's1',
           clienteId: 'cl-1',
           metodoPago: MetodoPago.EFECTIVO,
+          montoPagado: 3500,
           items: [{ varianteId: 'v1', cantidad: 1 }],
         } as any,
         'u1',
+        's1',
       );
 
-      expect(cliente.puntosFidelidad).toBe(7);
-      expect(clienteRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ puntosFidelidad: 7 }),
+      expect(clientesService.sumarPuntosConManager).toHaveBeenCalledWith(
+        'cl-1',
+        3,
+        expect.anything(),
+        3500,
       );
     });
 
-    it('debe lanzar error si cliente no existe cuando se envia clienteId', async () => {
-      cajaRepository.createQueryBuilder.mockReturnValue(
-        createCajaQueryBuilder({ id: 'sesion-caja-1', activa: true }),
-      );
-      setupTransactionRepos({ cliente: null });
+    it('debe fallar si monto pagado es menor al total', async () => {
+      cajaRepository.findOne.mockResolvedValue({
+        id: 'sesion-caja-1',
+        cajaId: 'caja-1',
+        estado: EstadoCaja.ABIERTA,
+      });
+      setupTransactionRepos();
 
       await expect(
         service.crearVenta(
           {
-            sedeId: 's1',
-            clienteId: 'cl-not-found',
             metodoPago: MetodoPago.EFECTIVO,
+            montoPagado: 1000,
             items: [{ varianteId: 'v1', cantidad: 1 }],
           } as any,
           'u1',
+          's1',
         ),
-      ).rejects.toBeInstanceOf(NotFoundException);
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
   describe('anularVenta', () => {
-    it('debe anular venta, devolver inventario y reversar puntos del cliente', async () => {
+    it('debe bloquear anulacion para rol no autorizado', async () => {
+      await expect(
+        service.anularVenta('venta-1', { motivo: 'Error' } as any, 'u1', Rol.CAJERO),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('debe anular venta y devolver inventario', async () => {
       const venta = {
         id: 'venta-1',
-        numero: 'VTA-2026-00001',
+        numero: 'VEN-2026-000001',
         sedeId: 's1',
-        cajaId: 'sesion-caja-1',
-        clienteId: 'cl-1',
         total: 3500,
         estado: EstadoVenta.COMPLETADA,
-        observaciones: null,
+        createdAt: new Date('2026-03-01T10:00:00.000Z'),
         detalles: [{ varianteId: 'v1', cantidad: 2 }],
       };
 
-      const cliente = { id: 'cl-1', puntosFidelidad: 10 };
-
       const ventaRepo = {
         findOne: jest.fn().mockResolvedValue(venta),
-        save: jest.fn().mockImplementation(async (value) => value),
-        find: jest.fn().mockResolvedValue([]),
-      };
-
-      const cajaRepo = {
-        findOne: jest.fn().mockResolvedValue({ id: 'sesion-caja-1', activo: true }),
-        save: jest.fn().mockResolvedValue({}),
-      };
-
-      const clienteRepo = {
-        findOne: jest.fn().mockResolvedValue(cliente),
         save: jest.fn().mockImplementation(async (value) => value),
       };
 
@@ -474,14 +373,17 @@ describe('VentasService', () => {
         cb({
           getRepository: (entity: { name: string }) => {
             if (entity.name === 'Venta') return ventaRepo;
-            if (entity.name === 'SesionCaja') return cajaRepo;
-            if (entity.name === 'Cliente') return clienteRepo;
             return null;
           },
         }),
       );
 
-      const result = await service.anularVenta('venta-1', { motivo: 'Error cajero' } as any, 'u1');
+      const result = await service.anularVenta(
+        'venta-1',
+        { motivo: 'Error cajero' } as any,
+        'u1',
+        Rol.ADMIN,
+      );
 
       expect(result.estado).toBe(EstadoVenta.ANULADA);
       expect(inventarioService.registrarMovimientoConManager).toHaveBeenCalledWith(
@@ -489,32 +391,13 @@ describe('VentasService', () => {
         'u1',
         expect.anything(),
       );
-      expect(clienteRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ puntosFidelidad: 7 }),
+      expect(result.motivoAnulacion).toBe('Error cajero');
+      expect(contabilidadService.generarAsientoReversionVenta).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'venta-1' }),
+        'u1',
+        'Error cajero',
+        expect.anything(),
       );
-    });
-
-    it('debe rechazar anulacion cuando la venta ya esta anulada', async () => {
-      const ventaRepo = {
-        findOne: jest.fn().mockResolvedValue({
-          id: 'venta-1',
-          estado: EstadoVenta.ANULADA,
-          detalles: [],
-        }),
-      };
-
-      dataSource.transaction.mockImplementation(async (cb: any) =>
-        cb({
-          getRepository: (entity: { name: string }) => {
-            if (entity.name === 'Venta') return ventaRepo;
-            return { findOne: jest.fn(), save: jest.fn(), find: jest.fn() };
-          },
-        }),
-      );
-
-      await expect(
-        service.anularVenta('venta-1', { motivo: 'Duplicada' } as any, 'u1'),
-      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });

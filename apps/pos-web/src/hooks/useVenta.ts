@@ -32,11 +32,11 @@ export function useVenta() {
       const url = URL.createObjectURL(res.data);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `ticket-${ventaId}.pdf`;
+      a.download = `ticket-${ventaId}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error('No se pudo generar el ticket PDF');
+      toast.error('No se pudo generar el ticket TXT');
     }
   }, []);
 

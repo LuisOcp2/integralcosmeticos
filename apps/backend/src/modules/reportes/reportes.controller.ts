@@ -1,107 +1,111 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { Rol } from '@cosmeticos/shared-types';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Permiso } from '@cosmeticos/shared-types';
+import { Response } from 'express';
+import { Permisos } from '../auth/decorators/permisos.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermisosGuard } from '../auth/guards/permisos.guard';
+import { ExportarVentasExcelQueryDto } from './dto/exportar-ventas-excel-query.dto';
+import { ProductosMasVendidosQueryDto } from './dto/productos-mas-vendidos-query.dto';
+import { ReportesQueryDto } from './dto/reportes-query.dto';
 import { ReportesService } from './reportes.service';
 
 @ApiTags('reportes')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Rol.ADMIN, Rol.SUPERVISOR)
+@UseGuards(JwtAuthGuard, PermisosGuard)
+@Permisos(Permiso.REPORTES_VER)
 @Controller('reportes')
 export class ReportesController {
   constructor(private readonly reportesService: ReportesService) {}
 
-  @Get('ventas-dia')
-  @ApiOperation({ summary: 'Resumen de ventas del dia por sede' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  @ApiQuery({ name: 'fecha', required: true, type: String })
-  ventasDelDia(@Query('sedeId') sedeId: string, @Query('fecha') fecha: string) {
-    return this.reportesService.ventasDelDia(sedeId, fecha);
+  @Get('ventas/resumen')
+  @ApiOperation({ summary: 'Resumen de ventas en el periodo' })
+  ventasResumen(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getVentasResumen(query);
   }
 
-  @Get('ventas-sede')
-  @ApiOperation({ summary: 'Ventas agrupadas por sede en un periodo' })
-  @ApiQuery({ name: 'fechaInicio', required: true, type: String })
-  @ApiQuery({ name: 'fechaFin', required: true, type: String })
-  ventasPorSede(@Query('fechaInicio') fechaInicio: string, @Query('fechaFin') fechaFin: string) {
-    return this.reportesService.ventasPorSede(fechaInicio, fechaFin);
+  @Get('ventas/por-dia')
+  @ApiOperation({ summary: 'Ventas agrupadas por dia para grafica' })
+  ventasPorDia(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getVentasPorDia(query);
   }
 
-  @Get('productos-mas-vendidos')
-  @ApiOperation({ summary: 'Top productos mas vendidos por sede y periodo' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  @ApiQuery({ name: 'fechaInicio', required: true, type: String })
-  @ApiQuery({ name: 'fechaFin', required: true, type: String })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  productosMasVendidos(
-    @Query('sedeId') sedeId: string,
-    @Query('fechaInicio') fechaInicio: string,
-    @Query('fechaFin') fechaFin: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.reportesService.productosMasVendidos(
-      sedeId,
-      fechaInicio,
-      fechaFin,
-      limit ? Number(limit) : 10,
-    );
+  @Get('ventas/por-cajero')
+  @ApiOperation({ summary: 'Ranking de cajeros por monto vendido' })
+  ventasPorCajero(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getVentasPorCajero(query);
   }
 
-  @Get('margen')
-  @ApiOperation({ summary: 'Margen por producto en un periodo y sede' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  @ApiQuery({ name: 'fechaInicio', required: true, type: String })
-  @ApiQuery({ name: 'fechaFin', required: true, type: String })
-  margenPorProducto(
-    @Query('sedeId') sedeId: string,
-    @Query('fechaInicio') fechaInicio: string,
-    @Query('fechaFin') fechaFin: string,
-  ) {
-    return this.reportesService.margenPorProducto(sedeId, fechaInicio, fechaFin);
+  @Get('ventas/por-categoria')
+  @ApiOperation({ summary: 'Ventas agrupadas por categoria de producto' })
+  ventasPorCategoria(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getVentasPorCategoria(query);
   }
 
-  @Get('stock')
-  @ApiOperation({ summary: 'Stock actual por sede con alerta de minimo' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  stockActualPorSede(@Query('sedeId') sedeId: string) {
-    return this.reportesService.stockActualPorSede(sedeId);
+  @Get('ventas/productos-mas-vendidos')
+  @ApiOperation({ summary: 'Top de productos por cantidad y monto vendido' })
+  @ApiQuery({ name: 'top', required: false, type: Number })
+  productosMasVendidos(@Query() query: ProductosMasVendidosQueryDto) {
+    return this.reportesService.getProductosMasVendidos(query);
   }
 
-  @Get('stock-bajo')
-  @ApiOperation({ summary: 'Productos por debajo del stock minimo' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  productosBajoMinimo(@Query('sedeId') sedeId: string) {
-    return this.reportesService.productosBajoMinimo(sedeId);
+  @Get('inventario/valorizado')
+  @ApiOperation({ summary: 'Valor total del inventario por sede y categoria' })
+  inventarioValorizado(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getInventarioValorizado(query);
   }
 
-  @Get('clientes-frecuentes')
-  @ApiOperation({ summary: 'Clientes frecuentes por sede y periodo' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  @ApiQuery({ name: 'fechaInicio', required: true, type: String })
-  @ApiQuery({ name: 'fechaFin', required: true, type: String })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  clientesFrecuentes(
-    @Query('sedeId') sedeId: string,
-    @Query('fechaInicio') fechaInicio: string,
-    @Query('fechaFin') fechaFin: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.reportesService.clientesFrecuentes(
-      sedeId,
-      fechaInicio,
-      fechaFin,
-      limit ? Number(limit) : 10,
-    );
+  @Get('inventario/rotacion')
+  @ApiOperation({ summary: 'Productos con mayor y menor rotacion' })
+  inventarioRotacion(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getInventarioRotacion(query);
   }
 
-  @Get('cierre-caja')
-  @ApiOperation({ summary: 'Resumen diario de cierre de caja por sede' })
-  @ApiQuery({ name: 'sedeId', required: true, type: String })
-  @ApiQuery({ name: 'fecha', required: true, type: String })
-  cierreCajaDiario(@Query('sedeId') sedeId: string, @Query('fecha') fecha: string) {
-    return this.reportesService.cierreCajaDiario(sedeId, fecha);
+  @Get('inventario/alertas')
+  @ApiOperation({ summary: 'Productos con stock por debajo del minimo' })
+  inventarioAlertas(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getInventarioAlertas(query);
+  }
+
+  @Get('clientes/nuevos')
+  @ApiOperation({ summary: 'Clientes nuevos registrados en el periodo' })
+  clientesNuevos(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getClientesNuevos(query);
+  }
+
+  @Get('clientes/frecuentes')
+  @ApiOperation({ summary: 'Top 20 clientes por compras en el periodo' })
+  clientesFrecuentes(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getClientesFrecuentes(query);
+  }
+
+  @Get('clientes/retencion')
+  @ApiOperation({ summary: 'Clientes que compraron mes anterior y mes actual' })
+  clientesRetencion(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getClientesRetencion(query);
+  }
+
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Dashboard ejecutivo de KPIs' })
+  dashboard(@Query() query: ReportesQueryDto) {
+    return this.reportesService.getDashboard(query);
+  }
+
+  @Get('ventas/exportar-excel')
+  @Permisos(Permiso.REPORTES_VER, Permiso.REPORTES_EXPORTAR)
+  @ApiOperation({ summary: 'Exporta ventas mensuales a archivo Excel' })
+  async exportarVentasExcel(
+    @Query() query: ExportarVentasExcelQueryDto,
+    @Res() res: Response,
+  ): Promise<void> {
+    const { buffer, filename } = await this.reportesService.exportarVentasExcel(query);
+
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': buffer.length,
+    });
+
+    res.send(buffer);
   }
 }

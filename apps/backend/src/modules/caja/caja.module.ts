@@ -8,7 +8,7 @@ import { Caja } from './entities/caja.entity';
 import { SesionCaja } from './entities/sesion-caja.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Caja, SesionCaja, Sede, Venta])],
+  imports: [TypeOrmModule.forFeature([SesionCaja, Sede, Caja, Venta])],
   controllers: [CajaController],
   providers: [CajaService],
   exports: [CajaService],

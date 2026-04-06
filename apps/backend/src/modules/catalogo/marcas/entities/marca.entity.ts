@@ -21,7 +21,7 @@ export class Marca {
   @Column({ name: 'logo_url', type: 'varchar', length: 500, nullable: true })
   logoUrl?: string | null;
 
-  @Column({ default: true })
+  @Column({ name: 'activa', default: true })
   activo: boolean;
 
   @Column({ type: 'text', nullable: true })

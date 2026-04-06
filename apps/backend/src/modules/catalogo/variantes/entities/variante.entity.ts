@@ -34,17 +34,12 @@ export class Variante {
   @Column({ name: 'codigo_barras', type: 'varchar', length: 100, unique: true, nullable: true })
   codigoBarras?: string | null;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
-  precio?: number | null;
-
   @Column({ name: 'activa', default: true })
   activo: boolean;
 
-  @Column({ type: 'jsonb', nullable: true })
   atributos?: Record<string, string> | null;
 
-  @Column({ name: 'stock_disponible', type: 'int', default: 0 })
-  stockDisponible: number;
+  stockDisponible = 0;
 
   @Column({ name: 'precio_extra', type: 'decimal', precision: 12, scale: 2, nullable: true })
   precioExtra?: number | null;
@@ -57,6 +52,14 @@ export class Variante {
 
   @Column({ name: 'imagen_url', type: 'varchar', length: 500, nullable: true })
   imagenUrl?: string | null;
+
+  get precio(): number | null | undefined {
+    return this.precioVenta;
+  }
+
+  set precio(valor: number | null | undefined) {
+    this.precioVenta = valor;
+  }
 
   get codigoBarra(): string | null | undefined {
     return this.codigoBarras;

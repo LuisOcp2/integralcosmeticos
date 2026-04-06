@@ -6,7 +6,7 @@ import { useCliente } from '@/hooks/useCliente';
 
 interface ClienteSelectorProps {
   clienteSeleccionado: Cliente | null;
-  onSeleccionar: (c: Cliente | null) => void;
+  onSeleccionar: (_cliente: Cliente | null) => void;
 }
 
 function useDebounce(value: string, delay: number) {
@@ -18,7 +18,10 @@ function useDebounce(value: string, delay: number) {
   return debounced;
 }
 
-export default function ClienteSelector({ clienteSeleccionado, onSeleccionar }: ClienteSelectorProps) {
+export default function ClienteSelector({
+  clienteSeleccionado,
+  onSeleccionar,
+}: ClienteSelectorProps) {
   const [busqueda, setBusqueda] = useState('');
   const debouncedDoc = useDebounce(busqueda, 500);
   const { data: cliente, isFetching } = useCliente(debouncedDoc);
@@ -68,7 +71,9 @@ export default function ClienteSelector({ clienteSeleccionado, onSeleccionar }: 
         )}
       </div>
       {debouncedDoc.length >= 4 && !isFetching && !cliente && (
-        <p className="text-outline text-[11px] mt-1 px-1">No se encontró cliente con ese documento</p>
+        <p className="text-outline text-[11px] mt-1 px-1">
+          No se encontró cliente con ese documento
+        </p>
       )}
     </div>
   );

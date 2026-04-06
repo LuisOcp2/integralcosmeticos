@@ -11,9 +11,10 @@ export class RegistrarMovimientoDto {
   @IsUUID()
   varianteId: string;
 
-  @ApiProperty({ format: 'uuid' })
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsUUID()
-  sedeId: string;
+  @IsOptional()
+  sedeOrigenId?: string;
 
   @ApiProperty({ example: 10 })
   @IsInt()
@@ -29,4 +30,13 @@ export class RegistrarMovimientoDto {
   @IsString()
   @IsOptional()
   motivo?: string;
+
+  @ApiPropertyOptional({ example: 'OC-2026-00123', maxLength: 100 })
+  @IsString()
+  @IsOptional()
+  referencia?: string;
+
+  @IsOptional()
+  @IsInt()
+  cantidadNueva?: number;
 }

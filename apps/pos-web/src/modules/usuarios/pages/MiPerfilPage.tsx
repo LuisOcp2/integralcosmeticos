@@ -3,6 +3,7 @@ import { Eye, EyeOff, User, Mail, Shield, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCambiarPasswordPropia } from '../hooks/useUsuarios';
 import { BadgeRol } from '../components/BadgeRol';
+import { useSedes } from '@/hooks/useSedes';
 
 const passwordStrength = (pw: string): { score: number; label: string; color: string } => {
   let score = 0;
@@ -22,6 +23,7 @@ const passwordStrength = (pw: string): { score: number; label: string; color: st
 
 export const MiPerfilPage = () => {
   const { user } = useAuth();
+  const { data: sedes = [] } = useSedes();
   const cambiarPassword = useCambiarPasswordPropia(user?.id ?? '');
   const [passwordActual, setPasswordActual] = useState('');
   const [passwordNuevo, setPasswordNuevo] = useState('');
@@ -33,11 +35,17 @@ export const MiPerfilPage = () => {
 
   if (!user) return <div className="p-6">No autenticado.</div>;
 
+  const sedeNombre = (user as any).sedeId
+    ? (sedes.find((s) => s.id === (user as any).sedeId)?.nombre ?? 'Sede no disponible')
+    : null;
+
   const strength = passwordStrength(passwordNuevo);
   const noMatch = passwordNuevo !== confirmar;
   const canSubmit = passwordActual.length > 0 && passwordNuevo.length >= 8 && !noMatch;
 
-  const initials = `${(user as any).nombre?.[0] ?? ''}${(user as any).apellido?.[0] ?? ''}`.toUpperCase() || user.email[0].toUpperCase();
+  const initials =
+    `${(user as any).nombre?.[0] ?? ''}${(user as any).apellido?.[0] ?? ''}`.toUpperCase() ||
+    user.email[0].toUpperCase();
 
   return (
     <div className="max-w-2xl space-y-4 p-6">
@@ -58,9 +66,9 @@ export const MiPerfilPage = () => {
               <span className="flex items-center gap-1">
                 <Mail size={11} /> {user.email}
               </span>
-              {(user as any).sedeId && (
+              {sedeNombre && (
                 <span className="flex items-center gap-1">
-                  <User size={11} /> Sede asignada
+                  <User size={11} /> {sedeNombre}
                 </span>
               )}
             </div>
@@ -82,7 +90,9 @@ export const MiPerfilPage = () => {
         <div className="space-y-3">
           {/* Contraseña actual */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-on-surface-variant">Contraseña actual *</label>
+            <label className="text-xs font-medium text-on-surface-variant">
+              Contraseña actual *
+            </label>
             <div className="relative">
               <input
                 type={showActual ? 'text' : 'password'}
@@ -107,7 +117,9 @@ export const MiPerfilPage = () => {
 
           {/* Nueva contraseña */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-on-surface-variant">Nueva contraseña *</label>
+            <label className="text-xs font-medium text-on-surface-variant">
+              Nueva contraseña *
+            </label>
             <div className="relative">
               <input
                 type={showNuevo ? 'text' : 'password'}
@@ -143,7 +155,9 @@ export const MiPerfilPage = () => {
 
           {/* Confirmar */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-on-surface-variant">Confirmar nueva contraseña *</label>
+            <label className="text-xs font-medium text-on-surface-variant">
+              Confirmar nueva contraseña *
+            </label>
             <div className="relative">
               <input
                 type={showConfirm ? 'text' : 'password'}

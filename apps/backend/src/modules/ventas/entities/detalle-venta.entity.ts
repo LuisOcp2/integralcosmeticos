@@ -1,12 +1,5 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
-import { Producto } from '../../catalogo/productos/entities/producto.entity';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Variante } from '../../catalogo/variantes/entities/variante.entity';
 import { Venta } from './venta.entity';
 
 @Entity('detalle_ventas')
@@ -24,8 +17,12 @@ export class DetalleVenta {
   @Column('uuid')
   varianteId: string;
 
-  @Column({ name: 'productoId', type: 'uuid' })
-  productoId: string;
+  @Column('uuid', { name: 'productoId', nullable: true })
+  productoId?: string | null;
+
+  @ManyToOne(() => Variante, { nullable: false })
+  @JoinColumn({ name: 'varianteId' })
+  variante: Variante;
 
   @Column({ type: 'int' })
   cantidad: number;
@@ -37,7 +34,7 @@ export class DetalleVenta {
   precioCostoSnap?: number | null;
 
   @Column({ name: 'descuento_item', type: 'decimal', precision: 12, scale: 2, default: 0 })
-  descuentoItem: number;
+  descuento: number;
 
   @Column({ name: 'impuesto_item', type: 'decimal', precision: 12, scale: 2, default: 0 })
   impuestoItem: number;
@@ -45,6 +42,13 @@ export class DetalleVenta {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   subtotal: number;
 
-  @CreateDateColumn()
+  @Column({ name: 'promocionId', type: 'uuid', nullable: true })
+  promocionId?: string | null;
+
+  @Column({ name: 'createdAt', type: 'timestamptz', default: () => 'NOW()' })
   createdAt: Date;
+
+  nombreProducto?: string;
+
+  skuSnapshot?: string;
 }

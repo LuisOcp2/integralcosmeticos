@@ -499,16 +499,32 @@ export class ImportacionesService {
   }
 
   async getHealth() {
-    await this.ensureSchemaReady();
+    let schemaError: string | null = null;
+    try {
+      await this.ensureSchemaReady();
+    } catch (error) {
+      schemaError = error instanceof Error ? error.message : 'schema init failed';
+    }
 
-    const [jobsTable, rowsTable] = await Promise.all([
-      this.dataSource.query(
-        `SELECT to_regclass('public.importaciones_catalogo_jobs') AS regclass;`,
-      ),
-      this.dataSource.query(
-        `SELECT to_regclass('public.importaciones_catalogo_rows') AS regclass;`,
-      ),
-    ]);
+    let jobsReady = false;
+    let rowsReady = false;
+
+    try {
+      const [jobsTable, rowsTable] = await Promise.all([
+        this.dataSource.query(
+          `SELECT to_regclass('public.importaciones_catalogo_jobs') AS regclass;`,
+        ),
+        this.dataSource.query(
+          `SELECT to_regclass('public.importaciones_catalogo_rows') AS regclass;`,
+        ),
+      ]);
+
+      jobsReady = Boolean(jobsTable?.[0]?.regclass);
+      rowsReady = Boolean(rowsTable?.[0]?.regclass);
+    } catch (error) {
+      schemaError =
+        schemaError ?? (error instanceof Error ? error.message : 'database health check failed');
+    }
 
     let queueOk = false;
     let queueInfo = 'unknown';
@@ -521,11 +537,8 @@ export class ImportacionesService {
       queueInfo = error instanceof Error ? error.message : 'queue ping failed';
     }
 
-    const jobsReady = Boolean(jobsTable?.[0]?.regclass);
-    const rowsReady = Boolean(rowsTable?.[0]?.regclass);
-
     return {
-      ok: jobsReady && rowsReady && queueOk,
+      ok: jobsReady && rowsReady && queueOk && !schemaError,
       database: {
         importJobsTableReady: jobsReady,
         importRowsTableReady: rowsReady,
@@ -533,6 +546,10 @@ export class ImportacionesService {
       queue: {
         ready: queueOk,
         ping: queueInfo,
+      },
+      schema: {
+        ready: !schemaError,
+        error: schemaError,
       },
       timestamp: new Date().toISOString(),
     };

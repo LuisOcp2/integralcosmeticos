@@ -5,18 +5,18 @@ import { BadgeEstado } from './BadgeEstado';
 
 interface Props {
   usuario: Usuario;
+  sedeNombre?: string | null;
 }
 
 const fmt = (d: string) =>
   new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' });
 
-export const TarjetaUsuario = ({ usuario }: Props) => {
+export const TarjetaUsuario = ({ usuario, sedeNombre }: Props) => {
   const isBloqueado = Boolean(
     usuario.bloqueadoHasta && new Date(usuario.bloqueadoHasta) > new Date(),
   );
 
-  const initials =
-    `${usuario.nombre[0] ?? ''}${usuario.apellido[0] ?? ''}`.toUpperCase();
+  const initials = `${usuario.nombre[0] ?? ''}${usuario.apellido[0] ?? ''}`.toUpperCase();
 
   return (
     <div className="rounded-2xl border border-outline-variant bg-surface p-5">
@@ -56,7 +56,7 @@ export const TarjetaUsuario = ({ usuario }: Props) => {
         {usuario.sedeId && (
           <div className="flex items-center gap-1.5 text-on-surface-variant">
             <MapPin size={12} />
-            Sede asignada
+            {sedeNombre ?? 'Sede asignada'}
           </div>
         )}
         <div className="flex items-center gap-1.5 text-on-surface-variant">
@@ -72,14 +72,13 @@ export const TarjetaUsuario = ({ usuario }: Props) => {
       {usuario.intentosFallidos > 0 && (
         <div
           className={`mt-3 rounded-xl px-3 py-2 text-xs font-medium ${
-            usuario.intentosFallidos >= 5
-              ? 'bg-error/10 text-error'
-              : 'bg-warning/10 text-warning'
+            usuario.intentosFallidos >= 5 ? 'bg-error/10 text-error' : 'bg-warning/10 text-warning'
           }`}
         >
           {usuario.intentosFallidos} intentos de login fallidos
           {isBloqueado && usuario.bloqueadoHasta && (
-            <> · Bloqueado hasta {new Date(usuario.bloqueadoHasta).toLocaleString('es-CO')}</>\n          )}
+            <> · Bloqueado hasta {new Date(usuario.bloqueadoHasta).toLocaleString('es-CO')}</>
+          )}
         </div>
       )}
 

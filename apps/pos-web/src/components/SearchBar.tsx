@@ -3,7 +3,7 @@ import { Search, X, ScanBarcode } from 'lucide-react';
 
 interface SearchBarProps {
   value: string;
-  onChange: (v: string) => void;
+  onChange: (_value: string) => void;
   onBarcodeScan?: () => void;
   placeholder?: string;
 }

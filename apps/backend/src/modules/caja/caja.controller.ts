@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Rol } from '@cosmeticos/shared-types';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -20,28 +29,49 @@ export class CajaController {
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Abrir caja para una sede' })
   abrirCaja(@Body() dto: AbrirCajaDto, @Request() req: any) {
-    return this.cajaService.abrirCaja(dto.sedeId, req.user.id, dto.montoInicial);
+    const montoApertura = dto.montoApertura ?? dto.montoInicial;
+    if (montoApertura === undefined) {
+      throw new BadRequestException('montoApertura es requerido');
+    }
+    return this.cajaService.abrirCaja(req.user.sedeId, req.user.id, montoApertura);
   }
 
   @Post('apertura')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Alias documental para abrir caja' })
   abrirCajaAlias(@Body() dto: AbrirCajaDto, @Request() req: any) {
-    return this.cajaService.abrirCaja(dto.sedeId, req.user.id, dto.montoInicial);
+    const montoApertura = dto.montoApertura ?? dto.montoInicial;
+    if (montoApertura === undefined) {
+      throw new BadRequestException('montoApertura es requerido');
+    }
+    return this.cajaService.abrirCaja(req.user.sedeId, req.user.id, montoApertura);
   }
 
   @Post('cierre')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Cerrar caja activa por sede con arqueo final' })
   cerrarCajaPorSede(@Body() dto: CerrarCajaSedeDto, @Request() req: any) {
-    return this.cajaService.cerrarCajaActivaPorSede(dto.sedeId, req.user.id, dto.montoFinal);
+    const montoCierre = dto.montoCierre ?? dto.montoFinal;
+    if (montoCierre === undefined) {
+      throw new BadRequestException('montoCierre es requerido');
+    }
+    return this.cajaService.cerrarCajaActivaPorSede(
+      dto.sedeId,
+      req.user.id,
+      montoCierre,
+      dto.notas,
+    );
   }
 
   @Post(':id/cerrar')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Cerrar caja con arqueo final' })
   cerrarCaja(@Param('id') cajaId: string, @Body() dto: CerrarCajaDto, @Request() req: any) {
-    return this.cajaService.cerrarCaja(cajaId, req.user.id, dto.montoFinal);
+    const montoCierre = dto.montoCierre ?? dto.montoFinal;
+    if (montoCierre === undefined) {
+      throw new BadRequestException('montoCierre es requerido');
+    }
+    return this.cajaService.cerrarCaja(cajaId, req.user.id, montoCierre, dto.notas);
   }
 
   @Get('activa/:sedeId')

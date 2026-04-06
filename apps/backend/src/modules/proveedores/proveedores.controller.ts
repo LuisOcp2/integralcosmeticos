@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query } from '@nestjs/common';
 import { ProveedoresService } from './proveedores.service';
 import { CreateProveedorDto } from './dto/create-proveedor.dto';
 import { UpdateProveedorDto } from './dto/update-proveedor.dto';
 import { Proveedor } from './entities/proveedor.entity';
+import { ProveedoresQueryDto } from './dto/proveedores-query.dto';
 
 @Controller('proveedores')
 export class ProveedoresController {
@@ -14,8 +15,8 @@ export class ProveedoresController {
   }
 
   @Get()
-  async findAll(): Promise<Proveedor[]> {
-    return this.proveedoresService.findAll();
+  async findAll(@Query() query: ProveedoresQueryDto) {
+    return this.proveedoresService.findAll(query);
   }
 
   @Get(':id')
@@ -32,7 +33,7 @@ export class ProveedoresController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<void> {
+  async remove(@Param('id') id: string): Promise<Proveedor> {
     return this.proveedoresService.remove(id);
   }
 }

@@ -3,17 +3,27 @@ import { X, CheckCircle2 } from 'lucide-react';
 
 const IVA_RATE = 0.19;
 const formatCOP = (v: number) =>
-  new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+  new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    maximumFractionDigits: 0,
+  }).format(v);
 
 interface ModalCobroProps {
   subtotal: number;
   descuentoGlobal: number;
   metodoPago: string;
-  onConfirmar: (montoRecibido: number | null) => void;
+  onConfirmar: (_montoRecibido: number | null) => void;
   onCancelar: () => void;
 }
 
-export default function ModalCobro({ subtotal, descuentoGlobal, metodoPago, onConfirmar, onCancelar }: ModalCobroProps) {
+export default function ModalCobro({
+  subtotal,
+  descuentoGlobal,
+  metodoPago,
+  onConfirmar,
+  onCancelar,
+}: ModalCobroProps) {
   const baseImponible = subtotal * (1 - descuentoGlobal / 100);
   const total = baseImponible * (1 + IVA_RATE);
 
@@ -71,7 +81,9 @@ export default function ModalCobro({ subtotal, descuentoGlobal, metodoPago, onCo
             {monto >= total && (
               <div className="flex items-center justify-between bg-tertiary-container rounded-2xl px-4 py-3">
                 <span className="text-on-tertiary-container text-sm font-medium">Vuelto</span>
-                <span className="text-on-tertiary-container font-bold text-lg">{formatCOP(vuelto)}</span>
+                <span className="text-on-tertiary-container font-bold text-lg">
+                  {formatCOP(vuelto)}
+                </span>
               </div>
             )}
           </div>
@@ -89,9 +101,10 @@ export default function ModalCobro({ subtotal, descuentoGlobal, metodoPago, onCo
             onClick={() => onConfirmar(esEfectivo ? monto : null)}
             disabled={!puedeConfirmar}
             className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2
-              ${puedeConfirmar
-                ? 'bg-primary text-on-primary hover:opacity-90 active:scale-95'
-                : 'bg-surface-3 text-outline cursor-not-allowed'
+              ${
+                puedeConfirmar
+                  ? 'bg-primary text-on-primary hover:opacity-90 active:scale-95'
+                  : 'bg-surface-3 text-outline cursor-not-allowed'
               }`}
           >
             <CheckCircle2 className="w-5 h-5" />

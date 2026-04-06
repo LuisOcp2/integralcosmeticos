@@ -8,6 +8,7 @@ import {
   Post,
   Put,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,9 @@ import { ClientesService } from './clientes.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { ActualizarPuntosDto } from './dto/actualizar-puntos.dto';
+import { ClientesQueryDto } from './dto/clientes-query.dto';
+import { RegistrarCompraClienteDto } from './dto/registrar-compra-cliente.dto';
+import { HistorialComprasQueryDto } from './dto/historial-compras-query.dto';
 
 @ApiTags('clientes')
 @ApiBearerAuth()
@@ -30,15 +34,46 @@ export class ClientesController {
   @Post()
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
   @ApiOperation({ summary: 'Crear cliente' })
-  create(@Body() dto: CreateClienteDto) {
-    return this.clientesService.create(dto);
+  create(@Body() dto: CreateClienteDto, @Request() req: any) {
+    return this.clientesService.create({
+      ...dto,
+      sedeRegistroId: dto.sedeRegistroId ?? req.user?.sedeId ?? null,
+    });
   }
 
   @Get()
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
-  @ApiOperation({ summary: 'Listar clientes activos' })
-  findAll() {
-    return this.clientesService.findAll();
+  @ApiOperation({ summary: 'Listar clientes activos con paginacion y filtros' })
+  findAll(@Query() query: ClientesQueryDto) {
+    return this.clientesService.findAll(query);
+  }
+
+  @Get('segmentos')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Obtener segmentos VIP, FRECUENTE, NUEVO e INACTIVO' })
+  getSegmentos() {
+    return this.clientesService.getSegmentos();
+  }
+
+  @Get('frecuentes/top')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
+  @ApiOperation({ summary: 'Obtener clientes frecuentes ordenados por total de compras' })
+  getFrecuentes(@Query('sedeId') sedeId?: string, @Query('top') top?: string) {
+    return this.clientesService.getClientesFrecuentes(sedeId, top ? Number(top) : undefined);
+  }
+
+  @Get('cumpleanios/hoy')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
+  @ApiOperation({ summary: 'Obtener clientes que cumplen anos hoy' })
+  getCumpleaniosHoy() {
+    return this.clientesService.getCumpleaniosHoy();
+  }
+
+  @Get('estadisticas/resumen')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  @ApiOperation({ summary: 'Obtener estadisticas de clientes CRM' })
+  getEstadisticas() {
+    return this.clientesService.getEstadisticas();
   }
 
   @Get('documento/:documento')
@@ -68,8 +103,15 @@ export class ClientesController {
   @Get(':id/historial')
   @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO, Rol.BODEGUERO)
   @ApiOperation({ summary: 'Consultar historial de compras de un cliente' })
-  getHistorial(@Param('id') id: string) {
-    return this.clientesService.getHistorialCompras(id);
+  getHistorial(@Param('id') id: string, @Query() query: HistorialComprasQueryDto) {
+    return this.clientesService.getHistorialCompras(id, query.page, query.limit);
+  }
+
+  @Post(':id/registrar-compra')
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR, Rol.CAJERO)
+  @ApiOperation({ summary: 'Registrar compra y acumular total, cantidad y puntos del cliente' })
+  registrarCompra(@Param('id') id: string, @Body() dto: RegistrarCompraClienteDto) {
+    return this.clientesService.registrarCompra(id, dto.montoTotal);
   }
 
   @Get(':id')

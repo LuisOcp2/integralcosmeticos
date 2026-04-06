@@ -2,11 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MetodoPago } from '@cosmeticos/shared-types';
 import {
   ArrayMinSize,
-  IsDefined,
   IsArray,
   IsEnum,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -29,31 +29,16 @@ class CreateDetalleVentaDto {
   @IsNumber()
   @Min(0)
   @IsOptional()
+  descuento?: number;
+
+  @ApiPropertyOptional({ example: 0, deprecated: true })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
   descuentoItem?: number;
 }
 
-class SplitPagoDto {
-  @ApiProperty({ example: 20000 })
-  @IsNumber()
-  @Min(0)
-  efectivo: number;
-
-  @ApiProperty({ example: 15000 })
-  @IsNumber()
-  @Min(0)
-  tarjeta: number;
-
-  @ApiProperty({ example: 5000 })
-  @IsNumber()
-  @Min(0)
-  transferencia: number;
-}
-
 export class CreateVentaDto {
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  sedeId: string;
-
   @ApiPropertyOptional({ format: 'uuid' })
   @IsUUID()
   @IsOptional()
@@ -63,25 +48,45 @@ export class CreateVentaDto {
   @IsEnum(MetodoPago)
   metodoPago: MetodoPago;
 
+  @ApiProperty({ example: 60000 })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  montoPagado?: number;
+
+  @ApiPropertyOptional({ example: 60000, deprecated: true })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  montoRecibido?: number;
+
   @ApiPropertyOptional({ example: 'Venta con redencion de puntos' })
+  @IsString()
+  @IsOptional()
+  notas?: string;
+
+  @ApiPropertyOptional({ example: 'Venta con redencion de puntos', deprecated: true })
   @IsString()
   @IsOptional()
   observaciones?: string;
 
-  @ApiPropertyOptional({ example: 0 })
+  @ApiPropertyOptional({ example: 0, deprecated: true })
   @IsNumber()
   @Min(0)
   @IsOptional()
   descuento?: number;
 
-  @ApiPropertyOptional({ type: SplitPagoDto })
+  @ApiPropertyOptional({ format: 'uuid', deprecated: true })
+  @IsUUID()
   @IsOptional()
-  @ValidateNested()
-  @Type(() => SplitPagoDto)
-  splitPago?: SplitPagoDto;
+  sedeId?: string;
+
+  @ApiPropertyOptional({ deprecated: true })
+  @IsObject()
+  @IsOptional()
+  splitPago?: Record<string, number>;
 
   @ApiProperty({ type: [CreateDetalleVentaDto] })
-  @IsDefined()
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

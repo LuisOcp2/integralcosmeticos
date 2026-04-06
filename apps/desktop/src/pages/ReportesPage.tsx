@@ -1,30 +1,127 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  TrendingUp, TrendingDown, Minus, Calendar, Download, Award, Package,
-  Users, Banknote, AlertTriangle, Award as AwardIcon,
+  AlertTriangle,
+  BarChart3,
+  Calendar,
+  Download,
+  Gauge,
+  Package,
+  Store,
+  Users,
 } from 'lucide-react';
+import { Rol, type ISede } from '@cosmeticos/shared-types';
 import {
-  IClienteFrecuente,
-  IMargenProducto,
-  IProductoMasVendido,
-  IResumenCierreCaja,
-  IStockReporte,
-  ISede,
-  IVentasPorSede,
-  Rol,
-} from '@cosmeticos/shared-types';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import api from '../lib/api';
 import { useAuthStore } from '../store/auth.store';
 import AppLayout from './components/AppLayout';
 
-type ReportTab =
-  | 'ventas-periodo'
-  | 'productos-vendidos'
-  | 'inventario-stock'
-  | 'clientes-frecuentes'
-  | 'cierre-caja';
+type ReportTab = 'dashboard' | 'ventas' | 'inventario' | 'clientes';
+
+type VentasResumen = {
+  totalVentas: number;
+  montoTotal: number;
+  ticketPromedio: number;
+  comparativaPeriodoAnteriorPct: number;
+  porMetodoPago: Array<{ metodoPago: string; cantidad: number; montoTotal: number }>;
+};
+
+type VentasPorDia = {
+  serie: Array<{ fecha: string; totalVentas: number; montoTotal: number }>;
+};
+
+type VentasPorCategoria = {
+  categorias: Array<{
+    categoriaId: string | null;
+    categoria: string;
+    cantidadVendida: number;
+    montoTotal: number;
+  }>;
+};
+
+type ProductosMasVendidos = {
+  porCantidad: Array<{
+    posicion: number;
+    productoId: string;
+    nombre: string;
+    cantidadVendida: number;
+    montoTotal: number;
+  }>;
+};
+
+type InventarioValorizado = {
+  items: Array<{
+    sedeId: string;
+    sede: string;
+    categoriaId: string | null;
+    categoria: string;
+    productos: number;
+    stockUnidades: number;
+    valorInventario: number;
+  }>;
+};
+
+type InventarioAlertas = {
+  total: number;
+  alertas: Array<{
+    stockId: string;
+    sedeId: string;
+    sede: string;
+    productoId: string;
+    producto: string;
+    varianteId: string;
+    variante: string;
+    stockActual: number;
+    stockMinimo: number;
+    deficit: number;
+  }>;
+};
+
+type InventarioRotacion = {
+  mayorRotacion: Array<{
+    productoId: string;
+    producto: string;
+    cantidadVendida: number;
+    stockPromedio: number;
+    rotacion: number;
+  }>;
+};
+
+type ClientesNuevos = {
+  total: number;
+  clientes: Array<{ clienteId: string; nombre: string; documento: string; fechaRegistro: string }>;
+};
+
+type ClientesFrecuentes = {
+  top: Array<{
+    posicion: number;
+    clienteId: string;
+    cliente: string;
+    documento: string;
+    compras: number;
+    montoTotal: number;
+    ultimaCompra: string;
+  }>;
+};
+
+type ClientesRetencion = {
+  retenidos: number;
+  totalMesAnterior: number;
+  totalMesActual: number;
+  tasaRetencion: number;
+};
 
 const cop = new Intl.NumberFormat('es-CO', {
   style: 'currency',
@@ -46,26 +143,27 @@ const defaultRange = () => {
   return { start: toISODate(start), end: toISODate(end) };
 };
 
+const isUuidV4 = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-surface-container ${className ?? ''}`} />;
 }
 
-function StatCard({
-  label, value, delta, deltaLabel, accent,
-}: {
-  label: string; value: string; delta?: string; deltaLabel?: string; accent: string;
-}) {
-  const DeltaIcon = delta?.startsWith('+') ? TrendingUp : delta === '0' ? Minus : TrendingDown;
+function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="bg-surface-container-low p-6 rounded-2xl border-l-4" style={{ borderColor: accent }}>
-      <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-2xl font-black text-on-secondary-fixed">{value}</p>
-      {delta && (
-        <p className="text-xs font-bold mt-2 flex items-center gap-1" style={{ color: accent }}>
-          <DeltaIcon size={16} />
-          {deltaLabel}
-        </p>
-      )}
+    <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 text-center">
+      <p className="text-sm font-bold text-on-surface">{title}</p>
+      <p className="mt-1 text-xs text-secondary">{subtitle}</p>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-surface-container-low p-5 border-l-4 border-primary">
+      <p className="text-xs uppercase tracking-widest text-secondary font-bold">{label}</p>
+      <p className="mt-1 text-2xl font-black text-on-secondary-fixed">{value}</p>
     </div>
   );
 }
@@ -74,528 +172,629 @@ async function getSedes(): Promise<ISede[]> {
   const { data } = await api.get('/sedes');
   return data;
 }
-async function getVentasPorSede(fechaInicio: string, fechaFin: string): Promise<IVentasPorSede[]> {
-  const { data } = await api.get('/reportes/ventas-sede', { params: { fechaInicio, fechaFin } });
-  return data;
-}
-async function getProductosMasVendidos(sedeId: string, fechaInicio: string, fechaFin: string, limit: number): Promise<IProductoMasVendido[]> {
-  const { data } = await api.get('/reportes/productos-mas-vendidos', { params: { sedeId, fechaInicio, fechaFin, limit } });
-  return data;
-}
-async function getMargenPorProducto(sedeId: string, fechaInicio: string, fechaFin: string): Promise<IMargenProducto[]> {
-  const { data } = await api.get('/reportes/margen', { params: { sedeId, fechaInicio, fechaFin } });
-  return data;
-}
-async function getStockPorSede(sedeId: string): Promise<IStockReporte[]> {
-  const { data } = await api.get('/reportes/stock', { params: { sedeId } });
-  return data;
-}
-async function getClientesFrecuentes(sedeId: string, fechaInicio: string, fechaFin: string, limit: number): Promise<IClienteFrecuente[]> {
-  const { data } = await api.get('/reportes/clientes-frecuentes', { params: { sedeId, fechaInicio, fechaFin, limit } });
-  return data;
-}
-async function getCierreCaja(sedeId: string, fecha: string): Promise<IResumenCierreCaja | null> {
-  const { data } = await api.get('/reportes/cierre-caja', { params: { sedeId, fecha } });
-  return data;
-}
 
 export default function ReportesPage() {
   const usuario = useAuthStore((s) => s.usuario);
   const range = useMemo(() => defaultRange(), []);
 
-  const [activeTab, setActiveTab] = useState<ReportTab>('ventas-periodo');
-  const [fechaInicio, setFechaInicio] = useState(range.start);
-  const [fechaFin, setFechaFin] = useState(range.end);
-  const [fechaCaja, setFechaCaja] = useState(range.end);
-  const [limit, setLimit] = useState(10);
-  const [soloBajoMinimo, setSoloBajoMinimo] = useState(false);
+  const [activeTab, setActiveTab] = useState<ReportTab>('dashboard');
+  const [fechaDesde, setFechaDesde] = useState(range.start);
+  const [fechaHasta, setFechaHasta] = useState(range.end);
+  const [top, setTop] = useState(10);
   const [selectedSedeId, setSelectedSedeId] = useState(usuario?.sedeId ?? '');
 
   const sedesQuery = useQuery({
     queryKey: ['reportes', 'sedes', usuario?.rol],
     queryFn: getSedes,
     enabled: usuario?.rol === Rol.ADMIN,
-    refetchInterval: 60000,
   });
 
   const sedesDisponibles = useMemo(() => {
     if (!usuario) return [] as { id: string; nombre: string }[];
-    if (usuario.rol === Rol.ADMIN) return (sedesQuery.data ?? []).map((s) => ({ id: s.id, nombre: s.nombre }));
+    if (usuario.rol === Rol.ADMIN) {
+      return (sedesQuery.data ?? []).map((s) => ({ id: s.id, nombre: s.nombre }));
+    }
     return usuario.sedeId ? [{ id: usuario.sedeId, nombre: 'Mi sede' }] : [];
   }, [sedesQuery.data, usuario]);
 
-  const effectiveSedeId = selectedSedeId || usuario?.sedeId || sedesDisponibles[0]?.id || '';
+  const effectiveSedeId = usuario?.rol === Rol.ADMIN ? selectedSedeId : (usuario?.sedeId ?? '');
+  const apiSedeId = isUuidV4(effectiveSedeId) ? effectiveSedeId : undefined;
 
-  const ventasSedeQuery = useQuery({
-    queryKey: ['reportes', 'ventas-sede', fechaInicio, fechaFin],
-    queryFn: () => getVentasPorSede(fechaInicio, fechaFin),
-    refetchInterval: 60000,
+  const baseParams = useMemo(
+    () => ({
+      fechaDesde,
+      fechaHasta,
+      ...(apiSedeId ? { sedeId: apiSedeId } : {}),
+    }),
+    [apiSedeId, fechaDesde, fechaHasta],
+  );
+
+  const ventasResumenQuery = useQuery({
+    queryKey: ['reportes', 'ventas-resumen', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<VentasResumen>('/reportes/ventas/resumen', {
+        params: baseParams,
+      });
+      return data;
+    },
   });
+
+  const ventasPorDiaQuery = useQuery({
+    queryKey: ['reportes', 'ventas-por-dia', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<VentasPorDia>('/reportes/ventas/por-dia', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
+
+  const ventasPorCategoriaQuery = useQuery({
+    queryKey: ['reportes', 'ventas-por-categoria', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<VentasPorCategoria>('/reportes/ventas/por-categoria', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
+
   const productosMasVendidosQuery = useQuery({
-    queryKey: ['reportes', 'productos-mas-vendidos', effectiveSedeId, fechaInicio, fechaFin, limit],
-    queryFn: () => getProductosMasVendidos(effectiveSedeId, fechaInicio, fechaFin, limit),
-    enabled: Boolean(effectiveSedeId),
-    refetchInterval: 60000,
-  });
-  const margenesQuery = useQuery({
-    queryKey: ['reportes', 'margen', effectiveSedeId, fechaInicio, fechaFin],
-    queryFn: () => getMargenPorProducto(effectiveSedeId, fechaInicio, fechaFin),
-    enabled: Boolean(effectiveSedeId),
-    refetchInterval: 60000,
-  });
-  const stockQuery = useQuery({
-    queryKey: ['reportes', 'stock', effectiveSedeId],
-    queryFn: () => getStockPorSede(effectiveSedeId),
-    enabled: Boolean(effectiveSedeId),
-    refetchInterval: 60000,
-  });
-  const clientesQuery = useQuery({
-    queryKey: ['reportes', 'clientes-frecuentes', effectiveSedeId, fechaInicio, fechaFin],
-    queryFn: () => getClientesFrecuentes(effectiveSedeId, fechaInicio, fechaFin, 10),
-    enabled: Boolean(effectiveSedeId),
-    refetchInterval: 60000,
-  });
-  const cierreCajaQuery = useQuery({
-    queryKey: ['reportes', 'cierre-caja', effectiveSedeId, fechaCaja],
-    queryFn: () => getCierreCaja(effectiveSedeId, fechaCaja),
-    enabled: Boolean(effectiveSedeId),
-    refetchInterval: 60000,
+    queryKey: ['reportes', 'productos-mas-vendidos', baseParams, top],
+    queryFn: async () => {
+      const { data } = await api.get<ProductosMasVendidos>(
+        '/reportes/ventas/productos-mas-vendidos',
+        {
+          params: { ...baseParams, top },
+        },
+      );
+      return data;
+    },
   });
 
-  const ventasSedeFiltradas = useMemo(() => {
-    if (usuario?.rol === Rol.ADMIN)
-      return (ventasSedeQuery.data ?? []).filter((i) => !selectedSedeId || i.sedeId === selectedSedeId);
-    return (ventasSedeQuery.data ?? []).filter((i) => i.sedeId === effectiveSedeId);
-  }, [effectiveSedeId, selectedSedeId, usuario?.rol, ventasSedeQuery.data]);
+  const inventarioValorizadoQuery = useQuery({
+    queryKey: ['reportes', 'inventario-valorizado', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<InventarioValorizado>('/reportes/inventario/valorizado', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
 
-  const productosConMargen = useMemo(() => {
-    const margenMap = new Map((margenesQuery.data ?? []).map((i) => [i.productoId, i.margenPorcentaje]));
-    return (productosMasVendidosQuery.data ?? []).map((i) => ({ ...i, margenPorcentaje: margenMap.get(i.productoId) ?? 0 }));
-  }, [productosMasVendidosQuery.data, margenesQuery.data]);
+  const inventarioAlertasQuery = useQuery({
+    queryKey: ['reportes', 'inventario-alertas', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<InventarioAlertas>('/reportes/inventario/alertas', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
 
-  const stockFiltrado = useMemo(() => {
-    const base = stockQuery.data ?? [];
-    return soloBajoMinimo ? base.filter((i) => i.cantidad <= i.stockMinimo) : base;
-  }, [soloBajoMinimo, stockQuery.data]);
+  const inventarioRotacionQuery = useQuery({
+    queryKey: ['reportes', 'inventario-rotacion', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<InventarioRotacion>('/reportes/inventario/rotacion', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
 
-  const kpis = useMemo(() => {
-    const all = ventasSedeQuery.data ?? [];
-    const totalVentas = all.reduce((a, i) => a + Number(i.totalVentas), 0);
-    const totalTx = all.reduce((a, i) => a + Number(i.cantidadTransacciones), 0);
-    const ticketProm = totalTx > 0 ? totalVentas / totalTx : 0;
-    const margenProm = margenesQuery.data?.length
-      ? margenesQuery.data.reduce((a, i) => a + i.margenPorcentaje, 0) / margenesQuery.data.length
-      : 0;
-    return { totalVentas, totalTx, ticketProm, margenProm };
-  }, [ventasSedeQuery.data, margenesQuery.data]);
+  const clientesNuevosQuery = useQuery({
+    queryKey: ['reportes', 'clientes-nuevos', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<ClientesNuevos>('/reportes/clientes/nuevos', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
 
-  const maxVenta = Math.max(...ventasSedeFiltradas.map((s) => Number(s.totalVentas)), 1);
+  const clientesFrecuentesQuery = useQuery({
+    queryKey: ['reportes', 'clientes-frecuentes', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<ClientesFrecuentes>('/reportes/clientes/frecuentes', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
 
-  const exportarStockCSV = () => {
-    const headers = ['Producto', 'Variante', 'SedeId', 'StockActual', 'StockMinimo', 'Alerta'];
-    const rows = stockFiltrado.map((i) => [i.nombreProducto, i.nombreVariante, i.sedeId, String(i.cantidad), String(i.stockMinimo), i.alerta ? 'SI' : 'NO']);
-    const content = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const clientesRetencionQuery = useQuery({
+    queryKey: ['reportes', 'clientes-retencion', baseParams],
+    queryFn: async () => {
+      const { data } = await api.get<ClientesRetencion>('/reportes/clientes/retencion', {
+        params: baseParams,
+      });
+      return data;
+    },
+  });
+
+  const exportarAlertasCSV = () => {
+    const rows = inventarioAlertasQuery.data?.alertas ?? [];
+    const headers = ['Sede', 'Producto', 'Variante', 'StockActual', 'StockMinimo', 'Deficit'];
+    const dataRows = rows.map((row) => [
+      row.sede,
+      row.producto,
+      row.variante,
+      String(row.stockActual),
+      String(row.stockMinimo),
+      String(row.deficit),
+    ]);
+    const content = [headers, ...dataRows]
+      .map((line) => line.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `stock-reporte-${effectiveSedeId || 'general'}.csv`;
+    link.download = `alertas-inventario-${toISODate(new Date())}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
 
-  const nivelCliente = (compras: number) => {
-    if (compras < 5) return { label: 'BRONCE', bg: '#fff8e1', color: '#e65100' };
-    if (compras <= 15) return { label: 'PLATA', bg: '#f5f5f5', color: '#546e7a' };
-    return { label: 'ORO', bg: '#fffde7', color: '#f9a825' };
-  };
-
-  const tabs: { id: ReportTab; label: string; Icon: React.ElementType }[] = [
-    { id: 'ventas-periodo', label: 'Ventas por período', Icon: TrendingUp },
-    { id: 'productos-vendidos', label: 'Productos más vendidos', Icon: AwardIcon },
-    { id: 'inventario-stock', label: 'Inventario', Icon: Package },
-    { id: 'clientes-frecuentes', label: 'Clientes frecuentes', Icon: Users },
-    { id: 'cierre-caja', label: 'Cierre de caja', Icon: Banknote },
+  const tabs: Array<{ id: ReportTab; label: string; Icon: React.ElementType }> = [
+    { id: 'dashboard', label: 'Dashboard', Icon: Gauge },
+    { id: 'ventas', label: 'Ventas', Icon: BarChart3 },
+    { id: 'inventario', label: 'Inventario', Icon: Package },
+    { id: 'clientes', label: 'Clientes', Icon: Users },
   ];
+
+  const dashboardData = useMemo(
+    () => ({
+      ventasHoyMonto: ventasResumenQuery.data?.montoTotal ?? 0,
+      ventasSemanaMonto: (ventasPorDiaQuery.data?.serie ?? []).reduce(
+        (acc, item) => acc + item.montoTotal,
+        0,
+      ),
+      ventasMesMonto: ventasResumenQuery.data?.montoTotal ?? 0,
+      alertasStock: inventarioAlertasQuery.data?.total ?? 0,
+      topProductos: (productosMasVendidosQuery.data?.porCantidad ?? []).slice(0, 5),
+    }),
+    [
+      inventarioAlertasQuery.data?.total,
+      productosMasVendidosQuery.data?.porCantidad,
+      ventasPorDiaQuery.data?.serie,
+      ventasResumenQuery.data?.montoTotal,
+    ],
+  );
 
   return (
     <AppLayout>
       <div className="space-y-8">
-        {/* ── Header ── */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h1 className="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">Reportes</h1>
-            <p className="text-secondary font-medium mt-1">Análisis detallado de rendimiento y gestión</p>
+            <h1 className="text-3xl font-extrabold tracking-tight text-on-secondary-fixed">
+              Reportes
+            </h1>
+            <p className="mt-1 text-secondary">
+              Conectado a los endpoints actuales de analitica del backend.
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center bg-surface-container-lowest border border-outline-variant/30 px-4 py-2.5 rounded-xl shadow-sm gap-2">
-              <Calendar size={20} className="text-secondary" />
-              <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0 w-32" />
-              <span className="text-secondary text-sm">—</span>
-              <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)}
-                className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0 w-32" />
+            <div className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2">
+              <Calendar size={18} className="text-secondary" />
+              <input
+                type="date"
+                value={fechaDesde}
+                onChange={(e) => setFechaDesde(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-on-surface"
+              />
+              <span className="text-xs text-secondary">a</span>
+              <input
+                type="date"
+                value={fechaHasta}
+                onChange={(e) => setFechaHasta(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-on-surface"
+              />
             </div>
-            <select value={effectiveSedeId} onChange={(e) => setSelectedSedeId(e.target.value)}
+            <select
+              value={effectiveSedeId}
+              onChange={(e) => setSelectedSedeId(e.target.value)}
               disabled={usuario?.rol !== Rol.ADMIN}
-              className="bg-surface-container-lowest border border-outline-variant/30 px-4 py-2.5 rounded-xl shadow-sm text-sm font-semibold text-on-surface focus:border-primary focus:ring-0 min-w-[160px]">
+              className="min-w-[180px] rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2 text-sm font-semibold text-on-surface"
+            >
               <option value="">Todas las sedes</option>
-              {sedesDisponibles.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+              {sedesDisponibles.map((sede) => (
+                <option key={sede.id} value={sede.id}>
+                  {sede.nombre}
+                </option>
+              ))}
             </select>
-            <button onClick={exportarStockCSV}
-              className="flex items-center gap-2 px-5 py-2.5 border-2 border-on-secondary-fixed text-on-secondary-fixed font-bold rounded-xl hover:bg-on-secondary-fixed hover:text-white transition-all">
-              <Download size={18} />
-              Exportar CSV
-            </button>
           </div>
         </header>
 
-        {/* ── Tabs ── */}
-        <nav className="flex border-b border-outline-variant/20 overflow-x-auto whitespace-nowrap">
+        <nav className="flex overflow-x-auto whitespace-nowrap border-b border-outline-variant/20">
           {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-4 text-sm font-bold flex items-center gap-2 border-b-4 transition-all duration-200 ${
-                activeTab === tab.id ? 'text-primary border-primary' : 'text-secondary border-transparent hover:text-primary'
-              }`}>
-              <tab.Icon size={18} />
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 border-b-4 px-5 py-3 text-sm font-bold ${
+                activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-secondary hover:text-primary'
+              }`}
+            >
+              <tab.Icon size={17} />
               {tab.label}
             </button>
           ))}
         </nav>
 
-        {/* ── KPI summary cards ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard label="Ventas Totales" value={cop.format(kpis.totalVentas)} delta="+" deltaLabel="Período seleccionado" accent="#85264b" />
-          <StatCard label="Tickets Generados" value={kpis.totalTx.toLocaleString('es-CO')} delta="+" deltaLabel="Período seleccionado" accent="#733266" />
-          <StatCard label="Ticket Promedio" value={cop.format(kpis.ticketProm)} delta="0" deltaLabel="Estable" accent="#735946" />
-          <StatCard label="Margen Neto Prom." value={`${kpis.margenProm.toFixed(1)}%`} delta="+" deltaLabel="Eficiencia" accent="#85264b" />
-        </div>
-
-        {/* ══ TAB: Ventas por período ══ */}
-        {activeTab === 'ventas-periodo' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <section className="lg:col-span-2 space-y-8">
-              <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-sm">
-                <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-xl font-bold text-on-secondary-fixed">Ventas por Sede</h3>
-                  <span className="flex items-center gap-1 text-xs font-bold text-secondary">
-                    <span className="w-3 h-3 bg-primary rounded-full inline-block" /> Ventas Totales
-                  </span>
+        {activeTab === 'dashboard' && (
+          <section className="space-y-6">
+            {ventasResumenQuery.isLoading ||
+            ventasPorDiaQuery.isLoading ||
+            inventarioAlertasQuery.isLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+                  <StatCard label="Ventas hoy" value={cop.format(dashboardData.ventasHoyMonto)} />
+                  <StatCard
+                    label="Ventas semana"
+                    value={cop.format(dashboardData.ventasSemanaMonto)}
+                  />
+                  <StatCard label="Ventas mes" value={cop.format(dashboardData.ventasMesMonto)} />
+                  <StatCard label="Alertas stock" value={dashboardData.alertasStock.toString()} />
+                  <StatCard label="Caja abierta" value="N/D" />
                 </div>
-                {ventasSedeQuery.isLoading ? (
-                  <div className="space-y-6">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-                ) : (
-                  <>
-                    <div className="h-60 w-full mb-8">
-                      <ResponsiveContainer>
-                        <BarChart data={ventasSedeFiltradas} margin={{ top: 4, right: 8, left: 16, bottom: 4 }}>
+                <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+                  <h3 className="mb-4 text-lg font-bold text-on-secondary-fixed">
+                    Top productos del dia
+                  </h3>
+                  {dashboardData.topProductos.length === 0 ? (
+                    <EmptyState
+                      title="Sin ventas para hoy"
+                      subtitle="No hay datos para mostrar en el ranking diario."
+                    />
+                  ) : (
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={dashboardData.topProductos}
+                          margin={{ top: 8, right: 12, left: 12, bottom: 0 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" stroke="#dac0c5" />
-                          <XAxis dataKey="nombreSede" tick={{ fontSize: 12, fill: '#735946' }} />
-                          <YAxis tickFormatter={(v) => `${(Number(v) / 1e6).toFixed(0)}M`} tick={{ fontSize: 11, fill: '#877176' }} />
-                          <Tooltip formatter={(v) => cop.format(Number(v))} cursor={{ fill: '#ffd9e1' }} />
-                          <Bar dataKey="totalVentas" fill="#85264b" radius={[6, 6, 0, 0]} />
+                          <XAxis dataKey="nombre" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(value) => [value, 'Unidades']} />
+                          <Bar dataKey="cantidadVendida" fill="#85264b" radius={[6, 6, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="space-y-6">
-                      {ventasSedeFiltradas.map((sede) => (
-                        <div key={sede.sedeId} className="space-y-2">
-                          <div className="flex justify-between text-sm font-bold text-on-surface">
-                            <span>{sede.nombreSede}</span>
-                            <span>{cop.format(Number(sede.totalVentas))}</span>
-                          </div>
-                          <div className="h-5 w-full bg-surface-container rounded-full overflow-hidden">
-                            <div className="h-full bg-primary rounded-full transition-all duration-500"
-                              style={{ width: `${(Number(sede.totalVentas) / maxVenta) * 100}%` }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
-                      <th className="px-6 py-4">Sede</th>
-                      <th className="px-6 py-4 text-right">Total Ventas</th>
-                      <th className="px-6 py-4 text-right">Transacciones</th>
-                      <th className="px-6 py-4 text-right">Ticket Prom.</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {ventasSedeFiltradas.map((item, i) => {
-                      const ticketProm = item.cantidadTransacciones > 0 ? Number(item.totalVentas) / Number(item.cantidadTransacciones) : 0;
-                      return (
-                        <tr key={item.sedeId} className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
-                          <td className="px-6 py-5 font-bold text-on-surface">{item.nombreSede}</td>
-                          <td className="px-6 py-5 text-right font-medium">{cop.format(Number(item.totalVentas))}</td>
-                          <td className="px-6 py-5 text-right">{item.cantidadTransacciones.toLocaleString('es-CO')}</td>
-                          <td className="px-6 py-5 text-right">{cop.format(ticketProm)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-
-            <section>
-              <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-sm">
-                <h3 className="text-xl font-bold text-on-secondary-fixed mb-6 flex items-center gap-2">
-                  <Award size={22} className="text-primary" />
-                  Productos más vendidos
-                </h3>
-                {productosMasVendidosQuery.isLoading ? (
-                  <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
-                ) : (
-                  <div className="space-y-3">
-                    {productosConMargen.slice(0, 5).map((item, index) => (
-                      <div key={item.productoId}
-                        className={`p-4 rounded-xl border flex items-center gap-4 ${index < 3 ? 'bg-tertiary-fixed/30 border-outline-variant/30' : 'bg-surface-container'}`}>
-                        <div className={`w-8 h-8 flex items-center justify-center font-bold rounded-lg text-sm ${index < 3 ? 'bg-tertiary text-white' : 'bg-outline-variant text-on-surface-variant'}`}>
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-on-surface truncate">{item.nombre}</p>
-                          <div className="flex justify-between mt-1">
-                            <span className="text-xs text-secondary font-medium">{item.totalUnidades} uds</span>
-                            <span className={`text-xs font-bold ${index < 3 ? 'text-tertiary' : 'text-on-surface-variant'}`}>{item.margenPorcentaje.toFixed(0)}% Mar.</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* ══ TAB: Productos más vendidos ══ */}
-        {activeTab === 'productos-vendidos' && (
-          <section className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-on-secondary-fixed">Productos más vendidos</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-secondary">Mostrar</span>
-                <input type="number" min={1} max={30} value={limit}
-                  onChange={(e) => setLimit(Math.max(1, Number(e.target.value) || 10))}
-                  className="w-20 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm text-center font-bold bg-surface-container-lowest" />
-              </div>
-            </div>
-            {productosMasVendidosQuery.isLoading || margenesQuery.isLoading ? (
-              <Skeleton className="h-72 w-full" />
-            ) : (
-              <>
-                <div className="bg-surface-container-lowest rounded-2xl p-6 shadow-sm">
-                  <div className="h-72">
-                    <ResponsiveContainer>
-                      <BarChart layout="vertical" data={productosConMargen.slice(0, 10)} margin={{ left: 24, right: 24 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#dac0c5" />
-                        <XAxis type="number" tick={{ fontSize: 11, fill: '#877176' }} />
-                        <YAxis type="category" dataKey="nombre" width={180} tick={{ fontSize: 11, fill: '#2a1709' }} />
-                        <Tooltip />
-                        <Bar dataKey="totalUnidades" fill="#a43e63" radius={[0, 6, 6, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
-                        <th className="px-6 py-4">#</th>
-                        <th className="px-6 py-4">Producto</th>
-                        <th className="px-6 py-4 text-right">Unidades</th>
-                        <th className="px-6 py-4 text-right">Revenue</th>
-                        <th className="px-6 py-4 text-right">Margen %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {productosConMargen.map((item, index) => (
-                        <tr key={item.productoId} className={`border-b border-outline-variant/5 ${index % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
-                          <td className="px-6 py-4 font-black text-secondary">{index + 1}</td>
-                          <td className="px-6 py-4 font-bold text-on-surface">{item.nombre}</td>
-                          <td className="px-6 py-4 text-right">{item.totalUnidades}</td>
-                          <td className="px-6 py-4 text-right font-medium">{cop.format(item.totalRevenue)}</td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="font-bold" style={{ color: item.margenPorcentaje >= 20 ? '#2e7d32' : item.margenPorcentaje >= 10 ? '#e65100' : '#ba1a1a' }}>
-                              {item.margenPorcentaje.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  )}
                 </div>
               </>
             )}
           </section>
         )}
 
-        {/* ══ TAB: Inventario ══ */}
-        {activeTab === 'inventario-stock' && (
+        {activeTab === 'ventas' && (
           <section className="space-y-6">
-            <div className="flex flex-wrap justify-between items-center gap-3">
-              <h2 className="text-xl font-bold text-on-secondary-fixed">Inventario y existencias</h2>
-              <div className="flex gap-3">
-                <button onClick={() => setSoloBajoMinimo((p) => !p)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border-2 ${soloBajoMinimo ? 'bg-error/10 border-error text-error' : 'border-outline-variant/30 text-secondary'}`}>
-                  <AlertTriangle size={18} />
-                  {soloBajoMinimo ? 'Mostrando alertas' : 'Ver solo bajo mínimo'}
-                </button>
-                <button onClick={exportarStockCSV}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-all"
-                  style={{ backgroundColor: '#85264b' }}>
-                  <Download size={18} />
-                  Exportar CSV
-                </button>
-              </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
+              <StatCard
+                label="Transacciones"
+                value={(ventasResumenQuery.data?.totalVentas ?? 0).toLocaleString('es-CO')}
+              />
+              <StatCard
+                label="Monto total"
+                value={cop.format(ventasResumenQuery.data?.montoTotal ?? 0)}
+              />
+              <StatCard
+                label="Ticket promedio"
+                value={cop.format(ventasResumenQuery.data?.ticketPromedio ?? 0)}
+              />
+              <StatCard
+                label="Comparativa"
+                value={`${(ventasResumenQuery.data?.comparativaPeriodoAnteriorPct ?? 0).toFixed(2)}%`}
+              />
             </div>
-            {!stockQuery.isLoading && (
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-surface-container-low p-4 rounded-2xl border-l-4 border-primary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total productos</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{stockQuery.data?.length ?? 0}</p>
-                </div>
-                <div className="bg-error-container/40 p-4 rounded-2xl border-l-4 border-error">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Alertas de stock</p>
-                  <p className="text-2xl font-black text-error">{stockQuery.data?.filter((i) => i.alerta).length ?? 0}</p>
-                </div>
-                <div className="bg-surface-container-low p-4 rounded-2xl border-l-4" style={{ borderColor: '#2e7d32' }}>
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Sin alerta</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{stockQuery.data?.filter((i) => !i.alerta).length ?? 0}</p>
-                </div>
-              </div>
-            )}
-            <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
-              {stockQuery.isLoading ? (
-                <div className="p-6 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
-              ) : (
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
-                      <th className="px-6 py-4">Producto</th>
-                      <th className="px-6 py-4">Variante</th>
-                      <th className="px-6 py-4 text-right">Existencias</th>
-                      <th className="px-6 py-4 text-right">Mínimo</th>
-                      <th className="px-6 py-4 text-center">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {stockFiltrado.map((item, i) => (
-                      <tr key={`${item.sedeId}-${item.varianteId}`}
-                        className={`border-b border-outline-variant/5 ${i % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
-                        <td className="px-6 py-4 font-bold text-on-surface">{item.nombreProducto}</td>
-                        <td className="px-6 py-4 text-secondary">{item.nombreVariante}</td>
-                        <td className={`px-6 py-4 text-right font-black ${item.alerta ? 'text-error' : 'text-on-surface'}`}>{item.cantidad}</td>
-                        <td className="px-6 py-4 text-right text-secondary">{item.stockMinimo}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="px-3 py-1 rounded-full text-xs font-bold"
-                            style={item.alerta ? { backgroundColor: '#ffdad6', color: '#ba1a1a' } : { backgroundColor: '#e8f5e9', color: '#2e7d32' }}>
-                            {item.alerta ? '⚠ Alerta' : '✓ OK'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </section>
-        )}
 
-        {/* ══ TAB: Clientes frecuentes ══ */}
-        {activeTab === 'clientes-frecuentes' && (
-          <section className="space-y-6">
-            <h2 className="text-xl font-bold text-on-secondary-fixed">Clientes Frecuentes</h2>
-            <div className="overflow-hidden rounded-2xl shadow-sm border border-outline-variant/10">
-              {clientesQuery.isLoading ? (
-                <div className="p-6 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
-              ) : (
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-surface-container-highest text-on-surface-variant font-bold text-xs uppercase tracking-widest">
-                      <th className="px-6 py-4">#</th>
-                      <th className="px-6 py-4">Nombre</th>
-                      <th className="px-6 py-4">Documento</th>
-                      <th className="px-6 py-4 text-right">Compras</th>
-                      <th className="px-6 py-4 text-right">Total gastado</th>
-                      <th className="px-6 py-4 text-right">Puntos</th>
-                      <th className="px-6 py-4 text-center">Nivel</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm">
-                    {(clientesQuery.data ?? []).map((item, index) => {
-                      const nivel = nivelCliente(item.totalCompras);
-                      return (
-                        <tr key={item.clienteId} className={`border-b border-outline-variant/5 ${index % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low'}`}>
-                          <td className="px-6 py-4 font-black text-secondary">{index + 1}</td>
-                          <td className="px-6 py-4 font-bold text-on-surface">{item.nombre}</td>
-                          <td className="px-6 py-4 text-secondary">{item.documento}</td>
-                          <td className="px-6 py-4 text-right">{item.totalCompras}</td>
-                          <td className="px-6 py-4 text-right font-medium">{cop.format(item.totalGastado)}</td>
-                          <td className="px-6 py-4 text-right font-bold text-primary">{item.puntosAcumulados}</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="px-3 py-1 rounded-full text-xs font-black" style={{ backgroundColor: nivel.bg, color: nivel.color }}>
-                              {nivel.label}
-                            </span>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+                <h3 className="mb-4 text-lg font-bold text-on-secondary-fixed">Ventas por dia</h3>
+                {ventasPorDiaQuery.isLoading ? (
+                  <Skeleton className="h-72 w-full" />
+                ) : (ventasPorDiaQuery.data?.serie.length ?? 0) > 0 ? (
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={ventasPorDiaQuery.data?.serie}
+                        margin={{ top: 8, right: 8, left: 8, bottom: 0 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#dac0c5" />
+                        <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                        <YAxis
+                          tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <Tooltip formatter={(value) => cop.format(Number(value))} />
+                        <Line
+                          type="monotone"
+                          dataKey="montoTotal"
+                          stroke="#85264b"
+                          strokeWidth={2.5}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="Sin datos de ventas"
+                    subtitle="No hay registros en el rango seleccionado."
+                  />
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+                <h3 className="mb-4 text-lg font-bold text-on-secondary-fixed">
+                  Participacion por categoria
+                </h3>
+                {ventasPorCategoriaQuery.isLoading ? (
+                  <Skeleton className="h-72 w-full" />
+                ) : (ventasPorCategoriaQuery.data?.categorias.length ?? 0) > 0 ? (
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={ventasPorCategoriaQuery.data?.categorias}
+                          dataKey="montoTotal"
+                          nameKey="categoria"
+                          outerRadius={100}
+                          fill="#a43e63"
+                        />
+                        <Tooltip formatter={(value) => cop.format(Number(value))} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="Sin categorias con ventas"
+                    subtitle="No hubo ventas por categoria para este filtro."
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-on-secondary-fixed">
+                  Productos mas vendidos
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-secondary">Top</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={top}
+                    onChange={(e) =>
+                      setTop(Math.max(1, Math.min(100, Number(e.target.value) || 10)))
+                    }
+                    className="w-20 rounded-lg border border-outline-variant/30 bg-surface-container px-2 py-1 text-center text-sm"
+                  />
+                </div>
+              </div>
+              {productosMasVendidosQuery.isLoading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (productosMasVendidosQuery.data?.porCantidad.length ?? 0) > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-outline-variant/10">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="bg-surface-container-highest text-xs uppercase tracking-widest text-on-surface-variant">
+                        <th className="px-4 py-3">#</th>
+                        <th className="px-4 py-3">Producto</th>
+                        <th className="px-4 py-3 text-right">Cantidad</th>
+                        <th className="px-4 py-3 text-right">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productosMasVendidosQuery.data?.porCantidad.map((item) => (
+                        <tr key={item.productoId} className="border-t border-outline-variant/10">
+                          <td className="px-4 py-3 font-bold text-secondary">{item.posicion}</td>
+                          <td className="px-4 py-3 font-semibold text-on-surface">{item.nombre}</td>
+                          <td className="px-4 py-3 text-right">{item.cantidadVendida}</td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {cop.format(item.montoTotal)}
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState
+                  title="Sin ranking de productos"
+                  subtitle="Todavia no hay productos para el rango seleccionado."
+                />
               )}
             </div>
           </section>
         )}
 
-        {/* ══ TAB: Cierre de caja ══ */}
-        {activeTab === 'cierre-caja' && (
+        {activeTab === 'inventario' && (
           <section className="space-y-6">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-bold text-on-secondary-fixed">Cierre de Caja</h2>
-              <div className="flex items-center bg-surface-container-lowest border border-outline-variant/30 px-4 py-2 rounded-xl gap-2">
-                <Calendar size={18} className="text-secondary" />
-                <input type="date" value={fechaCaja} onChange={(e) => setFechaCaja(e.target.value)}
-                  className="bg-transparent border-none focus:ring-0 text-sm font-semibold text-on-surface p-0" />
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-on-secondary-fixed">Inventario</h2>
+              <button
+                onClick={exportarAlertasCSV}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white"
+              >
+                <Download size={16} />
+                Exportar alertas
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-on-secondary-fixed">
+                  <Store size={18} /> Valorizado por sede/categoria
+                </h3>
+                {inventarioValorizadoQuery.isLoading ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : (inventarioValorizadoQuery.data?.items.length ?? 0) > 0 ? (
+                  <div className="max-h-80 overflow-auto rounded-xl border border-outline-variant/10">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="bg-surface-container-highest text-xs uppercase tracking-widest text-on-surface-variant">
+                          <th className="px-4 py-3">Sede</th>
+                          <th className="px-4 py-3">Categoria</th>
+                          <th className="px-4 py-3 text-right">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inventarioValorizadoQuery.data?.items.map((item, idx) => (
+                          <tr
+                            key={`${item.sedeId}-${item.categoriaId ?? 'none'}-${idx}`}
+                            className="border-t border-outline-variant/10"
+                          >
+                            <td className="px-4 py-3 font-semibold">{item.sede || 'N/A'}</td>
+                            <td className="px-4 py-3">{item.categoria}</td>
+                            <td className="px-4 py-3 text-right font-semibold">
+                              {cop.format(item.valorInventario)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="Sin datos de inventario"
+                    subtitle="No hay registros de stock para los filtros actuales."
+                  />
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-on-secondary-fixed">
+                  <AlertTriangle size={18} /> Alertas de stock
+                </h3>
+                {inventarioAlertasQuery.isLoading ? (
+                  <Skeleton className="h-64 w-full" />
+                ) : (inventarioAlertasQuery.data?.alertas.length ?? 0) > 0 ? (
+                  <div className="max-h-80 overflow-auto rounded-xl border border-outline-variant/10">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="bg-surface-container-highest text-xs uppercase tracking-widest text-on-surface-variant">
+                          <th className="px-4 py-3">Producto</th>
+                          <th className="px-4 py-3 text-right">Actual</th>
+                          <th className="px-4 py-3 text-right">Minimo</th>
+                          <th className="px-4 py-3 text-right">Deficit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inventarioAlertasQuery.data?.alertas.map((item) => (
+                          <tr key={item.stockId} className="border-t border-outline-variant/10">
+                            <td className="px-4 py-3 font-semibold">{item.producto}</td>
+                            <td className="px-4 py-3 text-right">{item.stockActual}</td>
+                            <td className="px-4 py-3 text-right">{item.stockMinimo}</td>
+                            <td className="px-4 py-3 text-right font-bold text-error">
+                              {item.deficit}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="Sin alertas"
+                    subtitle="No hay productos por debajo del minimo."
+                  />
+                )}
               </div>
             </div>
-            {cierreCajaQuery.isLoading ? (
-              <Skeleton className="h-48 w-full" />
-            ) : cierreCajaQuery.data ? (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-secondary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Monto Inicial</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cierreCajaQuery.data.montoInicial))}</p>
+
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+              <h3 className="mb-4 text-lg font-bold text-on-secondary-fixed">Mayor rotacion</h3>
+              {inventarioRotacionQuery.isLoading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (inventarioRotacionQuery.data?.mayorRotacion.length ?? 0) > 0 ? (
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={inventarioRotacionQuery.data?.mayorRotacion.slice(0, 10)}
+                      margin={{ top: 8, right: 12, left: 12, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#dac0c5" />
+                      <XAxis dataKey="producto" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value) => [value, 'Rotacion']} />
+                      <Bar dataKey="rotacion" fill="#733266" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-                <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-primary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total Ventas</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cierreCajaQuery.data.totalVentas))}</p>
+              ) : (
+                <EmptyState
+                  title="Sin datos de rotacion"
+                  subtitle="No se pudieron calcular productos con rotacion."
+                />
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'clientes' && (
+          <section className="space-y-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <StatCard
+                label="Clientes nuevos"
+                value={(clientesNuevosQuery.data?.total ?? 0).toString()}
+              />
+              <StatCard
+                label="Frecuentes"
+                value={(clientesFrecuentesQuery.data?.top.length ?? 0).toString()}
+              />
+              <StatCard
+                label="Retencion"
+                value={`${(clientesRetencionQuery.data?.tasaRetencion ?? 0).toFixed(2)}%`}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6">
+              <h3 className="mb-4 text-lg font-bold text-on-secondary-fixed">
+                Clientes frecuentes
+              </h3>
+              {clientesFrecuentesQuery.isLoading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (clientesFrecuentesQuery.data?.top.length ?? 0) > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-outline-variant/10">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="bg-surface-container-highest text-xs uppercase tracking-widest text-on-surface-variant">
+                        <th className="px-4 py-3">#</th>
+                        <th className="px-4 py-3">Cliente</th>
+                        <th className="px-4 py-3 text-right">Compras</th>
+                        <th className="px-4 py-3 text-right">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientesFrecuentesQuery.data?.top.map((item) => (
+                        <tr key={item.clienteId} className="border-t border-outline-variant/10">
+                          <td className="px-4 py-3 font-bold text-secondary">{item.posicion}</td>
+                          <td className="px-4 py-3 font-semibold text-on-surface">
+                            {item.cliente}
+                          </td>
+                          <td className="px-4 py-3 text-right">{item.compras}</td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {cop.format(item.montoTotal)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="bg-surface-container-low p-6 rounded-2xl border-l-4 border-tertiary">
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Total Efectivo</p>
-                  <p className="text-2xl font-black text-on-secondary-fixed">{cop.format(Number(cierreCajaQuery.data.totalEfectivo))}</p>
-                </div>
-                <div className="p-6 rounded-2xl border-l-4"
-                  style={{ borderColor: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a', backgroundColor: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#e8f5e9' : '#ffdad6' }}>
-                  <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-1">Diferencia</p>
-                  <p className="text-2xl font-black" style={{ color: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a' }}>
-                    {cop.format(Number(cierreCajaQuery.data.diferencia))}
-                  </p>
-                  <p className="text-xs font-bold mt-2" style={{ color: Number(cierreCajaQuery.data.diferencia) >= 0 ? '#2e7d32' : '#ba1a1a' }}>
-                    {Number(cierreCajaQuery.data.diferencia) >= 0 ? '✓ Cuadre correcto' : '⚠ Revisar diferencia'}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-outline-variant/10 bg-surface-container-lowest">
-                <Banknote size={48} className="text-outline" />
-                <p className="text-sm font-bold text-secondary">No hay cierre de caja para la fecha seleccionada</p>
-              </div>
-            )}
+              ) : (
+                <EmptyState
+                  title="Sin clientes frecuentes"
+                  subtitle="No hubo compras con cliente asociado en el periodo."
+                />
+              )}
+            </div>
           </section>
         )}
       </div>

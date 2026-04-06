@@ -20,9 +20,11 @@ import {
   ShoppingCart,
   Truck,
   ClipboardList,
+  Handshake,
   Users,
   UserCog,
   Wallet,
+  UserRoundSearch,
 } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -44,6 +46,15 @@ const fullSections: NavSection[] = [
       { label: 'Productos', icon: Package, href: '/productos' },
       { label: 'Inventario', icon: Boxes, href: '/inventario' },
       { label: 'Clientes', icon: Users, href: '/clientes' },
+      { label: 'CRM', icon: Handshake, href: '/crm' },
+      { label: 'Comercial', icon: FileText, href: '/comercial' },
+      { label: 'Finanzas', icon: Wallet, href: '/finanzas' },
+      { label: 'RRHH', icon: UserRoundSearch, href: '/rrhh' },
+      { label: 'Activos', icon: Package, href: '/activos' },
+      { label: 'Proyectos', icon: ClipboardList, href: '/proyectos' },
+      { label: 'Documentos', icon: FileText, href: '/documentos' },
+      { label: 'Inmobiliaria', icon: Building2, href: '/inmobiliaria' },
+      { label: 'Inversionistas', icon: Wallet, href: '/inversionistas' },
       { label: 'Ventas POS', icon: ShoppingCart, href: '/pos' },
       { label: 'Caja', icon: Wallet, href: '/caja' },
       { label: 'Proveedores', icon: Truck, href: '/proveedores' },
@@ -61,6 +72,7 @@ const fullSections: NavSection[] = [
         : []),
       { label: 'Configuración', icon: Settings, href: '/configuraciones' },
       { label: 'Usuarios', icon: UserCog, href: '/usuarios' },
+      { label: 'Superadmin', icon: Settings, href: '/superadmin' },
     ],
   },
 ];

@@ -37,6 +37,7 @@ export class AuthService {
       email: usuario.email,
       rol: usuario.rol,
       sedeId: usuario.sedeId,
+      empresaId: usuario.empresaId,
       permisosExtra: usuario.permisosExtra ?? [],
       permisosRevocados: usuario.permisosRevocados ?? [],
     };

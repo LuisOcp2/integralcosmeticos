@@ -11,6 +11,7 @@ import { Rol, Permiso } from '@cosmeticos/shared-types';
 @Entity('usuarios')
 @Index(['email'], { unique: true })
 @Index(['sedeId'])
+@Index(['empresaId'])
 export class Usuario {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -42,6 +43,9 @@ export class Usuario {
 
   @Column({ name: 'sedeId', nullable: true, type: 'uuid' })
   sedeId: string | null;
+
+  @Column({ name: 'empresaId', nullable: true, type: 'uuid' })
+  empresaId: string | null;
 
   @Column({ default: true })
   activo: boolean;

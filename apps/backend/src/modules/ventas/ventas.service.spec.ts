@@ -54,6 +54,10 @@ describe('VentasService', () => {
     validarPeriodoAbiertoPorFecha: jest.fn().mockResolvedValue(undefined),
   };
 
+  const workflowEngine = {
+    dispararEvento: jest.fn().mockResolvedValue({ workflowsEjecutados: 0 }),
+  };
+
   const dataSource = {
     transaction: jest.fn(),
   };
@@ -81,6 +85,7 @@ describe('VentasService', () => {
               inventarioService as any,
               clientesService as any,
               contabilidadService as any,
+              workflowEngine as any,
               dataSource as any,
             ),
         },

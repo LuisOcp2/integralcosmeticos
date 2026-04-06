@@ -1,10 +1,12 @@
 import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { Permiso } from '@cosmeticos/shared-types';
+import { Permiso, Rol } from '@cosmeticos/shared-types';
 import { Response } from 'express';
 import { Permisos } from '../auth/decorators/permisos.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermisosGuard } from '../auth/guards/permisos.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { ExportarVentasExcelQueryDto } from './dto/exportar-ventas-excel-query.dto';
 import { ProductosMasVendidosQueryDto } from './dto/productos-mas-vendidos-query.dto';
 import { ReportesQueryDto } from './dto/reportes-query.dto';
@@ -86,9 +88,12 @@ export class ReportesController {
   }
 
   @Get('dashboard')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermisosGuard)
+  @Roles(Rol.ADMIN, Rol.SUPERVISOR)
+  @Permisos(Permiso.REPORTES_VER)
   @ApiOperation({ summary: 'Dashboard ejecutivo de KPIs' })
   dashboard(@Query() query: ReportesQueryDto) {
-    return this.reportesService.getDashboard(query);
+    return this.reportesService.getDashboardEjecutivo(query.sedeId);
   }
 
   @Get('ventas/exportar-excel')

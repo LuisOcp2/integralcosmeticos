@@ -10,7 +10,9 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:migrate:crm": "docker exec -i cosmeticos_postgres psql -U admin -d cosmeticos_db -v ON_ERROR_STOP=1 -f /dev/stdin < database/migrations/20260406_crm_schema.sql",
+    "db:migrate:all": "sh -c 'for f in database/migrations/*.sql; do echo Running $f; docker exec -i cosmeticos_postgres psql -U admin -d cosmeticos_db -v ON_ERROR_STOP=1 -f /dev/stdin < \"$f\"; done'"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

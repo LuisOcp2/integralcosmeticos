@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ISede, Rol } from '@cosmeticos/shared-types';
 import {
@@ -238,9 +238,17 @@ export default function DashboardPage() {
     return usuario.sedeId ? [{ id: usuario.sedeId, nombre: 'Mi sede' }] : [];
   }, [sedesQuery.data, usuario]);
 
-  const [selectedSedeId, setSelectedSedeId] = useState<string>(usuario?.sedeId ?? '');
-  const effectiveSedeId = selectedSedeId || sedesDisponibles[0]?.id || '';
-  const apiSedeId = isUuidV4(effectiveSedeId) ? effectiveSedeId : undefined;
+  const [selectedSedeId, setSelectedSedeId] = useState<string>(
+    usuario?.rol === Rol.ADMIN ? '' : (usuario?.sedeId ?? ''),
+  );
+
+  useEffect(() => {
+    if (usuario?.rol !== Rol.ADMIN) {
+      setSelectedSedeId(usuario?.sedeId ?? '');
+    }
+  }, [usuario?.rol, usuario?.sedeId]);
+
+  const apiSedeId = isUuidV4(selectedSedeId) ? selectedSedeId : undefined;
 
   const resumenHoy = useQuery({
     queryKey: ['dashboard', 'resumen-hoy', apiSedeId ?? 'all', todayISO],
@@ -365,7 +373,7 @@ export default function DashboardPage() {
               </label>
               <select
                 id="sede-select"
-                value={effectiveSedeId}
+                value={selectedSedeId}
                 onChange={(e) => setSelectedSedeId(e.target.value)}
                 className="rounded-xl px-4 py-2.5 text-sm font-bold border outline-none focus-visible:ring-2"
                 style={{
@@ -374,6 +382,7 @@ export default function DashboardPage() {
                   backgroundColor: '#fff',
                 }}
               >
+                <option value="">Todas las sedes</option>
                 {sedesDisponibles.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}

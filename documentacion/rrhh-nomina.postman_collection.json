@@ -1,0 +1,386 @@
+{
+  "info": {
+    "name": "Integral Cosmeticos - RRHH y Nomina",
+    "_postman_id": "6e7e4c6d-2c53-4453-9848-rrhh-nomina-2026",
+    "description": "Coleccion para probar endpoints de RRHH y Nomina.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{admin_email}}\",\n  \"password\": \"{{admin_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RRHH - Areas",
+      "item": [
+        {
+          "name": "Crear area",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Operaciones\",\n  \"descripcion\": \"Area operativa central\",\n  \"activa\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/areas",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "areas"]
+            }
+          }
+        },
+        {
+          "name": "Listar areas",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/areas?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "areas"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RRHH - Cargos",
+      "item": [
+        {
+          "name": "Crear cargo",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Auxiliar Bodega\",\n  \"areaId\": \"{{areaId}}\",\n  \"salarioBase\": 1800000,\n  \"nivel\": \"OPERATIVO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/cargos",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "cargos"]
+            }
+          }
+        },
+        {
+          "name": "Listar cargos",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/cargos?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "cargos"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RRHH - Empleados",
+      "item": [
+        {
+          "name": "Crear empleado",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDocumento\": \"CC\",\n  \"numeroDocumento\": \"1033123123\",\n  \"nombre\": \"Laura\",\n  \"apellido\": \"Gomez\",\n  \"email\": \"laura.gomez@integralcosmeticos.com\",\n  \"telefono\": \"3001112233\",\n  \"cargoId\": \"{{cargoId}}\",\n  \"areaId\": \"{{areaId}}\",\n  \"sedeId\": \"{{sedeId}}\",\n  \"tipoContrato\": \"INDEFINIDO\",\n  \"fechaIngreso\": \"2026-04-01\",\n  \"salarioBase\": 1800000,\n  \"auxilioTransporte\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/empleados",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "empleados"]
+            }
+          }
+        },
+        {
+          "name": "Listar empleados",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/empleados?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "empleados"]
+            }
+          }
+        },
+        {
+          "name": "Organigrama",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/empleados/organigrama",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "empleados", "organigrama"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RRHH - Asistencia",
+      "item": [
+        {
+          "name": "Registrar entrada",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"empleadoId\": \"{{empleadoId}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/asistencia/entrada",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "asistencia", "entrada"]
+            }
+          }
+        },
+        {
+          "name": "Registrar salida",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"empleadoId\": \"{{empleadoId}}\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/asistencia/salida",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "asistencia", "salida"]
+            }
+          }
+        },
+        {
+          "name": "Reporte mensual",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/asistencia/reporte-mensual?empleadoId={{empleadoId}}&mes=4&ano=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "asistencia", "reporte-mensual"],
+              "query": [
+                { "key": "empleadoId", "value": "{{empleadoId}}" },
+                { "key": "mes", "value": "4" },
+                { "key": "ano", "value": "2026" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RRHH - Vacaciones",
+      "item": [
+        {
+          "name": "Solicitar vacaciones",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"empleadoId\": \"{{empleadoId}}\",\n  \"fechaInicio\": \"2026-05-04\",\n  \"fechaFin\": \"2026-05-12\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/vacaciones",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "vacaciones"]
+            }
+          }
+        },
+        {
+          "name": "Listar vacaciones",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/vacaciones",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "vacaciones"]
+            }
+          }
+        },
+        {
+          "name": "Aprobar vacaciones",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/vacaciones/{{vacacionId}}/aprobar",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "vacaciones", "{{vacacionId}}", "aprobar"]
+            }
+          }
+        },
+        {
+          "name": "Rechazar vacaciones",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"motivo\": \"Cruce con cierre operativo\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/vacaciones/{{vacacionId}}/rechazar",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "vacaciones", "{{vacacionId}}", "rechazar"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RRHH - Nomina",
+      "item": [
+        {
+          "name": "Calcular nomina colectiva",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mes\": 4,\n  \"ano\": 2026,\n  \"sedeId\": \"{{sedeId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/nomina/calcular",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "nomina", "calcular"]
+            }
+          }
+        },
+        {
+          "name": "Listar nominas colectivas",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/nomina/colectivas",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "nomina", "colectivas"]
+            }
+          }
+        },
+        {
+          "name": "Obtener nomina colectiva",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/nomina/colectivas/{{nominaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "nomina", "colectivas", "{{nominaId}}"]
+            }
+          }
+        },
+        {
+          "name": "Aprobar nomina colectiva (ADMIN)",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/nomina/colectivas/{{nominaId}}/aprobar",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "nomina", "colectivas", "{{nominaId}}", "aprobar"]
+            }
+          }
+        },
+        {
+          "name": "Ver colilla texto",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rrhh/nomina/liquidaciones/{{liquidacionId}}/colilla",
+              "host": ["{{baseUrl}}"],
+              "path": ["rrhh", "nomina", "liquidaciones", "{{liquidacionId}}", "colilla"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

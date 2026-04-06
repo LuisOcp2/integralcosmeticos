@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PermisosGuard } from '../auth/guards/permisos.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { CajaModule } from '../caja/caja.module';
 import { SesionCaja } from '../caja/entities/sesion-caja.entity';
 import { Cliente } from '../clientes/entities/cliente.entity';
@@ -9,6 +10,7 @@ import { Producto } from '../catalogo/productos/entities/producto.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { InventarioModule } from '../inventario/inventario.module';
 import { StockSede } from '../inventario/entities/stock-sede.entity';
+import { OrdenCompra } from '../orden-compras/entities/orden-compra.entity';
 import { Sede } from '../sedes/entities/sede.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { DetalleVenta } from '../ventas/entities/detalle-venta.entity';
@@ -28,6 +30,7 @@ import { ReportesService } from './reportes.service';
       StockSede,
       Cliente,
       SesionCaja,
+      OrdenCompra,
       Usuario,
     ]),
     VentasModule,
@@ -36,7 +39,7 @@ import { ReportesService } from './reportes.service';
     CajaModule,
   ],
   controllers: [ReportesController],
-  providers: [ReportesService, PermisosGuard],
+  providers: [ReportesService, PermisosGuard, RolesGuard],
   exports: [ReportesService],
 })
 export class ReportesModule {}

@@ -6,6 +6,7 @@ import { Cache } from 'cache-manager';
 import { Repository } from 'typeorm';
 import { Cliente } from '../clientes/entities/cliente.entity';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
+import { EstadoOrdenCompra, OrdenCompra } from '../orden-compras/entities/orden-compra.entity';
 import { SesionCaja } from '../caja/entities/sesion-caja.entity';
 import { StockSede } from '../inventario/entities/stock-sede.entity';
 import { DetalleVenta } from '../ventas/entities/detalle-venta.entity';
@@ -29,6 +30,8 @@ export class ReportesService {
     private readonly clientesRepository: Repository<Cliente>,
     @InjectRepository(Producto)
     private readonly productosRepository: Repository<Producto>,
+    @InjectRepository(OrdenCompra)
+    private readonly ordenesCompraRepository: Repository<OrdenCompra>,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
   ) {}
@@ -693,16 +696,23 @@ export class ReportesService {
     };
   }
 
-  async getDashboard(query: ReportesQueryDto) {
+  async getDashboardEjecutivo(sedeId?: string) {
     const today = new Date();
     const inicioDia = this.startOfDay(today);
     const finDia = this.endOfDay(today);
+    const inicioAyer = this.startOfDay(
+      new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1),
+    );
+    const finAyer = this.endOfDay(
+      new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1),
+    );
     const inicioSemana = this.startOfDay(
       new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6),
     );
     const inicioMes = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0);
+    const finMes = this.endOfDay(new Date(today.getFullYear(), today.getMonth() + 1, 0));
 
-    const cacheKey = `reportes:dashboard:${query.sedeId ?? 'all'}:${inicioDia.toISOString().slice(0, 10)}`;
+    const cacheKey = `dashboard:${sedeId ?? 'global'}`;
     const cached = await this.cacheManager.get<unknown>(cacheKey);
     if (cached) {
       return cached;
@@ -712,92 +722,266 @@ export class ReportesService {
       .createQueryBuilder('venta')
       .where('venta.estado = :estadoVenta', { estadoVenta: EstadoVenta.COMPLETADA });
 
-    if (query.sedeId) {
-      ventasBase.andWhere('venta."sedeId" = :sedeId', { sedeId: query.sedeId });
+    if (sedeId) {
+      ventasBase.andWhere('venta."sedeId" = :sedeId', { sedeId });
     }
 
-    const [hoy, semana, mes, alertasStock, cajaAbierta, topProductosDia, ultimaVenta] =
-      await Promise.all([
-        ventasBase
-          .clone()
-          .select('COUNT(venta.id)', 'cantidad')
-          .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
-          .andWhere('venta."createdAt" BETWEEN :inicioDia AND :finDia', { inicioDia, finDia })
-          .getRawOne<{ cantidad: string; monto: string }>(),
-        ventasBase
-          .clone()
-          .select('COUNT(venta.id)', 'cantidad')
-          .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
-          .andWhere('venta."createdAt" BETWEEN :inicioSemana AND :finDia', {
-            inicioSemana,
-            finDia,
-          })
-          .getRawOne<{ cantidad: string; monto: string }>(),
-        ventasBase
-          .clone()
-          .select('COUNT(venta.id)', 'cantidad')
-          .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
-          .andWhere('venta."createdAt" BETWEEN :inicioMes AND :finDia', { inicioMes, finDia })
-          .getRawOne<{ cantidad: string; monto: string }>(),
-        this.stockRepository
-          .createQueryBuilder('stock')
-          .select('COUNT(stock.id)', 'total')
-          .where('stock.cantidad <= stock.stock_minimo')
-          .andWhere(
-            query.sedeId ? 'stock."sedeId" = :sedeId' : '1=1',
-            query.sedeId ? { sedeId: query.sedeId } : {},
-          )
-          .getRawOne<{ total: string }>(),
-        this.sesionesCajaRepository
-          .createQueryBuilder('sesion')
-          .leftJoin('cajas', 'caja', 'caja.id = sesion."cajaId"')
-          .select('COUNT(sesion.id) > 0', 'abierta')
-          .where('sesion.activa = true')
-          .andWhere(
-            query.sedeId ? 'caja."sedeId" = :sedeId' : '1=1',
-            query.sedeId ? { sedeId: query.sedeId } : {},
-          )
-          .getRawOne<{ abierta: boolean | string }>(),
-        this.detalleVentasRepository
-          .createQueryBuilder('detalle')
-          .leftJoin('detalle.venta', 'venta')
-          .leftJoin('detalle.variante', 'variante')
-          .leftJoin('variante.producto', 'producto')
-          .select('producto.id', 'productoId')
-          .addSelect('producto.nombre', 'producto')
-          .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'cantidad')
-          .addSelect('COALESCE(SUM(detalle.subtotal), 0)', 'monto')
-          .where('venta.estado = :estadoVenta', { estadoVenta: EstadoVenta.COMPLETADA })
-          .andWhere('venta."createdAt" BETWEEN :inicioDia AND :finDia', { inicioDia, finDia })
-          .andWhere(
-            query.sedeId ? 'venta."sedeId" = :sedeId' : '1=1',
-            query.sedeId ? { sedeId: query.sedeId } : {},
-          )
-          .groupBy('producto.id')
-          .addGroupBy('producto.nombre')
-          .orderBy('SUM(detalle.cantidad)', 'DESC')
-          .limit(5)
-          .getRawMany<{ productoId: string; producto: string; cantidad: string; monto: string }>(),
-        (async () => {
-          const qb = this.ventasRepository
-            .createQueryBuilder('venta')
-            .leftJoinAndSelect('venta.cajero', 'cajero')
-            .leftJoinAndSelect('venta.cliente', 'cliente')
-            .where('venta.estado = :estadoVenta', { estadoVenta: EstadoVenta.COMPLETADA });
+    const [
+      hoy,
+      ayer,
+      semana,
+      mes,
+      ventasPorDiaMes,
+      topProductosMes,
+      topProductosHoy,
+      inventario,
+      sesionCajaAbierta,
+      stockCritico,
+      facturasVencidas,
+    ] = await Promise.all([
+      ventasBase
+        .clone()
+        .select('COUNT(venta.id)', 'cantidad')
+        .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
+        .andWhere('venta."createdAt" BETWEEN :inicioDia AND :finDia', { inicioDia, finDia })
+        .getRawOne<{ cantidad: string; monto: string }>(),
+      ventasBase
+        .clone()
+        .select('COUNT(venta.id)', 'cantidad')
+        .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
+        .andWhere('venta."createdAt" BETWEEN :inicioAyer AND :finAyer', {
+          inicioAyer,
+          finAyer,
+        })
+        .getRawOne<{ cantidad: string; monto: string }>(),
+      ventasBase
+        .clone()
+        .select('COUNT(venta.id)', 'cantidad')
+        .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
+        .andWhere('venta."createdAt" BETWEEN :inicioSemana AND :finDia', {
+          inicioSemana,
+          finDia,
+        })
+        .getRawOne<{ cantidad: string; monto: string }>(),
+      ventasBase
+        .clone()
+        .select('COUNT(venta.id)', 'cantidad')
+        .addSelect('COALESCE(SUM(venta.total), 0)', 'monto')
+        .andWhere('venta."createdAt" BETWEEN :inicioMes AND :finDia', { inicioMes, finDia })
+        .getRawOne<{ cantidad: string; monto: string }>(),
+      ventasBase
+        .clone()
+        .select('DATE(venta."createdAt")', 'fecha')
+        .addSelect('COALESCE(SUM(venta.total), 0)', 'total')
+        .andWhere('venta."createdAt" BETWEEN :inicioMes AND :finMes', { inicioMes, finMes })
+        .groupBy('DATE(venta."createdAt")')
+        .orderBy('DATE(venta."createdAt")', 'ASC')
+        .getRawMany<{ fecha: string; total: string }>(),
+      this.detalleVentasRepository
+        .createQueryBuilder('detalle')
+        .leftJoin('detalle.venta', 'venta')
+        .leftJoin('detalle.variante', 'variante')
+        .leftJoin('variante.producto', 'producto')
+        .select('producto.id', 'productoId')
+        .addSelect('producto.nombre', 'producto')
+        .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'cantidad')
+        .addSelect('COALESCE(SUM(detalle.subtotal), 0)', 'total')
+        .where('venta.estado = :estadoVenta', { estadoVenta: EstadoVenta.COMPLETADA })
+        .andWhere('venta."createdAt" BETWEEN :inicioMes AND :finMes', { inicioMes, finMes })
+        .andWhere(sedeId ? 'venta."sedeId" = :sedeId' : '1=1', sedeId ? { sedeId } : {})
+        .groupBy('producto.id')
+        .addGroupBy('producto.nombre')
+        .orderBy('SUM(detalle.cantidad)', 'DESC')
+        .limit(5)
+        .getRawMany<{ productoId: string; producto: string; cantidad: string; total: string }>(),
+      this.detalleVentasRepository
+        .createQueryBuilder('detalle')
+        .leftJoin('detalle.venta', 'venta')
+        .leftJoin('detalle.variante', 'variante')
+        .leftJoin('variante.producto', 'producto')
+        .select('producto.id', 'productoId')
+        .addSelect('producto.nombre', 'producto')
+        .addSelect('COALESCE(SUM(detalle.cantidad), 0)', 'cantidad')
+        .addSelect('COALESCE(SUM(detalle.subtotal), 0)', 'total')
+        .where('venta.estado = :estadoVenta', { estadoVenta: EstadoVenta.COMPLETADA })
+        .andWhere('venta."createdAt" BETWEEN :inicioDia AND :finDia', { inicioDia, finDia })
+        .andWhere(sedeId ? 'venta."sedeId" = :sedeId' : '1=1', sedeId ? { sedeId } : {})
+        .groupBy('producto.id')
+        .addGroupBy('producto.nombre')
+        .orderBy('SUM(detalle.cantidad)', 'DESC')
+        .limit(5)
+        .getRawMany<{ productoId: string; producto: string; cantidad: string; total: string }>(),
+      this.stockRepository
+        .createQueryBuilder('stock')
+        .leftJoin('variantes', 'variante', 'variante.id = stock."varianteId"')
+        .leftJoin('productos', 'producto', 'producto.id = variante."productoId"')
+        .select('COUNT(DISTINCT producto.id)', 'totalProductosActivos')
+        .addSelect(
+          'COALESCE(SUM(CASE WHEN stock.cantidad < stock."stock_minimo" THEN 1 ELSE 0 END), 0)',
+          'stockBajoMinimo',
+        )
+        .addSelect('COALESCE(SUM(CASE WHEN stock.cantidad = 0 THEN 1 ELSE 0 END), 0)', 'sinStock')
+        .addSelect(
+          'COALESCE(SUM(stock.cantidad * COALESCE(variante."precio_venta", producto."precio_venta", 0)), 0)',
+          'valorTotalInventario',
+        )
+        .where('producto.activo = true')
+        .andWhere(sedeId ? 'stock."sedeId" = :sedeId' : '1=1', sedeId ? { sedeId } : {})
+        .getRawOne<{
+          totalProductosActivos: string;
+          stockBajoMinimo: string;
+          sinStock: string;
+          valorTotalInventario: string;
+        }>(),
+      this.sesionesCajaRepository
+        .createQueryBuilder('sesion')
+        .leftJoin('cajas', 'caja', 'caja.id = sesion."cajaId"')
+        .leftJoin('usuarios', 'cajero', 'cajero.id = sesion."usuarioAperturaId"')
+        .select('sesion.id', 'sesionId')
+        .addSelect('sesion."fecha_apertura"', 'fechaApertura')
+        .addSelect('sesion."monto_inicial"', 'montoApertura')
+        .addSelect('cajero.id', 'cajeroId')
+        .addSelect('cajero.nombre', 'cajeroNombre')
+        .addSelect('cajero.apellido', 'cajeroApellido')
+        .addSelect('cajero.email', 'cajeroEmail')
+        .where('sesion.activa = true')
+        .andWhere('sesion."fecha_apertura" BETWEEN :inicioDia AND :finDia', { inicioDia, finDia })
+        .andWhere(sedeId ? 'caja."sedeId" = :sedeId' : '1=1', sedeId ? { sedeId } : {})
+        .orderBy('sesion."fecha_apertura"', 'DESC')
+        .getRawOne<{
+          sesionId: string;
+          fechaApertura: Date;
+          montoApertura: string;
+          cajeroId: string;
+          cajeroNombre: string;
+          cajeroApellido: string | null;
+          cajeroEmail: string;
+        }>(),
+      this.stockRepository
+        .createQueryBuilder('stock')
+        .select('COUNT(stock.id)', 'total')
+        .where('stock.cantidad < stock."stock_minimo"')
+        .andWhere(sedeId ? 'stock."sedeId" = :sedeId' : '1=1', sedeId ? { sedeId } : {})
+        .getRawOne<{ total: string }>(),
+      this.ordenesCompraRepository
+        .createQueryBuilder('orden')
+        .select('COUNT(orden.id)', 'total')
+        .where('orden.fechaEsperada IS NOT NULL')
+        .andWhere('orden.fechaEsperada < :hoy', { hoy: inicioDia })
+        .andWhere('orden.estado IN (:...estados)', {
+          estados: [
+            EstadoOrdenCompra.BORRADOR,
+            EstadoOrdenCompra.ENVIADA,
+            EstadoOrdenCompra.RECIBIDA_PARCIAL,
+          ],
+        })
+        .andWhere(sedeId ? 'orden.sedeId = :sedeId' : '1=1', sedeId ? { sedeId } : {})
+        .getRawOne<{ total: string }>(),
+    ]);
 
-          if (query.sedeId) {
-            qb.andWhere('venta."sedeId" = :sedeId', { sedeId: query.sedeId });
-          }
+    const ventasHoyMonto = this.toCOP(hoy?.monto);
+    const ventasAyerMonto = this.toCOP(ayer?.monto);
+    const porcentajeVsAyer =
+      ventasAyerMonto > 0
+        ? Number((((ventasHoyMonto - ventasAyerMonto) / ventasAyerMonto) * 100).toFixed(2))
+        : ventasHoyMonto > 0
+          ? 100
+          : 0;
 
-          return qb.orderBy('venta."createdAt"', 'DESC').getOne();
-        })(),
-      ]);
+    const cajaAbiertaMas12h =
+      !!sesionCajaAbierta?.fechaApertura &&
+      Date.now() - new Date(sesionCajaAbierta.fechaApertura).getTime() > 12 * 60 * 60 * 1000;
+
+    const alertas: Array<{
+      tipo: 'stock_critico' | 'facturas_vencidas' | 'caja_abierta_12h';
+      prioridad: 'alta' | 'media';
+      mensaje: string;
+      accion: { label: string; ruta: string };
+    }> = [];
+
+    const totalStockCritico = Number(stockCritico?.total ?? 0);
+    if (totalStockCritico > 0) {
+      alertas.push({
+        tipo: 'stock_critico',
+        prioridad: 'alta',
+        mensaje: `${totalStockCritico} productos en stock critico`,
+        accion: { label: 'Ver inventario', ruta: '/inventario' },
+      });
+    }
+
+    const totalFacturasVencidas = Number(facturasVencidas?.total ?? 0);
+    if (totalFacturasVencidas > 0) {
+      alertas.push({
+        tipo: 'facturas_vencidas',
+        prioridad: 'media',
+        mensaje: `${totalFacturasVencidas} facturas/ordenes de compra vencidas`,
+        accion: { label: 'Ver ordenes', ruta: '/ordenes-compra' },
+      });
+    }
+
+    if (cajaAbiertaMas12h && sesionCajaAbierta?.fechaApertura) {
+      alertas.push({
+        tipo: 'caja_abierta_12h',
+        prioridad: 'alta',
+        mensaje: `Sesion de caja abierta por mas de 12 horas desde ${new Date(
+          sesionCajaAbierta.fechaApertura,
+        ).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`,
+        accion: { label: 'Ir a caja', ruta: '/caja' },
+      });
+    }
 
     const response = {
+      resumenHoy: {
+        totalVentas: ventasHoyMonto,
+        transacciones: Number(hoy?.cantidad ?? 0),
+        ticketPromedio:
+          Number(hoy?.cantidad ?? 0) > 0
+            ? this.toCOP(ventasHoyMonto / Number(hoy?.cantidad ?? 0))
+            : 0,
+        diferenciaVsAyerPct: porcentajeVsAyer,
+      },
+      resumenMes: {
+        totalVentas: this.toCOP(mes?.monto),
+        ventasPorDia: ventasPorDiaMes.map((row) => ({
+          fecha: row.fecha,
+          total: this.toCOP(row.total),
+        })),
+        topProductos: topProductosMes.map((row) => ({
+          productoId: row.productoId,
+          producto: row.producto,
+          cantidad: Number(row.cantidad),
+          total: this.toCOP(row.total),
+        })),
+      },
+      inventario: {
+        totalProductosActivos: Number(inventario?.totalProductosActivos ?? 0),
+        stockBajoMinimo: Number(inventario?.stockBajoMinimo ?? 0),
+        sinStock: Number(inventario?.sinStock ?? 0),
+        valorTotalInventario: this.toCOP(inventario?.valorTotalInventario),
+      },
+      caja: sesionCajaAbierta
+        ? {
+            sesionId: sesionCajaAbierta.sesionId,
+            cajeroId: sesionCajaAbierta.cajeroId,
+            cajero:
+              `${sesionCajaAbierta.cajeroNombre ?? ''} ${sesionCajaAbierta.cajeroApellido ?? ''}`.trim(),
+            cajeroEmail: sesionCajaAbierta.cajeroEmail,
+            montoApertura: this.toCOP(sesionCajaAbierta.montoApertura),
+            fechaApertura: sesionCajaAbierta.fechaApertura,
+          }
+        : null,
+      alertas,
+      topProductosHoy: topProductosHoy.map((row) => ({
+        productoId: row.productoId,
+        producto: row.producto,
+        cantidad: Number(row.cantidad),
+        total: this.toCOP(row.total),
+      })),
+      // Compatibilidad hacia atras con la UI de reportes existente
       moneda: 'COP',
       ventasHoy: {
         cantidad: Number(hoy?.cantidad ?? 0),
-        monto: this.toCOP(hoy?.monto),
+        monto: ventasHoyMonto,
       },
       ventasSemana: {
         cantidad: Number(semana?.cantidad ?? 0),
@@ -807,38 +991,25 @@ export class ReportesService {
         cantidad: Number(mes?.cantidad ?? 0),
         monto: this.toCOP(mes?.monto),
       },
-      alertasStock: Number(alertasStock?.total ?? 0),
-      cajaAbierta:
-        cajaAbierta?.abierta === true ||
-        cajaAbierta?.abierta === 'true' ||
-        cajaAbierta?.abierta === 't',
-      top5ProductosDelDia: topProductosDia.map((row, index) => ({
+      alertasStock: totalStockCritico,
+      cajaAbierta: Boolean(sesionCajaAbierta),
+      top5ProductosDelDia: topProductosHoy.map((row, index) => ({
         posicion: index + 1,
         productoId: row.productoId,
         producto: row.producto,
         cantidad: Number(row.cantidad),
-        monto: this.toCOP(row.monto),
+        monto: this.toCOP(row.total),
       })),
-      ultimaVenta: ultimaVenta
-        ? {
-            ventaId: ultimaVenta.id,
-            numero: ultimaVenta.numero,
-            fecha: ultimaVenta.createdAt,
-            total: this.toCOP(ultimaVenta.total),
-            metodoPago: ultimaVenta.metodoPago,
-            cajero: ultimaVenta.cajero
-              ? `${ultimaVenta.cajero.nombre} ${ultimaVenta.cajero.apellido ?? ''}`.trim()
-              : null,
-            cliente: ultimaVenta.cliente
-              ? `${ultimaVenta.cliente.nombre} ${ultimaVenta.cliente.apellido ?? ''}`.trim()
-              : null,
-          }
-        : null,
+      ultimaVenta: null,
       generatedAt: new Date().toISOString(),
     };
 
     await this.cacheManager.set(cacheKey, response, 60_000);
     return response;
+  }
+
+  async getDashboard(query: ReportesQueryDto) {
+    return this.getDashboardEjecutivo(query.sedeId);
   }
 
   async exportarVentasExcel(

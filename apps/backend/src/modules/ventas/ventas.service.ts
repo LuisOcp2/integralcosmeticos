@@ -21,6 +21,8 @@ import { Sede } from '../sedes/entities/sede.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { ClientesService } from '../clientes/clientes.service';
 import { ContabilidadService } from '../contabilidad/contabilidad.service';
+import { WorkflowEngineService } from '../workflows/workflow-engine.service';
+import { TriggerWorkflowTipo } from '../workflows/entities/workflow.entity';
 
 @Injectable()
 export class VentasService {
@@ -44,6 +46,7 @@ export class VentasService {
     private readonly inventarioService: InventarioService,
     private readonly clientesService: ClientesService,
     private readonly contabilidadService: ContabilidadService,
+    private readonly workflowEngine: WorkflowEngineService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -225,6 +228,15 @@ export class VentasService {
       }
 
       await this.contabilidadService.generarAsientoVenta(ventaCompleta, manager);
+
+      await this.workflowEngine.dispararEvento(TriggerWorkflowTipo.VENTA_COMPLETADA, {
+        ventaId: ventaCompleta.id,
+        numero: ventaCompleta.numero,
+        total: ventaCompleta.total,
+        clienteId: ventaCompleta.clienteId,
+        sedeId: ventaCompleta.sedeId,
+        cajeroId: ventaCompleta.cajeroId,
+      });
 
       return ventaCompleta;
     });

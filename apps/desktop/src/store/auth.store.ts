@@ -3,7 +3,16 @@ import { persist } from 'zustand/middleware';
 import { IUsuario, Rol } from '@cosmeticos/shared-types';
 
 const baseRolePaths: Record<Rol, string[]> = {
-  [Rol.CAJERO]: ['/pos', '/caja', '/clientes'],
+  [Rol.SUPERADMIN]: [
+    '/dashboard',
+    '/superadmin',
+    '/inmobiliaria',
+    '/inversionistas',
+    '/documentos',
+    '/configuraciones',
+    '/usuarios',
+  ],
+  [Rol.CAJERO]: ['/pos', '/caja', '/clientes', '/crm', '/comercial'],
   [Rol.BODEGUERO]: ['/inventario', '/productos', '/proveedores', '/ordenes-compra'],
   [Rol.SUPERVISOR]: [
     '/dashboard',
@@ -13,11 +22,20 @@ const baseRolePaths: Record<Rol, string[]> = {
     '/pos',
     '/caja',
     '/clientes',
+    '/crm',
+    '/comercial',
+    '/finanzas',
     '/inventario',
     '/productos',
     '/sedes',
     '/proveedores',
     '/ordenes-compra',
+    '/rrhh',
+    '/activos',
+    '/proyectos',
+    '/documentos',
+    '/inmobiliaria',
+    '/inversionistas',
   ],
   [Rol.ADMIN]: [
     '/dashboard',
@@ -31,10 +49,19 @@ const baseRolePaths: Record<Rol, string[]> = {
     '/productos',
     '/inventario',
     '/clientes',
+    '/crm',
+    '/comercial',
+    '/finanzas',
     '/caja',
     '/pos',
     '/proveedores',
     '/ordenes-compra',
+    '/rrhh',
+    '/activos',
+    '/proyectos',
+    '/documentos',
+    '/inmobiliaria',
+    '/inversionistas',
   ],
 };
 

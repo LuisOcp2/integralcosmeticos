@@ -5,6 +5,7 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 
 /** Jerarquía numérica: mayor número = mayor privilegio */
 const JERARQUIA: Record<Rol, number> = {
+  [Rol.SUPERADMIN]: 4,
   [Rol.ADMIN]: 3,
   [Rol.SUPERVISOR]: 2,
   [Rol.CAJERO]: 1,
@@ -34,8 +35,6 @@ export class RolesGuard implements CanActivate {
 
     // Pasa si el usuario tiene al menos el nivel mínimo entre los roles requeridos
     // o si es exactamente uno de los roles requeridos
-    return requiredRoles.some(
-      (rol) => nivelUsuario >= JERARQUIA[rol] || user.rol === rol,
-    );
+    return requiredRoles.some((rol) => nivelUsuario >= JERARQUIA[rol] || user.rol === rol);
   }
 }

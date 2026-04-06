@@ -7,6 +7,8 @@ import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { ClientesQueryDto } from './dto/clientes-query.dto';
 import { Venta } from '../ventas/entities/venta.entity';
+import { WorkflowEngineService } from '../workflows/workflow-engine.service';
+import { TriggerWorkflowTipo } from '../workflows/entities/workflow.entity';
 
 @Injectable()
 export class ClientesService {
@@ -15,6 +17,7 @@ export class ClientesService {
     private readonly clientesRepository: Repository<Cliente>,
     @InjectRepository(Venta)
     private readonly ventasRepository: Repository<Venta>,
+    private readonly workflowEngine: WorkflowEngineService,
   ) {}
 
   private normalizarTipoDocumento(valor: string): Cliente['tipoDocumento'] {
@@ -49,7 +52,16 @@ export class ClientesService {
     });
 
     try {
-      return await this.clientesRepository.save(cliente);
+      const saved = await this.clientesRepository.save(cliente);
+
+      await this.workflowEngine.dispararEvento(TriggerWorkflowTipo.CLIENTE_NUEVO, {
+        clienteId: saved.id,
+        nombre: saved.nombre,
+        email: saved.email,
+        numeroDocumento: saved.numeroDocumento,
+      });
+
+      return saved;
     } catch (error) {
       this.handleUniqueConstraintError(error);
       throw error;

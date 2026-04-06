@@ -1,7 +1,9 @@
 import {
   BarChart2,
+  LayoutDashboard,
   CreditCard,
   FileText,
+  Handshake,
   LogOut,
   Package,
   Sparkles,
@@ -27,8 +29,11 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
+  { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard', permiso: Permiso.REPORTES_VER },
   { icon: CreditCard, label: 'POS', to: '/pos', permiso: Permiso.VENTAS_VER },
   { icon: Users, label: 'Clientes', to: '/clientes', permiso: Permiso.VENTAS_VER },
+  { icon: Handshake, label: 'CRM', to: '/crm', permiso: Permiso.VENTAS_VER },
+  { icon: FileText, label: 'Comercial', to: '/comercial', permiso: Permiso.VENTAS_VER },
   { icon: Wallet, label: 'Caja', to: '/caja', permiso: Permiso.CAJA_VER_HISTORIAL },
   { icon: Users, label: 'Usuarios', to: '/usuarios', permiso: Permiso.USUARIOS_VER },
   { icon: BarChart2, label: 'Reportes', to: '/reportes', permiso: Permiso.REPORTES_VER },

@@ -223,17 +223,17 @@ function NavItemComponent({
           closeMobile();
         }}
         className={cn(
-          'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm',
-          'transition-colors duration-150 ease-out',
+          'group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium',
+          'transition-all duration-200 ease-out',
           isActive
-            ? 'bg-[#85264b] text-white'
-            : 'text-white/85 hover:bg-[#2a1709] hover:text-white',
+            ? 'bg-gradient-to-r from-[#8f2c54] to-[#702040] text-white shadow-[0_8px_22px_rgba(133,38,75,0.38)]'
+            : 'text-white/80 hover:bg-white/8 hover:text-white',
         )}
       >
         {isActive && (
           <motion.span
             layoutId="activeIndicator"
-            className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-white"
+            className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-[#ffd8e7]"
           />
         )}
 
@@ -260,7 +260,7 @@ function NavItemComponent({
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 450, damping: 24 }}
             className={cn(
-              'relative z-10 ml-auto inline-block h-2.5 w-2.5 rounded-full',
+              'relative z-10 ml-auto inline-block h-2.5 w-2.5 rounded-full ring-2 ring-[#24150d]',
               item.status === 'ok'
                 ? 'bg-emerald-500'
                 : item.status === 'warn'
@@ -277,14 +277,14 @@ function NavItemComponent({
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 450, damping: 24 }}
             className={cn(
-              'relative z-10 ml-auto inline-block h-2.5 w-2.5 rounded-full bg-red-500',
+              'relative z-10 ml-auto inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#24150d]',
               collapsed && 'absolute right-2 top-2',
             )}
           />
         )}
 
         {collapsed && (
-          <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#221208] px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+          <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-white/15 bg-[#221208] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
             {item.label}
           </div>
         )}
@@ -319,17 +319,17 @@ function CollapsibleSection({
         type="button"
         onClick={onToggle}
         className={cn(
-          'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm',
-          'transition-colors duration-150 ease-out',
+          'group relative flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium',
+          'transition-all duration-200 ease-out',
           parentActive
-            ? 'bg-[#85264b] text-white'
-            : 'text-white/85 hover:bg-[#2a1709] hover:text-white',
+            ? 'bg-gradient-to-r from-[#8f2c54] to-[#702040] text-white shadow-[0_8px_22px_rgba(133,38,75,0.38)]'
+            : 'text-white/80 hover:bg-white/8 hover:text-white',
         )}
       >
         {parentActive && (
           <motion.span
             layoutId="activeIndicator"
-            className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-white"
+            className="absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-[#ffd8e7]"
           />
         )}
 
@@ -361,7 +361,7 @@ function CollapsibleSection({
         )}
 
         {collapsed && (
-          <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#221208] px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+          <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-lg border border-white/15 bg-[#221208] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
             {item.label}
           </div>
         )}
@@ -385,17 +385,17 @@ function CollapsibleSection({
                     type="button"
                     onClick={() => onNavigate(child.href)}
                     className={cn(
-                      'group relative flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm',
-                      'transition-colors duration-150 ease-out',
+                      'group relative flex h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-sm',
+                      'transition-all duration-200 ease-out',
                       isChildActive
-                        ? 'bg-[#85264b] text-white'
-                        : 'text-white/75 hover:bg-[#2a1709] hover:text-white',
+                        ? 'bg-[#7c294a] text-white'
+                        : 'text-white/70 hover:bg-white/7 hover:text-white',
                     )}
                   >
                     {isChildActive && (
                       <motion.span
                         layoutId="activeIndicator"
-                        className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-white"
+                        className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#ffd8e7]"
                       />
                     )}
                     <child.icon size={14} className="relative z-10 shrink-0" />
@@ -406,7 +406,7 @@ function CollapsibleSection({
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         transition={{ type: 'spring', stiffness: 450, damping: 24 }}
-                        className="relative z-10 ml-auto inline-block h-2.5 w-2.5 rounded-full bg-red-500"
+                        className="relative z-10 ml-auto inline-block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#24150d]"
                       />
                     )}
                   </button>
@@ -429,12 +429,12 @@ type UserProfileProps = {
 function UserProfile({ user, collapsed, onLogout }: UserProfileProps) {
   return (
     <div className="relative border-t border-white/10 p-3">
-      <div className="group relative flex items-center gap-3 rounded-xl bg-white/5 p-2">
+      <div className="group relative flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         <div className="relative shrink-0">
           <img
             src={user.avatarUrl}
             alt={user.name}
-            className="h-10 w-10 rounded-full object-cover"
+            className="h-10 w-10 rounded-full border border-white/20 object-cover"
             loading="lazy"
           />
           <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#1a0f07] bg-emerald-500" />
@@ -449,7 +449,7 @@ function UserProfile({ user, collapsed, onLogout }: UserProfileProps) {
               exit={{ opacity: 0, x: -6 }}
               className="min-w-0 flex-1"
             >
-              <p className="truncate text-sm font-medium text-white">{user.name}</p>
+              <p className="truncate text-sm font-semibold text-white">{user.name}</p>
               <p className="truncate text-xs text-white/60">{user.role}</p>
             </motion.div>
           )}
@@ -459,7 +459,7 @@ function UserProfile({ user, collapsed, onLogout }: UserProfileProps) {
           <button
             type="button"
             onClick={onLogout}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors duration-150 hover:bg-[#2a1709] hover:text-white"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors duration-150 hover:bg-white/10 hover:text-white"
             aria-label="Cerrar sesión"
           >
             <LogOut size={16} />
@@ -467,7 +467,7 @@ function UserProfile({ user, collapsed, onLogout }: UserProfileProps) {
         )}
 
         {collapsed && (
-          <div className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-md border border-white/10 bg-[#221208] px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100">
+          <div className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-lg border border-white/15 bg-[#221208] px-2.5 py-1.5 text-xs font-medium text-white opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100">
             {user.name}
           </div>
         )}
@@ -487,7 +487,7 @@ function SidebarToggle({ collapsed, onToggle }: SidebarToggleProps) {
       type="button"
       onClick={onToggle}
       aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-      className="absolute right-0 top-20 z-50 hidden h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-white/20 bg-[#1f1209] text-white shadow-lg md:inline-flex"
+      className="absolute right-0 top-20 z-50 hidden h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-white/20 bg-[#1f1209] text-white shadow-[0_10px_22px_rgba(0,0,0,0.45)] md:inline-flex"
       whileTap={{ scale: 0.9 }}
     >
       <motion.span animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.22 }}>
@@ -560,10 +560,14 @@ export function Sidebar(props: Partial<SidebarProps> = {}) {
   };
 
   const renderContent = () => (
-    <div className="relative flex h-full flex-col bg-[#1a0f07] text-white">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-[#85264b]/20 to-transparent" />
+    <div className="relative flex h-full flex-col border-r border-white/10 bg-[#1a0f07] text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(133,38,75,0.34),transparent_42%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_90%_100%,rgba(245,128,167,0.14),transparent_30%)]" />
 
-      <div className="flex h-16 items-center px-4">
+      <div className="relative flex h-16 items-center px-4">
+        <div className="mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#a93f67] to-[#6f1f3e] text-sm font-extrabold text-white shadow-[0_6px_16px_rgba(133,38,75,0.45)]">
+          IC
+        </div>
         <AnimatePresence initial={false}>
           {!collapsed && (
             <motion.div
@@ -582,7 +586,12 @@ export function Sidebar(props: Partial<SidebarProps> = {}) {
         </AnimatePresence>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-3 pb-3">
+      <div
+        className={cn(
+          'sidebar-scroll relative flex-1 space-y-4 overflow-y-auto px-3 pb-3',
+          collapsed ? 'sidebar-scroll-collapsed' : 'sidebar-scroll-expanded',
+        )}
+      >
         <LayoutGroup>
           {sections.map((section) => (
             <section key={section.title} className="space-y-1">
@@ -593,7 +602,7 @@ export function Sidebar(props: Partial<SidebarProps> = {}) {
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -6 }}
-                    className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-widest text-white/40"
+                    className="px-2 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40"
                   >
                     {section.title}
                   </motion.h3>

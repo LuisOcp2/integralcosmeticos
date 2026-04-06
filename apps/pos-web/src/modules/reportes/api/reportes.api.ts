@@ -7,6 +7,48 @@ export type ReportesFiltros = {
 };
 
 export type DashboardReport = {
+  resumenHoy: {
+    totalVentas: number;
+    transacciones: number;
+    ticketPromedio: number;
+    diferenciaVsAyerPct: number;
+  };
+  resumenMes: {
+    totalVentas: number;
+    ventasPorDia: Array<{ fecha: string; total: number }>;
+    topProductos: Array<{
+      productoId: string;
+      producto: string;
+      cantidad: number;
+      total: number;
+    }>;
+  };
+  inventario: {
+    totalProductosActivos: number;
+    stockBajoMinimo: number;
+    sinStock: number;
+    valorTotalInventario: number;
+  };
+  caja: {
+    sesionId: string;
+    cajeroId: string;
+    cajero: string;
+    cajeroEmail: string;
+    montoApertura: number;
+    fechaApertura: string;
+  } | null;
+  alertas: Array<{
+    tipo: 'stock_critico' | 'facturas_vencidas' | 'caja_abierta_12h';
+    prioridad: 'alta' | 'media';
+    mensaje: string;
+    accion: { label: string; ruta: string };
+  }>;
+  topProductosHoy: Array<{
+    productoId: string;
+    producto: string;
+    cantidad: number;
+    total: number;
+  }>;
   moneda: 'COP';
   ventasHoy: { cantidad: number; monto: number };
   ventasSemana: { cantidad: number; monto: number };

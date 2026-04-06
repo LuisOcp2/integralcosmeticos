@@ -41,6 +41,10 @@ describe('InventarioService', () => {
     transaction: jest.fn(),
   };
 
+  const workflowEngine = {
+    dispararEvento: jest.fn().mockResolvedValue({ workflowsEjecutados: 0 }),
+  };
+
   let service: InventarioService;
 
   beforeEach(async () => {
@@ -58,6 +62,7 @@ describe('InventarioService', () => {
               variantesRepository as any,
               sedesRepository as any,
               dataSource as any,
+              workflowEngine as any,
             ),
         },
       ],

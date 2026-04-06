@@ -5,6 +5,8 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Producto } from '../catalogo/productos/entities/producto.entity';
 import { Variante } from '../catalogo/variantes/entities/variante.entity';
 import { Sede } from '../sedes/entities/sede.entity';
+import { WorkflowEngineService } from '../workflows/workflow-engine.service';
+import { TriggerWorkflowTipo } from '../workflows/entities/workflow.entity';
 import { AjustarStockDto } from './dto/ajustar-stock.dto';
 import { FiltrosMovimientoDto } from './dto/filtros-movimiento.dto';
 import { RegistrarMovimientoDto } from './dto/registrar-movimiento.dto';
@@ -28,6 +30,7 @@ export class InventarioService {
     private readonly sedesRepository: Repository<Sede>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly workflowEngine: WorkflowEngineService,
   ) {}
 
   private async validarSedeActiva(sedeId: string): Promise<void> {
@@ -115,6 +118,14 @@ export class InventarioService {
         atendidaEn: null,
       }),
     );
+
+    if (tipoAlerta === TipoAlertaStock.BAJO_MINIMO) {
+      await this.workflowEngine.dispararEvento(TriggerWorkflowTipo.STOCK_BAJO_MINIMO, {
+        varianteId: stock.varianteId,
+        sedeId: stock.sedeId,
+        cantidad: stock.cantidad,
+      });
+    }
 
     const alertasActivas = await alertaRepo.find({
       where: {

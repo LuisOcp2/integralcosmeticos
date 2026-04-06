@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -26,6 +27,20 @@ import { ConfiguracionesModule } from './modules/configuraciones/configuraciones
 import { ProveedoresModule } from './modules/proveedores/proveedores.module';
 import { OrdenComprasModule } from './modules/orden-compras/orden-compras.module';
 import { ContabilidadModule } from './modules/contabilidad/contabilidad.module';
+import { CrmModule } from './modules/crm/crm.module';
+import { ComercialModule } from './modules/comercial/comercial.module';
+import { FinanzasModule } from './modules/finanzas/finanzas.module';
+import { RrhhModule } from './modules/rrhh/rrhh.module';
+import { ActivosModule } from './modules/activos/activos.module';
+import { ProyectosModule } from './modules/proyectos/proyectos.module';
+import { DocumentosModule } from './modules/documentos/documentos.module';
+import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
+import { OmnicanalModule } from './modules/omnicanal/omnicanal.module';
+import { WorkflowsModule } from './modules/workflows/workflows.module';
+import { SuperadminModule } from './modules/superadmin/superadmin.module';
+import { AuditoriaInterceptor } from './modules/superadmin/interceptors/auditoria.interceptor';
+import { IntegracionesModule } from './modules/integraciones/integraciones.module';
+import { VerticalesModule } from './modules/verticales/verticales.module';
 import { Producto } from './modules/catalogo/productos/entities/producto.entity';
 import { Variante } from './modules/catalogo/variantes/entities/variante.entity';
 import { Categoria } from './modules/catalogo/categorias/entities/categoria.entity';
@@ -111,8 +126,28 @@ import appConfig from './config/app.config';
     ProveedoresModule,
     OrdenComprasModule,
     ContabilidadModule,
+    CrmModule,
+    ComercialModule,
+    FinanzasModule,
+    RrhhModule,
+    ActivosModule,
+    ProyectosModule,
+    DocumentosModule,
+    NotificacionesModule,
+    OmnicanalModule,
+    WorkflowsModule,
+    SuperadminModule,
+    IntegracionesModule,
+    VerticalesModule,
   ],
   controllers: [AppController],
-  providers: [AppService, ThrottlerGuard],
+  providers: [
+    AppService,
+    ThrottlerGuard,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditoriaInterceptor,
+    },
+  ],
 })
 export class AppModule {}

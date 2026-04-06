@@ -19,6 +19,16 @@ const ConfiguracionesPage = lazy(() => import('./pages/ConfiguracionesPage'));
 const UsuariosPage = lazy(() => import('./pages/UsuariosPage'));
 const ProveedoresPage = lazy(() => import('./pages/ProveedoresPage'));
 const OrdenesCompraPage = lazy(() => import('./pages/OrdenesCompraPage'));
+const CRMPage = lazy(() => import('./pages/CRMPage'));
+const ComercialPage = lazy(() => import('./pages/ComercialPage'));
+const FinanzasPage = lazy(() => import('./pages/FinanzasPage'));
+const RRHHPage = lazy(() => import('./pages/RRHHPage'));
+const ActivosPage = lazy(() => import('./pages/ActivosPage'));
+const ProyectosPage = lazy(() => import('./pages/ProyectosPage'));
+const DocumentosPage = lazy(() => import('./pages/DocumentosPage'));
+const InmobiliariaPage = lazy(() => import('./pages/InmobiliariaPage'));
+const InversionistasPage = lazy(() => import('./pages/InversionistasPage'));
+const SuperadminPage = lazy(() => import('./pages/SuperadminPage'));
 const isDev = import.meta.env.DEV;
 
 function RouteLoader() {
@@ -48,6 +58,10 @@ function ProtectedRoute({
 
   if (!isAuthenticated || !usuario) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (usuario.rol === Rol.SUPERADMIN) {
+    return <>{children}</>;
   }
 
   if (allowedRoles && !allowedRoles.includes(usuario.rol)) {
@@ -124,6 +138,86 @@ export default function App() {
             element={
               <ProtectedRoute path="/clientes">
                 <ClientesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/crm"
+            element={
+              <ProtectedRoute path="/crm">
+                <CRMPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/comercial"
+            element={
+              <ProtectedRoute path="/comercial">
+                <ComercialPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finanzas"
+            element={
+              <ProtectedRoute path="/finanzas">
+                <FinanzasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rrhh"
+            element={
+              <ProtectedRoute path="/rrhh" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <RRHHPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/activos"
+            element={
+              <ProtectedRoute path="/activos" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <ActivosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/proyectos"
+            element={
+              <ProtectedRoute path="/proyectos" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <ProyectosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/documentos"
+            element={
+              <ProtectedRoute path="/documentos" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <DocumentosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inmobiliaria"
+            element={
+              <ProtectedRoute path="/inmobiliaria" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <InmobiliariaPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inversionistas"
+            element={
+              <ProtectedRoute path="/inversionistas" allowedRoles={[Rol.ADMIN, Rol.SUPERVISOR]}>
+                <InversionistasPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute path="/superadmin" allowedRoles={[Rol.SUPERADMIN]}>
+                <SuperadminPage />
               </ProtectedRoute>
             }
           />

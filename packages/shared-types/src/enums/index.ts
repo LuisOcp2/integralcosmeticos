@@ -1,4 +1,5 @@
 export enum Rol {
+  SUPERADMIN = 'SUPERADMIN',
   ADMIN = 'ADMIN',
   CAJERO = 'CAJERO',
   BODEGUERO = 'BODEGUERO',
@@ -41,6 +42,7 @@ export enum Permiso {
 }
 
 export const PERMISOS_POR_ROL: Record<Rol, Permiso[]> = {
+  [Rol.SUPERADMIN]: Object.values(Permiso),
   [Rol.ADMIN]: Object.values(Permiso),
   [Rol.SUPERVISOR]: [
     Permiso.USUARIOS_VER,

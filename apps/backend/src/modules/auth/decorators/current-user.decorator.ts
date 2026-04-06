@@ -5,6 +5,7 @@ export interface AuthUser {
   email: string;
   rol: string;
   sedeId?: string | null;
+  empresaId?: string | null;
   permisosExtra?: string[];
   permisosRevocados?: string[];
 }

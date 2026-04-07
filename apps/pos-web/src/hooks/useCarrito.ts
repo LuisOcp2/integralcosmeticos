@@ -8,41 +8,53 @@ function computeSubtotal(precio: number, cantidad: number, descuento: number) {
 export function useCarrito() {
   const [items, setItems] = useState<ItemCarrito[]>([]);
 
-  const agregarProducto = useCallback((producto: Producto, variante?: Variante) => {
-    const varianteId = variante?.id ?? producto.id;
-    const key = variante ? `v:${variante.id}` : `p:${producto.id}`;
-    const precioUnitario = variante?.precioVenta ?? variante
-      ? (producto.precioBase + (variante?.precioExtra ?? 0))
-      : producto.precioBase;
-
-    setItems((prev) => {
-      const existing = prev.find((i) => i.key === key);
-      if (existing) {
-        return prev.map((i) =>
-          i.key === key
-            ? {
-                ...i,
-                cantidad: i.cantidad + 1,
-                subtotal: computeSubtotal(i.precioUnitario, i.cantidad + 1, i.descuentoItem),
-              }
-            : i
-        );
-      }
-      const newItem: ItemCarrito = {
-        key,
-        varianteId,
-        productoId: producto.id,
-        nombre: producto.nombre,
-        variante: variante?.nombre ?? 'Estándar',
-        imagenUrl: variante?.imagenUrl ?? producto.imagenUrl,
-        precioUnitario,
-        cantidad: 1,
-        descuentoItem: 0,
-        subtotal: precioUnitario,
-      };
-      return [...prev, newItem];
-    });
+  const getPrecioProducto = useCallback((producto: Producto) => {
+    const precio = Number(producto.precio ?? producto.precioBase ?? 0);
+    return Number.isFinite(precio) ? precio : 0;
   }, []);
+
+  const agregarProducto = useCallback(
+    (producto: Producto, variante?: Variante) => {
+      const varianteId = variante?.id ?? producto.id;
+      const key = variante ? `v:${variante.id}` : `p:${producto.id}`;
+      const precioProducto = getPrecioProducto(producto);
+      const precioVariante = Number(variante?.precioVenta);
+      const precioUnitario = Number.isFinite(precioVariante)
+        ? precioVariante
+        : variante
+          ? precioProducto + Number(variante.precioExtra ?? 0)
+          : precioProducto;
+
+      setItems((prev) => {
+        const existing = prev.find((i) => i.key === key);
+        if (existing) {
+          return prev.map((i) =>
+            i.key === key
+              ? {
+                  ...i,
+                  cantidad: i.cantidad + 1,
+                  subtotal: computeSubtotal(i.precioUnitario, i.cantidad + 1, i.descuentoItem),
+                }
+              : i,
+          );
+        }
+        const newItem: ItemCarrito = {
+          key,
+          varianteId,
+          productoId: producto.id,
+          nombre: producto.nombre,
+          variante: variante?.nombre ?? 'Estándar',
+          imagenUrl: variante?.imagenUrl ?? producto.imagenUrl,
+          precioUnitario,
+          cantidad: 1,
+          descuentoItem: 0,
+          subtotal: precioUnitario,
+        };
+        return [...prev, newItem];
+      });
+    },
+    [getPrecioProducto],
+  );
 
   const quitarProducto = useCallback((key: string) => {
     setItems((prev) => prev.filter((i) => i.key !== key));
@@ -56,9 +68,13 @@ export function useCarrito() {
     setItems((prev) =>
       prev.map((i) =>
         i.key === key
-          ? { ...i, cantidad, subtotal: computeSubtotal(i.precioUnitario, cantidad, i.descuentoItem) }
-          : i
-      )
+          ? {
+              ...i,
+              cantidad,
+              subtotal: computeSubtotal(i.precioUnitario, cantidad, i.descuentoItem),
+            }
+          : i,
+      ),
     );
   }, []);
 
@@ -68,8 +84,8 @@ export function useCarrito() {
       prev.map((i) =>
         i.key === key
           ? { ...i, descuentoItem: d, subtotal: computeSubtotal(i.precioUnitario, i.cantidad, d) }
-          : i
-      )
+          : i,
+      ),
     );
   }, []);
 

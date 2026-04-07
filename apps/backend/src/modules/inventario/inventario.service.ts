@@ -249,7 +249,17 @@ export class InventarioService {
       });
 
       const actual = stock?.cantidad ?? 0;
-      const diferencia = dto.cantidadNueva - actual;
+
+      let diferencia = 0;
+      if (dto.cantidadNueva !== undefined) {
+        diferencia = dto.cantidadNueva - actual;
+      } else if (dto.cantidad !== undefined) {
+        const base = Math.abs(Number(dto.cantidad));
+        const esMerma = dto.motivo?.toUpperCase() === 'MERMA';
+        diferencia = esMerma ? -base : base;
+      } else {
+        throw new BadRequestException('Debe enviar cantidadNueva o cantidad para ajustar stock');
+      }
 
       if (diferencia === 0) {
         throw new BadRequestException('La cantidad nueva es igual al stock actual');
@@ -262,7 +272,7 @@ export class InventarioService {
           sedeOrigenId: dto.sedeId,
           cantidad: diferencia,
           motivo: dto.motivo,
-          referencia: dto.referencia,
+          referencia: dto.referencia ?? dto.nota,
         },
         realizadoPorId,
         manager,

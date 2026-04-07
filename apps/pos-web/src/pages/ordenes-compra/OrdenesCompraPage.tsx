@@ -154,16 +154,16 @@ export default function OrdenesCompraPage() {
                 <td className="px-6 py-4 text-sm">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      orden.estado === 'pendiente'
+                      orden.estado === 'BORRADOR' || orden.estado === 'ENVIADA'
                         ? 'bg-warning/20 text-warning'
-                        : orden.estado === 'aprobada'
-                          ? 'bg-primary/20 text-primary'
-                          : orden.estado === 'recibida'
-                            ? 'bg-success/20 text-success'
+                        : orden.estado === 'RECIBIDA_TOTAL'
+                          ? 'bg-success/20 text-success'
+                          : orden.estado === 'RECIBIDA_PARCIAL'
+                            ? 'bg-primary/20 text-primary'
                             : 'bg-error/20 text-error'
                     }`}
                   >
-                    {orden.estado.charAt(0).toUpperCase() + orden.estado.slice(1)}
+                    {orden.estado.replace(/_/g, ' ')}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm text-on-surface-variant">
@@ -205,7 +205,7 @@ export default function OrdenesCompraPage() {
                     </svg>
                   </button>
                   <a
-                    href={`/ordenes-compra/${orden.id}/pdf`}
+                    href={`${import.meta.env.VITE_API_URL ?? '/api/v1'}/ordenes-compra/${orden.id}/pdf`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-success/20 text-success hover:bg-success/30 rounded-lg p-2 transition-colors"

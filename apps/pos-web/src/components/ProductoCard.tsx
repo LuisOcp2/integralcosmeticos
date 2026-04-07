@@ -9,7 +9,7 @@ interface ProductoCardProps {
 const PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Crect width='120' height='120' fill='%23f3dde1'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-size='40' fill='%2385264b'%3E🧴%3C/text%3E%3C/svg%3E`;
 
 export default function ProductoCard({ producto, onAgregar }: ProductoCardProps) {
-  const precio = producto.precioBase;
+  const precio = Number(producto.precio ?? producto.precioBase ?? 0);
   const formattedPrice = new Intl.NumberFormat('es-CO', {
     style: 'currency',
     currency: 'COP',

@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnsupportedMediaTypeException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
+import { StorageService } from '../integraciones/storage.service';
 import { CarpetaDocumento } from './entities/carpeta-documento.entity';
 import { Documento } from './entities/documento.entity';
 import { VersionDocumento } from './entities/version-documento.entity';
@@ -20,9 +26,34 @@ export class DocumentosService {
     private readonly documentosRepository: Repository<Documento>,
     @InjectRepository(VersionDocumento)
     private readonly versionesRepository: Repository<VersionDocumento>,
+    private readonly storageService: StorageService,
   ) {}
 
+  private normalizeEtiquetas(raw?: string[] | string | null) {
+    if (!raw) return [] as string[];
+    if (Array.isArray(raw)) {
+      return raw.map((tag) => tag.trim()).filter(Boolean);
+    }
+    return raw
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+  }
+
+  private ensureFile(file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Archivo requerido');
+    }
+    if (!file.mimetype) {
+      throw new UnsupportedMediaTypeException('No se pudo determinar el tipo MIME del archivo');
+    }
+  }
+
   async createCarpeta(dto: CreateCarpetaDto, creadaPorId: string) {
+    if (dto.padreId) {
+      await this.findCarpeta(dto.padreId);
+    }
+
     const carpeta = this.carpetasRepository.create({
       nombre: dto.nombre.trim(),
       padreId: dto.padreId ?? null,
@@ -60,11 +91,25 @@ export class DocumentosService {
 
   async removeCarpeta(id: string) {
     const carpeta = await this.findCarpeta(id);
+
+    const [hijos, documentos] = await Promise.all([
+      this.carpetasRepository.count({ where: { padreId: id } }),
+      this.documentosRepository.count({ where: { carpetaId: id } }),
+    ]);
+
+    if (hijos > 0 || documentos > 0) {
+      throw new BadRequestException(
+        'No se puede eliminar una carpeta con subcarpetas o documentos',
+      );
+    }
+
     await this.carpetasRepository.remove(carpeta);
     return { ok: true };
   }
 
   async createDocumento(dto: CreateDocumentoDto, creadoPorId: string) {
+    await this.findCarpeta(dto.carpetaId);
+
     const documento = this.documentosRepository.create({
       nombre: dto.nombre.trim(),
       descripcion: dto.descripcion?.trim() || null,
@@ -75,13 +120,46 @@ export class DocumentosService {
       tamano: dto.tamano,
       mimeType: dto.mimeType.trim(),
       version: 1,
-      etiquetas: dto.etiquetas?.map((tag) => tag.trim()).filter(Boolean) ?? [],
+      etiquetas: this.normalizeEtiquetas(dto.etiquetas),
       creadoPorId,
       vencimientoEn: dto.vencimientoEn ?? null,
       entidadTipo: dto.entidadTipo?.trim() || null,
       entidadId: dto.entidadId ?? null,
     });
-    return this.documentosRepository.save(documento);
+
+    const saved = await this.documentosRepository.save(documento);
+
+    await this.versionesRepository.save(
+      this.versionesRepository.create({
+        documentoId: saved.id,
+        version: 1,
+        archivoUrl: saved.archivoUrl,
+        nombreArchivo: saved.nombreArchivo,
+        cambios: 'Version inicial',
+        subidoPorId: creadoPorId,
+      }),
+    );
+
+    return this.findDocumento(saved.id);
+  }
+
+  async createDocumentoDesdeArchivo(
+    dto: Omit<CreateDocumentoDto, 'archivoUrl' | 'nombreArchivo' | 'mimeType' | 'tamano'>,
+    creadoPorId: string,
+    file: Express.Multer.File,
+  ) {
+    this.ensureFile(file);
+    const archivoUrl = await this.storageService.upload(file.buffer, file.mimetype, 'documentos');
+    return this.createDocumento(
+      {
+        ...dto,
+        archivoUrl,
+        nombreArchivo: file.originalname,
+        tamano: file.size,
+        mimeType: file.mimetype,
+      },
+      creadoPorId,
+    );
   }
 
   async findDocumentos(carpetaId?: string) {
@@ -132,6 +210,20 @@ export class DocumentosService {
 
   async removeDocumento(id: string) {
     const documento = await this.findDocumento(id);
+
+    const versiones = await this.versionesRepository.find({ where: { documentoId: id } });
+    const urls = new Set<string>([documento.archivoUrl, ...versiones.map((v) => v.archivoUrl)]);
+
+    await Promise.all(
+      [...urls].map(async (url) => {
+        try {
+          await this.storageService.delete(url);
+        } catch {
+          // noop: no bloquear borrado logico por error de storage
+        }
+      }),
+    );
+
     await this.documentosRepository.remove(documento);
     return { ok: true };
   }
@@ -230,6 +322,30 @@ export class DocumentosService {
     await this.documentosRepository.save(documento);
 
     return version;
+  }
+
+  async crearVersionDesdeArchivo(
+    documentoId: string,
+    dto: Pick<CrearVersionDocumentoDto, 'cambios'>,
+    subidoPorId: string,
+    file: Express.Multer.File,
+  ) {
+    this.ensureFile(file);
+    const archivoUrl = await this.storageService.upload(
+      file.buffer,
+      file.mimetype,
+      `documentos/${documentoId}`,
+    );
+
+    return this.crearVersion(
+      documentoId,
+      {
+        archivoUrl,
+        nombreArchivo: file.originalname,
+        cambios: dto.cambios,
+      },
+      subidoPorId,
+    );
   }
 
   async getVersiones(documentoId: string) {

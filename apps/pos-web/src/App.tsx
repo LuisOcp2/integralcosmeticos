@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { PERMISOS_POR_ROL, Permiso } from '@cosmeticos/shared-types';
 import AppRouter from '@/router';
 
-const DEFAULT_SEDE = import.meta.env.VITE_DEFAULT_SEDE_ID ?? 'sede-default';
+const DEFAULT_SEDE = import.meta.env.VITE_DEFAULT_SEDE_ID ?? '';
 
 export default function App() {
   const { user, logout } = useAuth();

@@ -11,9 +11,13 @@ import {
   Put,
   Query,
   Request,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { Rol } from '@cosmeticos/shared-types';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,6 +29,11 @@ import { CreateDocumentoDto } from './dto/create-documento.dto';
 import { UpdateDocumentoDto } from './dto/update-documento.dto';
 import { BuscarDocumentosDto } from './dto/buscar-documentos.dto';
 import { CrearVersionDocumentoDto } from './dto/crear-version-documento.dto';
+
+type CreateDocumentoUploadDto = Omit<
+  CreateDocumentoDto,
+  'archivoUrl' | 'nombreArchivo' | 'mimeType' | 'tamano'
+>;
 
 @ApiTags('documentos')
 @ApiBearerAuth()
@@ -88,6 +97,22 @@ export class DocumentosController {
     return this.documentosService.createDocumento(dto, req.user.id);
   }
 
+  @Post('subir-archivo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 25 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({ summary: 'Subir archivo y crear documento' })
+  createDocumentoDesdeArchivo(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: CreateDocumentoUploadDto,
+    @Request() req: any,
+  ) {
+    return this.documentosService.createDocumentoDesdeArchivo(dto, req.user.id, file);
+  }
+
   @Get()
   @ApiOperation({ summary: 'Listar documentos (opcional por carpeta)' })
   findDocumentos(@Query('carpetaId') carpetaId?: string) {
@@ -126,5 +151,22 @@ export class DocumentosController {
     @Request() req: any,
   ) {
     return this.documentosService.crearVersion(id, dto, req.user.id);
+  }
+
+  @Post(':id/nueva-version-archivo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 25 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({ summary: 'Subir archivo como nueva version' })
+  crearVersionArchivo(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: Pick<CrearVersionDocumentoDto, 'cambios'>,
+    @Request() req: any,
+  ) {
+    return this.documentosService.crearVersionDesdeArchivo(id, dto, req.user.id, file);
   }
 }

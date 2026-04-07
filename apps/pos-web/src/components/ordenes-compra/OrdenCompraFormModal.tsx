@@ -35,7 +35,22 @@ type DetalleDraft = {
   precioUnitario: number;
 };
 
-const DEFAULT_SEDE_ID = import.meta.env.VITE_DEFAULT_SEDE_ID ?? 'sede-default';
+const DEFAULT_SEDE_ID = (() => {
+  const envSede = import.meta.env.VITE_DEFAULT_SEDE_ID;
+  if (envSede) {
+    return envSede;
+  }
+  try {
+    const raw = localStorage.getItem('pos_user');
+    if (!raw) {
+      return '';
+    }
+    const parsed = JSON.parse(raw) as { sedeId?: string };
+    return parsed.sedeId ?? '';
+  } catch {
+    return '';
+  }
+})();
 
 const formatCOP = (v: number) =>
   new Intl.NumberFormat('es-CO', {

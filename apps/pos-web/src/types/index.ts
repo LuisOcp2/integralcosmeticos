@@ -22,9 +22,10 @@ export interface Producto {
   imagenUrl?: string;
   categoriaId: string;
   marcaId: string;
-  precioBase: number;
-  precioCosto: number;
-  iva: number;
+  precio?: number;
+  precioBase?: number;
+  precioCosto?: number;
+  iva?: number;
   activo: boolean;
   variantes?: Variante[];
 }
@@ -39,11 +40,13 @@ export interface Cliente {
   id: string;
   nombre: string;
   apellido: string;
-  documento: string;
+  documento?: string;
+  numeroDocumento?: string;
   tipoDocumento: string;
   email?: string;
   telefono?: string;
-  puntosFidelidad: number;
+  puntosFidelidad?: number;
+  puntos?: number;
   activo: boolean;
 }
 

@@ -52,6 +52,12 @@ export class ActivosController {
     return this.activosService.getReporteValorizacion();
   }
 
+  @Get('categorias')
+  @ApiOperation({ summary: 'Listar categorias activas de activos' })
+  getCategorias() {
+    return this.activosService.getCategorias();
+  }
+
   @Get('mantenimientos-proximos')
   @ApiOperation({ summary: 'Activos con mantenimiento proximo' })
   getMantenimientosProximos(@Query('dias', new DefaultValuePipe(30), ParseIntPipe) dias: number) {

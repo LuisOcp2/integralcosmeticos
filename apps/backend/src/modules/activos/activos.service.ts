@@ -116,6 +116,13 @@ export class ActivosService {
     };
   }
 
+  async getCategorias() {
+    return this.categoriasRepository.find({
+      where: { activa: true },
+      order: { nombre: 'ASC' },
+    });
+  }
+
   async findOne(id: string): Promise<Activo> {
     const rrhhExiste = await this.rrhhTableExists();
     const activo = await this.activosRepository.findOne({

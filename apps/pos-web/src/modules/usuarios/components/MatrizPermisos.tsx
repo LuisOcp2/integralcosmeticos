@@ -20,6 +20,7 @@ const GRUPOS: Record<string, Permiso[]> = {
 };
 
 const ROL_COLORS: Record<Rol, string> = {
+  SUPERADMIN: 'text-on-background font-bold',
   ADMIN: 'text-error font-bold',
   SUPERVISOR: 'text-primary font-semibold',
   CAJERO: 'text-success font-semibold',

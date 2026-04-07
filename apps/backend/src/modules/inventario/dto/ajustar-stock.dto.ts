@@ -11,8 +11,14 @@ export class AjustarStockDto {
   sedeId: string;
 
   @ApiProperty({ example: 25 })
+  @IsOptional()
   @IsInt()
-  cantidadNueva: number;
+  cantidadNueva?: number;
+
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @IsInt()
+  cantidad?: number;
 
   @ApiProperty({ example: 'Ajuste por conteo fisico de inventario' })
   @IsString()
@@ -22,4 +28,9 @@ export class AjustarStockDto {
   @IsOptional()
   @IsString()
   referencia?: string;
+
+  @ApiPropertyOptional({ example: 'Incluye merma de exhibicion' })
+  @IsOptional()
+  @IsString()
+  nota?: string;
 }

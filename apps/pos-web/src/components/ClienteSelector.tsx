@@ -34,6 +34,8 @@ export default function ClienteSelector({
   }, [cliente, clienteSeleccionado, onSeleccionar]);
 
   if (clienteSeleccionado) {
+    const documento = clienteSeleccionado.numeroDocumento ?? clienteSeleccionado.documento ?? '-';
+    const puntos = clienteSeleccionado.puntos ?? clienteSeleccionado.puntosFidelidad ?? 0;
     return (
       <div className="flex items-center gap-2 bg-primary-container rounded-2xl px-3 py-2">
         <User className="w-5 h-5 text-on-primary-container shrink-0" />
@@ -42,7 +44,7 @@ export default function ClienteSelector({
             {clienteSeleccionado.nombre} {clienteSeleccionado.apellido}
           </p>
           <p className="text-on-primary-container/70 text-[11px]">
-            {clienteSeleccionado.documento} · {clienteSeleccionado.puntosFidelidad} pts
+            {documento} · {puntos} pts
           </p>
         </div>
         <button

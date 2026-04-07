@@ -3,7 +3,9 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import { join } from 'node:path';
 import { AppModule } from './app.module';
 
 function setupSwagger(app: Awaited<ReturnType<typeof NestFactory.create>>) {
@@ -20,7 +22,7 @@ function setupSwagger(app: Awaited<ReturnType<typeof NestFactory.create>>) {
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
   // Seguridad
@@ -35,6 +37,10 @@ async function bootstrap() {
     origin: configService.get<string>('FRONTEND_URL') || 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
+  });
+
+  app.useStaticAssets(join(process.cwd(), 'apps/backend/uploads'), {
+    prefix: '/uploads/',
   });
 
   // Prefijo global de API

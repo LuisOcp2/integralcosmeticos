@@ -75,8 +75,8 @@ npm run dev
 
 - [x] Setup monorepo Turborepo
 - [x] Docker Compose (PostgreSQL + Redis)
-- [ ] Fase 1: Auth & Roles
-- [ ] Fase 2: Catálogo & Inventario
-- [ ] Fase 3: POS & Ventas
-- [ ] Fase 4: CRM & Reportes
+- [x] Fase 1: Auth & Roles
+- [x] Fase 2: Catálogo & Inventario
+- [x] Fase 3: POS & Ventas
+- [x] Fase 4: CRM & Reportes
 - [ ] Fase 5: Electron Desktop + Sync Cloud
